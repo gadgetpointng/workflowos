@@ -11,7 +11,7 @@
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check:release": "npm run check:boundaries && npm run check:launch"
   },
-  "dependencies": {
+  "dependencies": {"@tailwindcss/postcss": "latest",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
     "next": "latest",
@@ -19,7 +19,17 @@
     "react-dom": "latest",
     "openai": "latest"
   },
-  "devDependencies": {
+  "devDependencies": {"devDependencies": {
+  "@types/node": "latest",
+  "@types/react": "latest",
+  "@types/react-dom": "latest",
+  "typescript": "latest",
+  "tailwindcss": "latest",
+  "@tailwindcss/postcss": "latest",
+  "postcss": "latest",
+  "eslint": "latest",
+  "eslint-config-next": "latest"
+}
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
