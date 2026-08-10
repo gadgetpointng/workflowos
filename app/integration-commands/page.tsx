@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import WorkspaceShell from '@/components/WorkspaceShell';
 import IntegrationCommandActions from '@/components/IntegrationCommandActions';
-import { requireUser } from '@/lib/auth';
+import { canManage, requireUser } from '@/lib/auth';
 
 export default async function IntegrationCommandsPage() {
   const { supabase, user, profile } = await requireUser();
@@ -17,11 +17,16 @@ export default async function IntegrationCommandsPage() {
     .order('created_at', { ascending: false });
 
   const commands = data ?? [];
+  const userCanManage = canManage(profile.role);
 
   return (
-    <WorkspaceShell>
+    <WorkspaceShell
+      title="Integration Commands"
+      subtitle="Boundary-safe external change requests"
+      profile={profile}
+    >
       <div className="space-y-6">
-        <section>
+        <section className="rounded-3xl border bg-white p-6 shadow-sm">
           <h1 className="text-2xl font-semibold">
             Boundary-safe command queue
           </h1>
@@ -57,8 +62,8 @@ export default async function IntegrationCommandsPage() {
                   </div>
                 </div>
 
-                <div className="text-sm">
-                  {String(row.status).replace('_', ' ')}
+                <div className="text-sm capitalize">
+                  {String(row.status ?? '').replaceAll('_', ' ')}
                 </div>
               </div>
 
@@ -76,17 +81,23 @@ export default async function IntegrationCommandsPage() {
               </pre>
 
               <div className="mt-4">
-                <IntegrationCommandActions command={row} />
+                <IntegrationCommandActions
+                  id={row.id}
+                  status={row.status}
+                  canManage={userCanManage}
+                />
               </div>
             </div>
           ))}
 
           {commands.length === 0 && (
-            <p className="text-sm text-slate-500">
-              No external change requests yet. That is expected until
-              WorkflowOS needs GadgetPoint or another connected system to
-              perform a source-owned action.
-            </p>
+            <div className="rounded-2xl border border-dashed bg-white p-6">
+              <p className="text-sm text-slate-500">
+                No external change requests yet. That is expected until
+                WorkflowOS needs GadgetPoint or another connected system to
+                perform a source-owned action.
+              </p>
+            </div>
           )}
         </div>
       </div>
