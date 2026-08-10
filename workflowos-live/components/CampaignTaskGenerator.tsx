@@ -1,0 +1,2 @@
+'use client';import {useState} from 'react';
+export default function CampaignTaskGenerator({campaignId}:{campaignId:string}){const [busy,setBusy]=useState(false);async function run(){setBusy(true);const r=await fetch(`/api/campaigns/${campaignId}/generate-tasks`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});setBusy(false);if(r.ok)location.reload();else alert('Could not generate tasks');}return <button className="secondary-button" onClick={run} disabled={busy}>{busy?'Generating…':'Generate workflow'}</button>}

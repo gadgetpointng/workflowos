@@ -1,0 +1,2 @@
+import Link from 'next/link';
+export default function NotFound(){return <main className="mx-auto max-w-2xl px-6 py-24"><div className="text-xs font-semibold uppercase tracking-[.18em] text-slate-500">WorkflowOS</div><h1 className="mt-3 text-4xl font-bold">Page not found</h1><p className="mt-3 text-slate-600">The page may have moved or the link may be incomplete.</p><Link href="/dashboard" className="mt-6 inline-flex rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Back to dashboard</Link></main>}

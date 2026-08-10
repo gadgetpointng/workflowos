@@ -1,0 +1,11 @@
+import { redirect } from 'next/navigation';
+import { requireUser } from '@/lib/auth';
+import WorkspaceShell from '@/components/WorkspaceShell';
+export default async function SettingsPage(){
+ const {supabase,user,profile}=await requireUser(); if(!user||!profile) redirect('/login');
+ const [{data:org},{data:settings}]=await Promise.all([
+  supabase.from('organizations').select('*').eq('id',profile.organization_id).single(),
+  supabase.from('organization_settings').select('*').eq('organization_id',profile.organization_id).maybeSingle()
+ ]);
+ return <WorkspaceShell title="Settings" subtitle="Organization and web app configuration" profile={profile}><div className="mx-auto max-w-5xl px-6 py-8 space-y-6"><section className="rounded-3xl border bg-white p-6 shadow-sm"><h1 className="text-2xl font-bold">Workspace settings</h1><div className="mt-6 grid gap-4 md:grid-cols-2"><div className="rounded-2xl border p-4"><div className="text-xs uppercase tracking-wider text-slate-500">Organization</div><div className="mt-1 text-lg font-semibold">{org?.name||'Workspace'}</div><div className="text-sm text-slate-500">{org?.slug}</div></div><div className="rounded-2xl border p-4"><div className="text-xs uppercase tracking-wider text-slate-500">Default currency</div><div className="mt-1 text-lg font-semibold">{settings?.default_currency||'NGN'}</div><div className="text-sm text-slate-500">Reporting and commerce</div></div><div className="rounded-2xl border p-4"><div className="text-xs uppercase tracking-wider text-slate-500">Timezone</div><div className="mt-1 text-lg font-semibold">{settings?.timezone||'Africa/Lagos'}</div><div className="text-sm text-slate-500">Deadlines and SLA calculations</div></div><div className="rounded-2xl border p-4"><div className="text-xs uppercase tracking-wider text-slate-500">Web app mode</div><div className="mt-1 text-lg font-semibold">PWA enabled</div><div className="text-sm text-slate-500">Responsive browser-first experience</div></div></div></section><section className="rounded-3xl border bg-white p-6 shadow-sm"><h2 className="text-xl font-semibold">Connected-business strategy</h2><p className="mt-2 text-slate-600">WorkflowOS stays independent. GadgetPoint and future businesses connect through integrations, shared identity links, events and explicit permissions.</p></section></div></WorkspaceShell>;
+}

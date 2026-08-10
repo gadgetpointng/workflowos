@@ -1,0 +1,2 @@
+'use client';import {useState} from 'react';import {useRouter} from 'next/navigation';
+export default function NotificationActions({id,read}:{id:string;read:boolean}){const [busy,setBusy]=useState(false);const r=useRouter();if(read)return null;async function mark(){setBusy(true);await fetch('/api/notifications',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id})});setBusy(false);r.refresh()}return <button className="mini-button" onClick={mark} disabled={busy}>{busy?'…':'Mark read'}</button>}

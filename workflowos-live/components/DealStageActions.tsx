@@ -1,0 +1,4 @@
+'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+export default function DealStageActions({id,stage}:{id:string;stage:string}){const router=useRouter();const [busy,setBusy]=useState(false);async function move(next:string){setBusy(true);await fetch(`/api/deals/${id}`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({stage:next})});setBusy(false);router.refresh();}const options=stage==='qualified'?['proposal','lost']:stage==='proposal'?['negotiation','lost']:stage==='negotiation'?['won','lost']:[];if(!options.length)return null;return <div className="deal-actions">{options.map(x=><button key={x} disabled={busy} onClick={()=>move(x)} className={`mini-button ${x==='lost'?'muted':''}`}>{x==='won'?'Mark won':x==='lost'?'Mark lost':`Move to ${x}`}</button>)}</div>}
