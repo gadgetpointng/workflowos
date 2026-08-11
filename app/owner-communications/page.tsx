@@ -106,20 +106,20 @@ export default async function OwnerCommunicationsPage() {
   return (
     <WorkspaceShell title="Owner Communications" subtitle="Broadcast, private messaging, read receipts and reversible owner sends" profile={profile}>
       <div className="space-y-6">
-        <section className="flex flex-wrap items-end justify-between gap-4">
+        <section className="flex flex-wrap items-end justify-between gap-4 border-b border-[#dfe5eb] pb-5">
           <div>
-            <div className="text-xs font-black uppercase tracking-[0.18em] text-violet-600">Owner command center</div>
-            <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-950">Communications</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">Send a feed to all active staff or a private message to one staff member. Track who has read each message and retract a send from the audit trail when needed.</p>
+            <div className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#52738f]">Owner command center</div>
+            <h1 className="mt-1 text-3xl font-bold tracking-[-0.025em] text-[#172b3a]">Communications</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#687988]">Send team instructions or private staff messages, monitor readership and retract a send when necessary.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <div className="rounded-2xl border border-violet-100 bg-violet-50 px-4 py-2.5">
-              <div className="text-[10px] font-black uppercase tracking-wide text-violet-700">Active recipients</div>
-              <div className="text-xl font-black text-slate-950">{totalActive}</div>
+            <div className="rounded-xl border border-[#cbd8e3] bg-[#edf3f8] px-4 py-2.5">
+              <div className="text-[9px] font-bold uppercase tracking-[0.09em] text-[#52738f]">Active recipients</div>
+              <div className="mt-0.5 text-xl font-bold tabular-nums text-[#172b3a]">{totalActive}</div>
             </div>
-            <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-2.5">
-              <div className="text-[10px] font-black uppercase tracking-wide text-amber-700">Unread owner messages</div>
-              <div className="text-xl font-black text-slate-950">{totalUnreadOwnerMessages}</div>
+            <div className="rounded-xl border border-[#ead9a9] bg-[#fff5dc] px-4 py-2.5">
+              <div className="text-[9px] font-bold uppercase tracking-[0.09em] text-[#946200]">Unread</div>
+              <div className="mt-0.5 text-xl font-bold tabular-nums text-[#172b3a]">{totalUnreadOwnerMessages}</div>
             </div>
           </div>
         </section>
