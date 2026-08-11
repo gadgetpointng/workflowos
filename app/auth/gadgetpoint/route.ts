@@ -9,6 +9,18 @@ function loginError(request: Request, message: string) {
   return NextResponse.redirect(url);
 }
 
+function createInternalAuthEmail(externalStaffId: string, username?: unknown) {
+  const safeUsername = String(username ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+  const stableHash = crypto.createHash('sha256').update(externalStaffId).digest('hex').slice(0, 16);
+  const localPart = safeUsername || `staff-${stableHash}`;
+  return `${localPart}.${stableHash}@staff.workflowos.invalid`;
+}
+
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = String(requestUrl.searchParams.get('code') ?? '').trim();
@@ -76,7 +88,7 @@ export async function GET(request: Request) {
   let email = String(connectedStaff.email ?? staff.email ?? '').trim().toLowerCase();
 
   if (!email.includes('@')) {
-    return loginError(request, 'GadgetPoint staff identity does not have a usable login address.');
+    email = createInternalAuthEmail(externalStaffId, staff.username);
   }
 
   let existingProfile: any = null;
@@ -106,7 +118,7 @@ export async function GET(request: Request) {
   }
 
   if (existingProfile && linkData.user.id !== existingProfile.id) {
-    return loginError(request, 'The GadgetPoint staff email is linked to a different WorkflowOS identity.');
+    return loginError(request, 'The GadgetPoint staff identity is linked to a different WorkflowOS account.');
   }
 
   const { data: profileForAuthUser } = await admin
@@ -171,6 +183,7 @@ export async function GET(request: Request) {
           username: staff.username ?? null,
           identity_source: 'gadgetpoint-staff-login',
           password_owner: 'gadgetpoint',
+          auth_identity: connectedStaff.email || staff.email ? 'email' : 'internal-shadow-email',
         },
         updated_at: new Date().toISOString(),
       },
