@@ -113,46 +113,130 @@ export default function SmartSidebar({ pathname, open, onClose, navGroups, profi
     const pinned = pins.includes(item.href);
     return (
       <div className="group/row flex items-center gap-1">
-        <Link href={item.href} prefetch onClick={onClose} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] transition-all ${active ? 'bg-gradient-to-r from-cyan-500 via-blue-600 to-violet-600 text-white shadow-lg shadow-blue-950/30 ring-1 ring-white/20' : 'text-slate-100 hover:bg-white/[0.09] hover:text-white'}`}>
-          <span className={`flex ${compact ? 'h-6 w-6' : 'h-7 w-7'} shrink-0 items-center justify-center rounded-lg bg-white/10 text-xs font-bold ring-1 ring-white/10`}>{item.icon}</span>
+        <Link
+          href={item.href}
+          prefetch
+          onClick={onClose}
+          className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition ${active ? 'bg-[#214e78] text-white shadow-sm ring-1 ring-inset ring-white/10' : 'text-[#d6e0e8] hover:bg-white/[0.07] hover:text-white'}`}
+        >
+          <span className={`flex ${compact ? 'h-6 w-6' : 'h-7 w-7'} shrink-0 items-center justify-center rounded-md border text-[11px] font-bold ${active ? 'border-white/15 bg-white/10 text-white' : 'border-white/[0.08] bg-white/[0.04] text-[#b7c7d4]'}`}>{item.icon}</span>
           <span className="truncate font-semibold">{item.label}</span>
-          {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-300" />}
+          {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#79c79b]" />}
         </Link>
-        <button type="button" aria-label={pinned ? `Unpin ${item.label}` : `Pin ${item.label}`} onClick={() => togglePin(item.href)} className={`h-8 w-8 shrink-0 rounded-lg text-xs transition ${pinned ? 'text-amber-300' : 'text-slate-500 opacity-0 hover:bg-white/10 hover:text-white group-hover/row:opacity-100'}`}>{pinned ? '★' : '☆'}</button>
+        <button
+          type="button"
+          aria-label={pinned ? `Unpin ${item.label}` : `Pin ${item.label}`}
+          onClick={() => togglePin(item.href)}
+          className={`h-8 w-8 shrink-0 rounded-md text-xs transition ${pinned ? 'text-[#e7c96d]' : 'text-[#7690a4] opacity-0 hover:bg-white/[0.07] hover:text-white group-hover/row:opacity-100'}`}
+        >
+          {pinned ? '★' : '☆'}
+        </button>
       </div>
     );
   }
 
   return (
-    <aside className={`fixed inset-y-0 left-0 z-50 flex w-[292px] flex-col overflow-hidden border-r border-cyan-300/20 bg-[#0b1738] text-white shadow-2xl transition-transform duration-300 lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-      <div className="h-1.5 bg-gradient-to-r from-cyan-300 via-blue-500 via-violet-500 to-pink-400" />
-      <div className="border-b border-white/10 p-3">
-        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.07] p-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-600 text-sm font-black shadow-lg shadow-blue-950/40">WO</div>
-          <div className="min-w-0 flex-1"><div className="truncate text-sm font-black">WorkflowOS</div><div className="mt-0.5 truncate text-[11px] font-semibold text-cyan-100/75">{isOwner ? 'Owner command center' : canManage ? 'Management workspace' : 'My operating workspace'}</div></div>
-          <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-slate-300 hover:bg-white/10 lg:hidden">×</button>
+    <aside className={`fixed inset-y-0 left-0 z-50 flex w-[292px] flex-col overflow-hidden border-r border-[#294865] bg-[#102a43] text-white shadow-[8px_0_24px_rgba(8,26,43,.08)] transition-transform duration-200 lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className="h-1 bg-[#3d739d]" />
+
+      <div className="border-b border-white/[0.09] p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white text-sm font-extrabold tracking-tight text-[#102a43] shadow-sm">WO</div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-bold tracking-tight text-white">WorkflowOS</div>
+            <div className="mt-0.5 truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[#9db1c1]">{isOwner ? 'Owner workspace' : canManage ? 'Management workspace' : 'Staff workspace'}</div>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-md px-2 py-1 text-[#aabcc9] hover:bg-white/[0.08] hover:text-white lg:hidden">×</button>
         </div>
-        <div className="relative mt-3"><span className="pointer-events-none absolute left-3 top-2.5 text-xs text-slate-400">⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find anything…" className="w-full rounded-xl border border-white/10 bg-white/[0.07] py-2.5 pl-8 pr-3 text-xs font-semibold text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/40 focus:bg-white/10" /></div>
+
+        <div className="relative mt-4">
+          <span className="pointer-events-none absolute left-3 top-2.5 text-xs text-[#8199ab]">⌕</span>
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search workspace"
+            className="w-full rounded-lg border border-white/[0.11] bg-[#0b2238] py-2.5 pl-8 pr-3 text-xs font-medium text-white outline-none placeholder:text-[#71899b] focus:border-[#6f9abb] focus:bg-[#0d263e] focus:ring-2 focus:ring-[#6f9abb]/20"
+          />
+        </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-3">
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
         {query.trim() ? (
-          <div><div className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Search results</div><div className="space-y-0.5">{searchResults.map((item) => <NavRow key={item.href} item={item} />)}{!searchResults.length && <div className="rounded-xl border border-dashed border-white/10 p-4 text-xs font-semibold text-slate-400">Nothing matches “{query}”.</div>}</div></div>
+          <div>
+            <div className="mb-2 px-2 text-[9px] font-bold uppercase tracking-[0.14em] text-[#8fa6b7]">Search results</div>
+            <div className="space-y-0.5">
+              {searchResults.map((item) => <NavRow key={item.href} item={item} />)}
+              {!searchResults.length && <div className="rounded-lg border border-dashed border-white/[0.12] p-4 text-xs font-medium text-[#8fa6b7]">Nothing matches “{query}”.</div>}
+            </div>
+          </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {prefs.smartSidebar !== false && (
-              <section><div className="mb-2 flex items-center justify-between px-2"><span className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Focus now</span><span className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-[9px] font-black uppercase text-cyan-200">Smart</span></div><div className="space-y-0.5">{focusItems.map((item) => <NavRow key={item.href} item={item} />)}</div></section>
+              <section>
+                <div className="mb-2 flex items-center justify-between px-2">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#8fa6b7]">Priority workspace</span>
+                  <span className="rounded border border-white/[0.10] bg-white/[0.05] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-[#b9c7d1]">Smart</span>
+                </div>
+                <div className="space-y-0.5">{focusItems.map((item) => <NavRow key={item.href} item={item} />)}</div>
+              </section>
             )}
-            {pinnedItems.length > 0 && <section><div className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-200">Pinned</div><div className="space-y-0.5">{pinnedItems.map((item) => <NavRow key={item.href} item={item} compact />)}</div></section>}
-            {prefs.showRecent !== false && recentItems.length > 1 && <section><div className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Recent</div><div className="space-y-0.5">{recentItems.slice(0, 3).map((item) => <NavRow key={item.href} item={item} compact />)}</div></section>}
-            <section className="border-t border-white/10 pt-3"><div className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">All tools</div><div className="space-y-1">{visibleGroups.map((group) => { const isOpen = expanded.includes(group.label); const hasActive = group.items.some((item) => hrefMatches(pathname, item.href)); return <div key={group.label}><button type="button" onClick={() => toggleGroup(group.label)} className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-black transition ${hasActive ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'}`}><span className={`h-1.5 w-1.5 rounded-full ${hasActive ? 'bg-cyan-300' : 'bg-slate-600'}`} /><span className="flex-1">{group.label}</span><span className="text-[10px] text-slate-500">{group.items.length}</span><span className={`text-[10px] transition-transform ${isOpen ? 'rotate-180' : ''}`}>⌄</span></button>{isOpen && <div className="mt-1 space-y-0.5 pl-2">{group.items.map((item) => <NavRow key={item.href} item={item} compact />)}</div>}</div>; })}</div></section>
+
+            {pinnedItems.length > 0 && (
+              <section>
+                <div className="mb-2 px-2 text-[9px] font-bold uppercase tracking-[0.14em] text-[#b9a668]">Pinned</div>
+                <div className="space-y-0.5">{pinnedItems.map((item) => <NavRow key={item.href} item={item} compact />)}</div>
+              </section>
+            )}
+
+            {prefs.showRecent !== false && recentItems.length > 1 && (
+              <section>
+                <div className="mb-2 px-2 text-[9px] font-bold uppercase tracking-[0.14em] text-[#71899b]">Recent</div>
+                <div className="space-y-0.5">{recentItems.slice(0, 3).map((item) => <NavRow key={item.href} item={item} compact />)}</div>
+              </section>
+            )}
+
+            <section className="border-t border-white/[0.09] pt-4">
+              <div className="mb-2 px-2 text-[9px] font-bold uppercase tracking-[0.14em] text-[#71899b]">Navigation</div>
+              <div className="space-y-1">
+                {visibleGroups.map((group) => {
+                  const isOpen = expanded.includes(group.label);
+                  const hasActive = group.items.some((item) => hrefMatches(pathname, item.href));
+                  return (
+                    <div key={group.label}>
+                      <button
+                        type="button"
+                        onClick={() => toggleGroup(group.label)}
+                        className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] font-bold uppercase tracking-[0.045em] transition ${hasActive ? 'bg-white/[0.07] text-white' : 'text-[#aabcc9] hover:bg-white/[0.05] hover:text-white'}`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${hasActive ? 'bg-[#6fa1c8]' : 'bg-[#47667f]'}`} />
+                        <span className="flex-1">{group.label}</span>
+                        <span className="text-[9px] font-semibold text-[#6f8799]">{group.items.length}</span>
+                        <span className={`text-[9px] text-[#6f8799] transition-transform ${isOpen ? 'rotate-180' : ''}`}>⌄</span>
+                      </button>
+                      {isOpen && <div className="mt-1 space-y-0.5 pl-2">{group.items.map((item) => <NavRow key={item.href} item={item} compact />)}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           </div>
         )}
       </nav>
 
-      <div className="border-t border-white/10 p-3">
-        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.07] p-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-pink-500 text-xs font-black">{initials}</div><div className="min-w-0 flex-1"><div className="truncate text-xs font-bold">{displayName}</div><div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-semibold capitalize text-slate-300"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />{role}</div></div>{isOwner && <Link href="/owner" onClick={onClose} className="rounded-lg p-2 text-cyan-300 transition hover:bg-white/10 hover:text-white" title="Owner Control">◆</Link>}<Link href="/notifications" onClick={onClose} className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Notifications">●</Link>{canManage && <Link href="/settings" onClick={onClose} className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Settings">⚙</Link>}</div>
-        <form action={logout} className="mt-2"><button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.07] px-3 py-2.5 text-xs font-bold text-slate-100 transition hover:bg-white/15 hover:text-white">↪ Log out</button></form>
+      <div className="border-t border-white/[0.09] p-3">
+        <div className="flex items-center gap-3 rounded-lg border border-white/[0.09] bg-[#0d263e] p-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.12] bg-[#294e6c] text-xs font-bold text-white">{initials}</div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-xs font-semibold text-white">{displayName}</div>
+            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-medium capitalize text-[#9db1c1]"><span className="h-1.5 w-1.5 rounded-full bg-[#79c79b]" />{role}</div>
+          </div>
+          {isOwner && <Link href="/owner" onClick={onClose} className="rounded-md p-2 text-[#9fc0d8] transition hover:bg-white/[0.08] hover:text-white" title="Owner Control">◆</Link>}
+          <Link href="/notifications" onClick={onClose} className="rounded-md p-2 text-[#8fa6b7] transition hover:bg-white/[0.08] hover:text-white" title="Notifications">●</Link>
+          {canManage && <Link href="/settings" onClick={onClose} className="rounded-md p-2 text-[#8fa6b7] transition hover:bg-white/[0.08] hover:text-white" title="Settings">⚙</Link>}
+        </div>
+        <form action={logout} className="mt-2">
+          <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/[0.09] bg-transparent px-3 py-2.5 text-xs font-semibold text-[#c9d5de] transition hover:bg-white/[0.06] hover:text-white">↪ Log out</button>
+        </form>
       </div>
     </aside>
   );
