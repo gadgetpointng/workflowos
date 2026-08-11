@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { requireUser } from '@/lib/auth';
+import { requireUser, canManage } from '@/lib/auth';
 import WorkspaceShell from '@/components/WorkspaceShell';
 import VendorQuickCreate from '@/components/VendorQuickCreate';
 
@@ -8,6 +8,7 @@ export default async function Vendors() {
   if (!user || !profile) redirect('/login');
 
   const org = profile.organization_id;
+  const mayManageVendors = canManage(profile.role);
   const [{ data: vendors }, { data: orders }] = await Promise.all([
     supabase.from('vendors').select('*').eq('organization_id', org).order('created_at', { ascending: false }),
     supabase.from('vendor_orders').select('vendor_id,gross_amount,commission_amount,vendor_amount,status').eq('organization_id', org),
@@ -76,8 +77,18 @@ export default async function Vendors() {
             )}
           </div>
 
-          <div className="rounded-[28px] border border-white/80 bg-white/90 p-5 shadow-sm sm:p-6">
-            <VendorQuickCreate />
+          <div>
+            {mayManageVendors ? (
+              <VendorQuickCreate />
+            ) : (
+              <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                <div className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Vendor administration</div>
+                <div className="mt-2 text-lg font-black text-slate-950">View access only</div>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Vendor creation is restricted to owner, admin and manager roles. Staff can review the vendor register and commerce results without changing supplier administration.
+                </p>
+              </div>
+            )}
           </div>
         </section>
       </div>
