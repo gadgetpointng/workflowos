@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { logout } from '@/app/login/actions';
 
 type NavItem = { label: string; href: string; icon: string };
 type NavGroup = { label: string; items: NavItem[] };
@@ -135,8 +136,8 @@ export default function WorkspaceShell({
       .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
       .sort((a, b) => b.href.length - a.href.length)[0]?.href ?? '';
 
-  const displayName = profile?.full_name || 'WorkflowOS user';
   const role = profile?.role || 'member';
+  const displayName = role === 'owner' ? 'GADGETPOINT' : profile?.full_name || 'WorkflowOS user';
   const initials = displayName
     .split(' ')
     .map((name) => name.charAt(0))
@@ -235,8 +236,17 @@ export default function WorkspaceShell({
                 {role}
               </div>
             </div>
-            <span className="text-slate-300">•••</span>
           </div>
+
+          <form action={logout} className="mt-2">
+            <button
+              type="submit"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.07] px-3 py-2.5 text-xs font-bold text-slate-100 transition hover:bg-white/15 hover:text-white"
+            >
+              <span aria-hidden="true">↪</span>
+              Log out
+            </button>
+          </form>
 
           <div className="mt-3 flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-[0.17em] text-slate-300">
             <span>Powered by</span>
