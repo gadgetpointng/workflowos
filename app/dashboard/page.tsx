@@ -97,7 +97,7 @@ export default async function Dashboard() {
     ['Overdue tasks', String(taskQ.count ?? 0), 'Attention'],
   ] as const;
 
-  const firstName = profile.full_name?.split(' ')[0] || 'there';
+  const firstName = profile.role === 'owner' ? 'GADGETPOINT' : profile.full_name?.split(' ')[0] || 'there';
   const dateLabel = new Intl.DateTimeFormat('en-NG', {
     weekday: 'long',
     day: 'numeric',
