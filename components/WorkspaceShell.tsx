@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import SmartSidebar from '@/components/SmartSidebar';
+import NotificationSoundController from '@/components/NotificationSoundController';
 
 type NavItem = { label: string; href: string; icon: string };
 type NavGroup = { label: string; items: NavItem[] };
@@ -18,6 +19,7 @@ const navGroups: NavGroup[] = [
       { label: 'My Work', href: '/my-work', icon: '▤' },
       { label: 'Tasks', href: '/tasks', icon: '✓' },
       { label: 'Inbox', href: '/inbox', icon: '◎' },
+      { label: 'Notifications', href: '/notifications', icon: '♢' },
       { label: 'Approvals', href: '/approvals', icon: '◇' },
     ],
   },
@@ -87,7 +89,7 @@ const mobileNav = [
   { label: 'Home', href: '/dashboard', icon: '⌂' },
   { label: 'Today', href: '/today', icon: '☀' },
   { label: 'Tasks', href: '/tasks', icon: '✓' },
-  { label: 'Growth', href: '/opportunities', icon: '✦' },
+  { label: 'Alerts', href: '/notifications', icon: '♢' },
   { label: 'Inbox', href: '/inbox', icon: '◎' },
 ];
 
@@ -124,6 +126,8 @@ export default function WorkspaceShell({
       className="min-h-screen bg-[radial-gradient(circle_at_5%_0%,rgba(14,165,233,.18),transparent_30%),radial-gradient(circle_at_95%_3%,rgba(124,58,237,.16),transparent_30%),radial-gradient(circle_at_70%_100%,rgba(236,72,153,.10),transparent_28%),#edf4ff] text-slate-950"
       style={{ forcedColorAdjust: 'none', colorScheme: 'light' }}
     >
+      <NotificationSoundController />
+
       {open && (
         <button
           aria-label="Close navigation"
@@ -156,7 +160,7 @@ export default function WorkspaceShell({
               <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
                 <span>WorkflowOS</span>
                 <span>/</span>
-                <span className="truncate font-bold text-slate-900">{currentItem?.label || title || 'Workspace'}</span>
+                <span className="truncate font-bold text-slate-900">{title || currentItem?.label || 'Workspace'}</span>
               </div>
               {subtitle && <div className="mt-0.5 truncate text-[11px] font-medium text-slate-500">{subtitle}</div>}
             </div>
@@ -165,6 +169,13 @@ export default function WorkspaceShell({
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-emerald-800 ring-1 ring-emerald-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Connected
               </span>
+              <Link
+                href="/notifications"
+                prefetch
+                className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-black text-violet-800 shadow-sm transition hover:bg-violet-100"
+              >
+                ♢ Alerts
+              </Link>
               <Link
                 href="/inbox"
                 prefetch
