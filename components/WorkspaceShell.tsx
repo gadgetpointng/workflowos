@@ -86,11 +86,10 @@ const navGroups: NavGroup[] = [
 const allNavItems = navGroups.flatMap((group) => group.items);
 
 const mobileNav = [
-  { label: 'Home', href: '/dashboard', icon: '⌂' },
-  { label: 'Today', href: '/today', icon: '☀' },
-  { label: 'Tasks', href: '/tasks', icon: '✓' },
-  { label: 'Alerts', href: '/notifications', icon: '♢' },
-  { label: 'Inbox', href: '/inbox', icon: '◎' },
+  { label: 'Home', href: '/dashboard', icon: '⌂', tone: 'from-cyan-500 to-blue-600' },
+  { label: 'Opportunities', href: '/opportunities', icon: '✦', tone: 'from-violet-500 to-fuchsia-500' },
+  { label: 'Tasks', href: '/tasks', icon: '✓', tone: 'from-emerald-500 to-teal-500' },
+  { label: 'Inbox', href: '/inbox', icon: '◎', tone: 'from-pink-500 to-rose-500' },
 ];
 
 export default function WorkspaceShell({
@@ -131,18 +130,12 @@ export default function WorkspaceShell({
       {open && (
         <button
           aria-label="Close navigation"
-          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm lg:hidden"
           onClick={() => setOpen(false)}
         />
       )}
 
-      <SmartSidebar
-        pathname={pathname}
-        open={open}
-        onClose={() => setOpen(false)}
-        navGroups={navGroups}
-        profile={profile}
-      />
+      <SmartSidebar pathname={pathname} open={open} onClose={() => setOpen(false)} navGroups={navGroups} profile={profile} />
 
       <div className="min-h-screen lg:pl-[292px]">
         <header className="sticky top-0 z-30 border-b border-blue-100/90 bg-[#f8fbff]/95 shadow-sm shadow-blue-950/5 backdrop-blur-xl">
@@ -169,61 +162,47 @@ export default function WorkspaceShell({
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-emerald-800 ring-1 ring-emerald-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Connected
               </span>
-              <Link
-                href="/notifications"
-                prefetch
-                className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-black text-violet-800 shadow-sm transition hover:bg-violet-100"
-              >
-                ♢ Alerts
-              </Link>
-              <Link
-                href="/inbox"
-                prefetch
-                className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 shadow-sm transition hover:bg-blue-50"
-              >
-                Inbox
-              </Link>
-              <Link
-                href="/ai"
-                prefetch
-                className="rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-500 to-cyan-500 px-3.5 py-2 text-xs font-bold text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5"
-              >
-                ✧ Copilot
-              </Link>
+              <Link href="/notifications" prefetch className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-black text-violet-800 shadow-sm transition hover:bg-violet-100">♢ Alerts</Link>
+              <Link href="/inbox" prefetch className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 shadow-sm transition hover:bg-blue-50">Inbox</Link>
+              <Link href="/ai" prefetch className="rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-500 to-cyan-500 px-3.5 py-2 text-xs font-bold text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5">✧ Copilot</Link>
             </div>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1580px] px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-10 lg:pt-7">
+        <main className="mx-auto w-full max-w-[1580px] px-4 pb-32 pt-5 sm:px-6 lg:px-8 lg:pb-10 lg:pt-7">
           {children}
         </main>
       </div>
 
-      <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-5 rounded-2xl border border-cyan-300/20 bg-[#0b1738]/95 p-1.5 shadow-2xl backdrop-blur-xl lg:hidden">
-        {mobileNav.map((item, index) => {
-          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-          const mobileColors = [
-            'from-cyan-400 to-blue-500',
-            'from-amber-400 to-orange-500',
-            'from-emerald-400 to-teal-500',
-            'from-violet-500 to-fuchsia-500',
-            'from-pink-500 to-rose-500',
-          ];
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              prefetch
-              className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[9px] font-bold transition ${
-                active ? `bg-gradient-to-br ${mobileColors[index]} text-white` : 'text-slate-200'
-              }`}
-            >
-              <span className="text-sm">{item.icon}</span>
-              <span className="truncate">{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-2 lg:hidden">
+        <nav className="mx-auto grid max-w-xl grid-cols-5 gap-1 rounded-[26px] border border-white/90 bg-white/92 p-1.5 shadow-[0_-10px_40px_rgba(15,23,42,.12)] ring-1 ring-slate-200/70 backdrop-blur-2xl">
+          {mobileNav.map((item) => {
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                prefetch
+                aria-current={active ? 'page' : undefined}
+                className={`group flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 transition-all duration-200 ${active ? 'bg-slate-50 shadow-sm ring-1 ring-slate-200' : 'hover:bg-slate-50'}`}
+              >
+                <span className={`flex h-8 w-8 items-center justify-center rounded-xl text-[15px] font-black transition-all ${active ? `bg-gradient-to-br ${item.tone} text-white shadow-md` : 'bg-slate-100 text-slate-700 group-hover:bg-slate-200'}`}>{item.icon}</span>
+                <span className={`max-w-full truncate text-[10px] font-extrabold leading-none ${active ? 'text-slate-950' : 'text-slate-600'}`}>{item.label}</span>
+              </Link>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="Open all WorkflowOS tools"
+            className="group flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 transition-all duration-200 hover:bg-slate-50"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 text-[15px] font-black text-white shadow-md">☰</span>
+            <span className="text-[10px] font-extrabold leading-none text-slate-700">More</span>
+          </button>
+        </nav>
+      </div>
     </div>
   );
 }
