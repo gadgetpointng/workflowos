@@ -4,6 +4,15 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 type Staff = { id: string; full_name?: string | null; email?: string | null; role?: string | null };
+type Receipt = {
+  sent: number;
+  delivered: number;
+  read: number;
+  unread: number;
+  readNames: string[];
+  unreadNames: string[];
+  recipientNames: string[];
+};
 type Action = {
   id: string;
   created_at: string;
@@ -14,6 +23,7 @@ type Action = {
     recipient_names?: string[];
     notification_ids?: string[];
   } | null;
+  receipt?: Receipt;
 };
 
 export default function OwnerCommunicationsPanel({
@@ -122,25 +132,61 @@ export default function OwnerCommunicationsPanel({
       </section>
 
       <section className="rounded-[28px] border border-white/80 bg-white/90 p-5 shadow-sm sm:p-6">
-        <div className="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Do / undo</div>
+        <div className="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Do / undo / track</div>
         <h2 className="mt-1 text-2xl font-black text-slate-950">Recent owner sends</h2>
-        <p className="mt-2 text-sm text-slate-500">Retract removes the generated staff notifications and records the reversal in the audit log.</p>
+        <p className="mt-2 text-sm text-slate-500">See delivery and read status, then retract a send when necessary. Read receipts update when staff mark the notification as read.</p>
 
         <div className="mt-5 space-y-3">
           {actions.map((action) => {
             const names = action.metadata?.recipient_names ?? [];
             const isRetracted = retracted.has(action.id);
+            const receipt = action.receipt;
+            const total = receipt?.sent ?? names.length;
+            const read = receipt?.read ?? 0;
+            const unreadNames = receipt?.unreadNames ?? [];
+            const allRead = total > 0 && read >= total;
+            const privateMessage = action.metadata?.mode === 'private';
+
             return (
               <article key={action.id} className={`rounded-2xl border p-4 ${isRetracted ? 'border-slate-200 bg-slate-100/80 opacity-75' : 'border-slate-100 bg-slate-50/70'}`}>
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">{action.metadata?.mode === 'private' ? 'Private message' : 'Team feed'}</div>
+                      <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">{privateMessage ? 'Private message' : 'Team feed'}</div>
                       {isRetracted && <span className="rounded-full bg-slate-200 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-slate-600">Retracted</span>}
+                      {!isRetracted && total > 0 && (
+                        <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wide ${allRead ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {privateMessage ? (allRead ? 'Read' : 'Unread') : `${read}/${total} read`}
+                        </span>
+                      )}
                     </div>
                     <div className="mt-1 font-black text-slate-950">{action.metadata?.title || 'Owner message'}</div>
                     <p className="mt-1 line-clamp-2 text-sm text-slate-500">{action.metadata?.message}</p>
-                    <div className="mt-2 text-[11px] font-semibold text-slate-400">{names.length ? names.join(', ') : 'Staff'} · {new Date(action.created_at).toLocaleString()}</div>
+
+                    {!isRetracted && receipt && (
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
+                          <div className="text-[9px] font-black uppercase tracking-wide text-blue-600">Sent</div>
+                          <div className="mt-0.5 text-sm font-black text-slate-950">{receipt.sent}</div>
+                        </div>
+                        <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
+                          <div className="text-[9px] font-black uppercase tracking-wide text-emerald-600">Read</div>
+                          <div className="mt-0.5 text-sm font-black text-slate-950">{receipt.read}</div>
+                        </div>
+                        <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2">
+                          <div className="text-[9px] font-black uppercase tracking-wide text-amber-600">Unread</div>
+                          <div className="mt-0.5 text-sm font-black text-slate-950">{receipt.unread}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {!isRetracted && unreadNames.length > 0 && (
+                      <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-2 text-[11px] font-semibold text-amber-800">
+                        Waiting on: {unreadNames.join(', ')}
+                      </div>
+                    )}
+
+                    <div className="mt-3 text-[11px] font-semibold text-slate-400">{names.length ? names.join(', ') : 'Staff'} · {new Date(action.created_at).toLocaleString()}</div>
                   </div>
                   {isRetracted ? (
                     <span className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-500">Undone</span>
