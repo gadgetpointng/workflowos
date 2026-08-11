@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import WorkspaceShell from '@/components/WorkspaceShell';
 
+// Owner-facing UI uses the GadgetPoint business identity instead of a personal profile label.
 const quickLinks = [
   ['Today', '/today', '☀', 'from-amber-400 to-orange-500'],
   ['Tasks', '/tasks', '✓', 'from-emerald-400 to-teal-500'],
