@@ -36,6 +36,7 @@ export default async function IntegrationsPage() {
 
   const integrations = data ?? [];
   const connected = integrations.filter((item: any) => ['active', 'connected'].includes(item.status)).length;
+  const gadgetpoint = integrations.find((item: any) => item.slug === 'gadgetpoint');
 
   return (
     <WorkspaceShell title="Integrations" subtitle="Connected systems" profile={profile}>
@@ -98,7 +99,7 @@ export default async function IntegrationsPage() {
           </div>
 
           <div className="rounded-[28px] border border-white/80 bg-white/90 p-5 shadow-sm sm:p-6">
-            <IntegrationQuickCreate />
+            <IntegrationQuickCreate gadgetpointIntegrationId={gadgetpoint?.id} />
           </div>
         </section>
 
