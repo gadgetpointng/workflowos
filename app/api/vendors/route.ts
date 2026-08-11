@@ -22,7 +22,6 @@ export async function POST(req: Request) {
       status: 'active',
       commission_rate: rate,
       source_url: body.source_url || null,
-      created_by: profile.id,
     })
     .select()
     .single();
