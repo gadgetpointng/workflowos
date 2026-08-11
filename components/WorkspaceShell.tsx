@@ -85,6 +85,7 @@ const navGroups: NavGroup[] = [
 
 const allNavItems = navGroups.flatMap((group) => group.items);
 
+// Bright, high-contrast mobile dock for fast daily navigation.
 const mobileNav = [
   { label: 'Home', href: '/dashboard', icon: '⌂', tone: 'from-cyan-500 to-blue-600' },
   { label: 'Opportunities', href: '/opportunities', icon: '✦', tone: 'from-violet-500 to-fuchsia-500' },
