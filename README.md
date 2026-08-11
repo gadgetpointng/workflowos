@@ -1,35 +1,29 @@
 # WorkflowOS
 
-WorkflowOS is a browser-first business execution web app for teams, tasks, approvals, campaigns, CRM, customer conversations, recurring work, SLAs, analytics, controlled AI actions, marketplace operations, vendors, commission commerce and multi-site integrations.
+WorkflowOS is the operating workspace around GadgetPoint: execution, opportunities, communications, approvals, automation, analytics and connected commerce without duplicating the responsibilities of GadgetPoint Admin.
 
-The product is standalone by design. GadgetPoint is the first deep integration, while the same integration/event architecture can support other websites and businesses.
+## Product boundary
 
-## Run locally
+- GadgetPoint Admin remains the store and staff identity source of truth.
+- WorkflowOS runs work around the store: tasks, growth, follow-up, communications, approvals, intelligence and integrations.
+- The systems connect through controlled integrations rather than overlapping administration.
 
-1. Copy `.env.example` to `.env.local` and fill the Supabase values.
-2. Run `supabase/schema.sql`, then `supabase/rls.sql` in the Supabase SQL editor.
-3. Install dependencies with `npm install`.
-4. Run `npm run dev`.
-5. Open `/signup` to create the first owner workspace.
+## Owner control pattern
 
-## Launch
+WorkflowOS uses two distinct control patterns so owner actions stay clear:
 
-See `LAUNCH.md` for the production deployment checklist and environment setup.
+- **Yes / No switches** are persistent business policies. They use iPhone-style On/Off controls and apply to the organization.
+- **Action buttons** perform one-time work such as Send, Assign, Approve, Reject or Retract.
+- A message retraction is called **Retract**, not Undo, so it is never confused with a Yes / No switch.
 
-## Architecture boundaries
+Current organization-level owner communication switches include Team Feed, Private Staff Messages, Read Receipts and Message Retraction. Policy changes are recorded in the activity log.
 
-- WorkflowOS: staff execution, campaigns, CRM, automation, AI decision support, marketplace operations and integrations.
-- GadgetPoint Admin: retail inventory/POS/order operations.
-- GadgetPoint Storefront: customer-facing commerce and WhatsApp entry point.
+## Interface direction
 
-These systems can share identity and selected operational data without collapsing into a single application.
+The product uses a mature enterprise/banking visual system: Inter typography, restrained navy/slate/white surfaces, tabular operational figures, controlled status colors, spacious option groups and tactile iPhone-style controls.
 
-## System boundary rule
-WorkflowOS is independent from GadgetPoint Admin and the storefront, but connected through integration events and approved command requests. See `ARCHITECTURE_BOUNDARIES.md`.
+## Deployment
 
-### Buyer Intelligence
-WorkflowOS can capture consented buyer enquiries and public demand signals, score purchase intent, match demand against read-only connected product mirrors, and convert opted-in buyers into CRM leads. Product, stock, pricing and order ownership remain in the connected commerce system (for GadgetPoint, GadgetPoint Admin).
+The repository supports Vercel and includes a Netlify configuration as a free deployment fallback. Keep deployment secrets in the hosting provider environment rather than committing them to the repository.
 
-## Live sales loop
-The integration bridge now turns opted-in WhatsApp inquiries into a connected customer/lead, Buyer Intelligence record, product matches against the read-only GadgetPoint catalog mirror, a recommended sales assignee, and a follow-up task. Public marketplace demand is captured as non-contactable Buyer Intelligence until consent exists. Commerce ownership remains in GadgetPoint Admin.
- 
+See `LAUNCH.md`, `ARCHITECTURE_BOUNDARIES.md`, and the deployment documentation under `docs/` for operational details.
