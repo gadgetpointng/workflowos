@@ -14,7 +14,10 @@ export default async function Inbox() {
     supabase.from('growth_recommendations').select('*').eq('organization_id', profile.organization_id).eq('status', 'new').order('score', { ascending: false }).limit(30),
   ]);
 
-  const unread = (notifications ?? []).filter((notification: any) => !notification.read_at).length;
+  const allNotifications = notifications ?? [];
+  const unread = allNotifications.filter((notification: any) => !notification.read_at).length;
+  const ownerMessages = allNotifications.filter((notification: any) => ['owner_feed', 'owner_private_message'].includes(String(notification.type || '')));
+  const ownerUnread = ownerMessages.filter((notification: any) => !notification.read_at).length;
 
   return (
     <WorkspaceShell title="Inbox" subtitle="Attention center" profile={profile}>
@@ -23,21 +26,67 @@ export default async function Inbox() {
           <div>
             <div className="text-xs font-black uppercase tracking-[0.18em] text-pink-600">Attention center</div>
             <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-950">Inbox</h1>
+            <p className="mt-2 text-sm font-medium text-slate-500">Owner messages, alerts, customer conversations and growth signals in one place.</p>
           </div>
-          <div className="rounded-2xl border border-pink-100 bg-pink-50 px-4 py-2.5">
-            <div className="text-[10px] font-black uppercase tracking-wide text-pink-700">Unread</div>
-            <div className="text-xl font-black text-slate-950">{unread}</div>
+          <div className="flex flex-wrap gap-2">
+            <div className="rounded-2xl border border-violet-100 bg-violet-50 px-4 py-2.5">
+              <div className="text-[10px] font-black uppercase tracking-wide text-violet-700">Owner unread</div>
+              <div className="text-xl font-black text-slate-950">{ownerUnread}</div>
+            </div>
+            <div className="rounded-2xl border border-pink-100 bg-pink-50 px-4 py-2.5">
+              <div className="text-[10px] font-black uppercase tracking-wide text-pink-700">All unread</div>
+              <div className="text-xl font-black text-slate-950">{unread}</div>
+            </div>
           </div>
         </section>
+
+        {ownerMessages.length > 0 && (
+          <section className="rounded-[30px] border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-cyan-50 p-5 shadow-sm sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-black uppercase tracking-[0.18em] text-violet-600">From owner</div>
+                <h2 className="mt-1 text-2xl font-black text-slate-950">Priority messages</h2>
+                <p className="mt-1 text-sm text-slate-500">Team feeds and private messages sent directly by the owner.</p>
+              </div>
+              <span className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-violet-700 shadow-sm ring-1 ring-violet-100">{ownerMessages.length} message{ownerMessages.length === 1 ? '' : 's'}</span>
+            </div>
+
+            <div className="mt-5 grid gap-3 lg:grid-cols-2">
+              {ownerMessages.slice(0, 8).map((notification: any) => {
+                const isPrivate = notification.type === 'owner_private_message';
+                return (
+                  <article key={notification.id} className={`rounded-2xl border p-4 shadow-sm ${!notification.read_at ? 'border-violet-200 bg-white' : 'border-slate-100 bg-white/70'}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wide ${isPrivate ? 'bg-cyan-100 text-cyan-800' : 'bg-violet-100 text-violet-800'}`}>
+                            {isPrivate ? 'Private from owner' : 'Owner feed'}
+                          </span>
+                          {!notification.read_at && <span className="h-2 w-2 rounded-full bg-rose-500" aria-label="Unread" />}
+                        </div>
+                        <div className="mt-2 text-base font-black text-slate-950">{notification.title}</div>
+                        {notification.body && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">{notification.body}</p>}
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                      <span className="text-[11px] font-semibold text-slate-400">{new Date(notification.created_at).toLocaleString()}</span>
+                      <NotificationActions id={notification.id} read={Boolean(notification.read_at)} />
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         <section className="grid gap-5 xl:grid-cols-3">
           <div className="rounded-[28px] border border-white/80 bg-white/90 p-5 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-black text-slate-950">Notifications</h2>
-              <span className="rounded-full bg-pink-50 px-3 py-1 text-xs font-black text-pink-700">{notifications?.length ?? 0}</span>
+              <h2 className="text-lg font-black text-slate-950">Other notifications</h2>
+              <span className="rounded-full bg-pink-50 px-3 py-1 text-xs font-black text-pink-700">{allNotifications.filter((notification: any) => !['owner_feed', 'owner_private_message'].includes(String(notification.type || ''))).length}</span>
             </div>
             <div className="mt-4 space-y-3">
-              {(notifications ?? []).map((notification: any) => (
+              {allNotifications.filter((notification: any) => !['owner_feed', 'owner_private_message'].includes(String(notification.type || ''))).map((notification: any) => (
                 <article key={notification.id} className={`rounded-2xl border p-4 ${!notification.read_at ? 'border-pink-200 bg-pink-50/50' : 'border-slate-100 bg-white'}`}>
                   <div className="font-black text-slate-950">{notification.title}</div>
                   {notification.body && <p className="mt-2 line-clamp-2 text-sm text-slate-500">{notification.body}</p>}
@@ -47,7 +96,7 @@ export default async function Inbox() {
                   </div>
                 </article>
               ))}
-              {!notifications?.length && <div className="rounded-2xl border border-dashed border-pink-200 bg-pink-50/60 p-6 text-sm font-medium text-slate-500">No notifications.</div>}
+              {!allNotifications.filter((notification: any) => !['owner_feed', 'owner_private_message'].includes(String(notification.type || ''))).length && <div className="rounded-2xl border border-dashed border-pink-200 bg-pink-50/60 p-6 text-sm font-medium text-slate-500">No other notifications.</div>}
             </div>
           </div>
 
