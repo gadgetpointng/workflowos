@@ -3,8 +3,13 @@
 import { useEffect, useRef } from 'react';
 
 type Preferences = {
+  desktopNotifications?: boolean;
   soundAlerts?: boolean;
   quietMode?: boolean;
+  overdueAlerts?: boolean;
+  approvalAlerts?: boolean;
+  followupAlerts?: boolean;
+  integrationAlerts?: boolean;
 };
 
 type Summary = {
@@ -19,6 +24,14 @@ function readPreferences(): Preferences {
   } catch {
     return {};
   }
+}
+
+function isEnabledAlert(id: string, preferences: Preferences) {
+  if (id.startsWith('task:')) return preferences.overdueAlerts !== false;
+  if (id.startsWith('approval:')) return preferences.approvalAlerts !== false;
+  if (id.startsWith('followup:')) return preferences.followupAlerts !== false;
+  if (id.startsWith('integration:')) return preferences.integrationAlerts !== false;
+  return true;
 }
 
 function createChime(context: AudioContext) {
@@ -50,12 +63,31 @@ export function playWorkflowNotificationSound() {
   if (!AudioContextClass) return;
 
   const context = new AudioContextClass();
-  void context.resume().then(() => {
-    createChime(context);
-    window.setTimeout(() => void context.close(), 800);
-  }).catch(() => {
-    void context.close();
+  void context
+    .resume()
+    .then(() => {
+      createChime(context);
+      window.setTimeout(() => void context.close(), 800);
+    })
+    .catch(() => {
+      void context.close();
+    });
+}
+
+function showDesktopNotification(newCount: number) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (document.visibilityState === 'visible') return;
+
+  const notification = new Notification('WorkflowOS needs your attention', {
+    body: `${newCount} new urgent ${newCount === 1 ? 'item' : 'items'} waiting.`,
+    tag: 'workflowos-urgent',
   });
+
+  notification.onclick = () => {
+    window.focus();
+    window.location.href = '/notifications';
+    notification.close();
+  };
 }
 
 export default function NotificationSoundController() {
@@ -84,22 +116,26 @@ export default function NotificationSoundController() {
         const response = await fetch('/api/notifications/summary', { cache: 'no-store' });
         if (!response.ok || cancelled) return;
         const summary = (await response.json()) as Summary;
-        const current = new Set(summary.urgentIds ?? []);
+        const preferences = readPreferences();
+        const current = new Set((summary.urgentIds ?? []).filter((id) => isEnabledAlert(id, preferences)));
 
         if (baselineRef.current === null) {
           baselineRef.current = current;
           return;
         }
 
-        const hasNewUrgentItem = Array.from(current).some((id) => !baselineRef.current?.has(id));
+        const newIds = Array.from(current).filter((id) => !baselineRef.current?.has(id));
         baselineRef.current = current;
 
-        if (!hasNewUrgentItem || !armedRef.current) return;
+        if (!newIds.length || preferences.quietMode === true) return;
 
-        const preferences = readPreferences();
-        if (preferences.soundAlerts === false || preferences.quietMode === true) return;
+        if (preferences.soundAlerts !== false && armedRef.current) {
+          playWorkflowNotificationSound();
+        }
 
-        playWorkflowNotificationSound();
+        if (preferences.desktopNotifications === true) {
+          showDesktopNotification(newIds.length);
+        }
       } catch {}
     }
 
