@@ -3,9 +3,11 @@
 import { useEffect, useRef } from 'react';
 
 type Preferences = {
+  notificationsEnabled?: boolean;
   desktopNotifications?: boolean;
   soundAlerts?: boolean;
   quietMode?: boolean;
+  messageAlerts?: boolean;
   overdueAlerts?: boolean;
   approvalAlerts?: boolean;
   followupAlerts?: boolean;
@@ -27,6 +29,8 @@ function readPreferences(): Preferences {
 }
 
 function isEnabledAlert(id: string, preferences: Preferences) {
+  if (preferences.notificationsEnabled === false) return false;
+  if (id.startsWith('message:')) return preferences.messageAlerts !== false;
   if (id.startsWith('task:')) return preferences.overdueAlerts !== false;
   if (id.startsWith('approval:')) return preferences.approvalAlerts !== false;
   if (id.startsWith('followup:')) return preferences.followupAlerts !== false;
@@ -127,7 +131,7 @@ export default function NotificationSoundController() {
         const newIds = Array.from(current).filter((id) => !baselineRef.current?.has(id));
         baselineRef.current = current;
 
-        if (!newIds.length || preferences.quietMode === true) return;
+        if (!newIds.length || preferences.notificationsEnabled === false || preferences.quietMode === true) return;
 
         if (preferences.soundAlerts !== false && armedRef.current) {
           playWorkflowNotificationSound();
