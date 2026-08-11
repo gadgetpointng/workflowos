@@ -130,7 +130,21 @@ export async function DELETE(request: Request) {
     .maybeSingle();
 
   if (error || !action) {
-    return NextResponse.json({ error: 'Send action not found or already unavailable' }, { status: 404 });
+    return NextResponse.json({ error: 'Send action not found' }, { status: 404 });
+  }
+
+  const { data: existingRetraction } = await supabase
+    .from('activity_logs')
+    .select('id')
+    .eq('organization_id', profile.organization_id)
+    .eq('actor_id', user.id)
+    .eq('action', 'owner.communication.retracted')
+    .contains('metadata', { original_action_id: actionId })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingRetraction) {
+    return NextResponse.json({ error: 'This send has already been retracted' }, { status: 409 });
   }
 
   const ids = Array.isArray(action.metadata?.notification_ids)
@@ -148,7 +162,7 @@ export async function DELETE(request: Request) {
     }
   }
 
-  await supabase.from('activity_logs').insert({
+  const { error: retractionLogError } = await supabase.from('activity_logs').insert({
     organization_id: profile.organization_id,
     actor_id: user.id,
     action: 'owner.communication.retracted',
@@ -159,6 +173,10 @@ export async function DELETE(request: Request) {
       original: action.metadata ?? {},
     },
   });
+
+  if (retractionLogError) {
+    return NextResponse.json({ error: 'Notifications were removed but the reversal could not be recorded' }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true, retracted: ids.length });
 }
