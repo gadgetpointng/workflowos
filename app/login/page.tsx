@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { login } from './actions';
 
 export default async function LoginPage({
@@ -51,25 +50,17 @@ export default async function LoginPage({
 
             <div className="mt-10 grid max-w-xl grid-cols-3 gap-3">
               <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 font-black">
-                  ✦
-                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 font-black">✦</div>
                 <div className="mt-4 text-sm font-bold">Growth</div>
                 <div className="mt-1 text-xs leading-5 text-slate-400">Opportunities and buyer signals</div>
               </div>
-
               <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-500 font-black">
-                  ✓
-                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-500 font-black">✓</div>
                 <div className="mt-4 text-sm font-bold">Execution</div>
                 <div className="mt-1 text-xs leading-5 text-slate-400">Tasks, teams and approvals</div>
               </div>
-
               <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 font-black">
-                  ↗
-                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 font-black">↗</div>
                 <div className="mt-4 text-sm font-bold">Connected</div>
                 <div className="mt-1 text-xs leading-5 text-slate-400">Sites, commerce and integrations</div>
               </div>
@@ -85,9 +76,7 @@ export default async function LoginPage({
         <section className="flex min-h-screen items-center justify-center px-5 py-8 sm:px-8 lg:px-10">
           <div className="w-full max-w-md">
             <div className="mb-7 flex items-center gap-3 lg:hidden">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-400 via-fuchsia-500 to-cyan-400 text-lg font-black shadow-xl">
-                W
-              </div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-400 via-fuchsia-500 to-cyan-400 text-lg font-black shadow-xl">W</div>
               <div>
                 <div className="font-black">WorkflowOS</div>
                 <div className="text-xs text-cyan-200">Modern business workspace</div>
@@ -99,34 +88,22 @@ export default async function LoginPage({
               <div className="pointer-events-none absolute -bottom-20 -left-12 h-40 w-40 rounded-full bg-fuchsia-500/15 blur-2xl" />
 
               <div className="relative">
-                <div className="inline-flex rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-violet-200">
-                  Welcome back
-                </div>
+                <div className="inline-flex rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-violet-200">Welcome back</div>
 
-                <h2 className="mt-5 text-3xl font-black tracking-tight text-white sm:text-4xl">
-                  Sign in to your workspace
-                </h2>
-                <p className="mt-3 text-sm leading-6 text-slate-300">
-                  Pick up where your team left off and keep the work moving.
-                </p>
+                <h2 className="mt-5 text-3xl font-black tracking-tight text-white sm:text-4xl">Sign in to your workspace</h2>
+                <p className="mt-3 text-sm leading-6 text-slate-300">Pick up where your team left off and keep the work moving.</p>
 
                 {error && (
-                  <div className="mt-5 rounded-2xl border border-rose-300/20 bg-rose-500/15 px-4 py-3 text-sm font-medium text-rose-100">
-                    {error}
-                  </div>
+                  <div className="mt-5 rounded-2xl border border-rose-300/20 bg-rose-500/15 px-4 py-3 text-sm font-medium text-rose-100">{error}</div>
                 )}
 
                 {message && (
-                  <div className="mt-5 rounded-2xl border border-emerald-300/20 bg-emerald-500/15 px-4 py-3 text-sm font-medium text-emerald-100">
-                    {message}
-                  </div>
+                  <div className="mt-5 rounded-2xl border border-emerald-300/20 bg-emerald-500/15 px-4 py-3 text-sm font-medium text-emerald-100">{message}</div>
                 )}
 
                 <form action={login} className="mt-6 space-y-4">
                   <label className="block">
-                    <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-slate-300">
-                      Email address
-                    </span>
+                    <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-slate-300">Email address</span>
                     <input
                       name="email"
                       required
@@ -138,9 +115,7 @@ export default async function LoginPage({
                   </label>
 
                   <label className="block">
-                    <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-slate-300">
-                      Password
-                    </span>
+                    <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-slate-300">Password</span>
                     <input
                       name="password"
                       required
@@ -152,31 +127,23 @@ export default async function LoginPage({
                   </label>
 
                   <button className="group relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 px-4 py-3.5 text-sm font-black text-white shadow-xl shadow-violet-950/40 transition hover:-translate-y-0.5 hover:shadow-2xl">
-                    <span className="relative z-10 flex items-center justify-center gap-2">
-                      Sign in
-                      <span className="transition group-hover:translate-x-1">→</span>
-                    </span>
+                    <span className="relative z-10 flex items-center justify-center gap-2">Sign in <span className="transition group-hover:translate-x-1">→</span></span>
                   </button>
                 </form>
 
                 <div className="my-6 flex items-center gap-3">
                   <div className="h-px flex-1 bg-white/10" />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">WorkflowOS</span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Access controlled by GadgetPoint</span>
                   <div className="h-px flex-1 bg-white/10" />
                 </div>
 
-                <p className="text-center text-sm text-slate-300">
-                  New workspace?{' '}
-                  <Link href="/signup" className="font-black text-cyan-300 transition hover:text-cyan-200">
-                    Create one
-                  </Link>
+                <p className="text-center text-sm leading-6 text-slate-300">
+                  Staff accounts are created and managed by the GadgetPoint owner. There is no public WorkflowOS signup.
                 </p>
               </div>
             </div>
 
-            <p className="mt-5 text-center text-xs text-slate-500">
-              Built for focused teams, ambitious operators and connected businesses.
-            </p>
+            <p className="mt-5 text-center text-xs text-slate-500">Built for focused teams, ambitious operators and connected businesses.</p>
           </div>
         </section>
       </div>
