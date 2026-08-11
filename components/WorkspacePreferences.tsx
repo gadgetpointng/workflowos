@@ -11,6 +11,7 @@ type Prefs = {
   overdueAlerts: boolean;
   approvalAlerts: boolean;
   followupAlerts: boolean;
+  integrationAlerts: boolean;
   quietMode: boolean;
 };
 
@@ -22,6 +23,7 @@ const defaults: Prefs = {
   overdueAlerts: true,
   approvalAlerts: true,
   followupAlerts: true,
+  integrationAlerts: true,
   quietMode: false,
 };
 
@@ -32,7 +34,8 @@ const rows: Array<{ key: keyof Prefs; title: string; note: string }> = [
   { key: 'overdueAlerts', title: 'Overdue work alerts', note: 'Surface overdue tasks and execution risks.' },
   { key: 'approvalAlerts', title: 'Approval alerts', note: 'Notify when owner decisions are waiting.' },
   { key: 'followupAlerts', title: 'Customer follow-up alerts', note: 'Surface overdue and soon-due lead follow-ups.' },
-  { key: 'quietMode', title: 'Quiet mode', note: 'Mute WorkflowOS sounds and keep alerts inside the app.' },
+  { key: 'integrationAlerts', title: 'GadgetPoint connection alerts', note: 'Warn when the GadgetPoint bridge is missing or needs attention.' },
+  { key: 'quietMode', title: 'Quiet mode', note: 'Mute WorkflowOS sounds and desktop popups while keeping alerts inside the app.' },
 ];
 
 export default function WorkspacePreferences() {
@@ -117,7 +120,7 @@ export default function WorkspacePreferences() {
             <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-700">Browser notifications</div>
             <h2 className="mt-1 text-lg font-black text-slate-950">Desktop alerts</h2>
             <p className="mt-1 text-sm text-slate-600">
-              {permission === 'granted' ? 'Permission granted. WorkflowOS can show browser alerts when enabled.' : permission === 'denied' ? 'Notifications are blocked in this browser. Change the browser site permission to enable them.' : permission === 'unsupported' ? 'This browser does not support desktop notifications.' : 'Allow this browser to show important WorkflowOS alerts.'}
+              {permission === 'granted' ? 'Permission granted. WorkflowOS can show a popup when a new urgent item appears while the app is in the background.' : permission === 'denied' ? 'Notifications are blocked in this browser. Change the browser site permission to enable them.' : permission === 'unsupported' ? 'This browser does not support desktop notifications.' : 'Allow this browser to show important WorkflowOS alerts.'}
             </p>
           </div>
           {permission !== 'unsupported' && permission !== 'denied' && (
