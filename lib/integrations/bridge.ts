@@ -12,10 +12,33 @@ export function hashSecret(secret: string) {
   return crypto.createHash('sha256').update(secret).digest('hex');
 }
 
+function bearerToken(request: Request) {
+  const authorization = request.headers.get('authorization');
+  if (!authorization) return null;
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
 export async function authenticateBridge(request: Request, slug: string) {
-  const publicKey = request.headers.get('x-workflow-key');
-  const secret = request.headers.get('x-workflow-secret');
-  if (!publicKey || !secret) return { ok: false as const, status: 401, error: 'Missing bridge credentials' };
+  // Backward-compatible bridge headers used by existing WorkflowOS connectors.
+  const workflowPublicKey = request.headers.get('x-workflow-key');
+  const workflowSecret = request.headers.get('x-workflow-secret');
+
+  // ChatGPT Site / GadgetPoint aliases. The bridge ID is the public credential id;
+  // the private bridge secret is carried as a standard Bearer token.
+  const gadgetPointPublicKey = request.headers.get('x-gadgetpoint-bridge-id');
+  const gadgetPointSecret = bearerToken(request);
+
+  const publicKey = workflowPublicKey || gadgetPointPublicKey;
+  const secret = workflowSecret || gadgetPointSecret;
+
+  if (!publicKey || !secret) {
+    return {
+      ok: false as const,
+      status: 401,
+      error: 'Missing bridge credentials',
+    };
+  }
 
   const supabase = createAdminClient();
   const { data: credential, error } = await supabase
@@ -25,17 +48,34 @@ export async function authenticateBridge(request: Request, slug: string) {
     .eq('external_integrations.slug', slug)
     .maybeSingle();
 
-  if (error || !credential || !credential.active) return { ok: false as const, status: 401, error: 'Invalid bridge credentials' };
+  if (error || !credential || !credential.active) {
+    return {
+      ok: false as const,
+      status: 401,
+      error: 'Invalid bridge credentials',
+    };
+  }
+
   const expected = Buffer.from(credential.secret_hash, 'hex');
   const actual = Buffer.from(hashSecret(secret), 'hex');
   if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
-    return { ok: false as const, status: 401, error: 'Invalid bridge credentials' };
+    return {
+      ok: false as const,
+      status: 401,
+      error: 'Invalid bridge credentials',
+    };
   }
 
   const integration = Array.isArray(credential.external_integrations)
     ? credential.external_integrations[0]
     : credential.external_integrations;
-  if (!integration || integration.status === 'disabled') return { ok: false as const, status: 403, error: 'Integration disabled' };
+  if (!integration || integration.status === 'disabled') {
+    return {
+      ok: false as const,
+      status: 403,
+      error: 'Integration disabled',
+    };
+  }
 
   return { ok: true as const, supabase, integration, credential };
 }
