@@ -19,145 +19,114 @@ const eventTypes = [
   'campaign.attribution',
 ];
 
+const gradients = [
+  'from-cyan-500 to-blue-500',
+  'from-violet-500 to-fuchsia-500',
+  'from-emerald-400 to-teal-500',
+  'from-orange-400 to-rose-500',
+];
+
 export default async function IntegrationsPage() {
   const { supabase, profile } = await requireUser();
 
   const { data } = await supabase
     .from('external_integrations')
-    .select(
-      'id,name,slug,kind,status,base_url,capabilities,last_synced_at,created_at'
-    )
+    .select('id,name,slug,kind,status,base_url,capabilities,last_synced_at,created_at')
     .order('created_at', { ascending: false });
 
   const integrations = data ?? [];
+  const connected = integrations.filter((item: any) => ['active', 'connected'].includes(item.status)).length;
 
   return (
-    <WorkspaceShell
-      title="Integrations"
-      subtitle="Independent systems, connected by controlled operational bridges"
-      profile={profile}
-    >
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_.8fr]">
-        <section className="rounded-3xl border bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-bold">Connected systems</h1>
-
-              <p className="mt-1 text-sm text-slate-500">
-                GadgetPoint Admin remains the retail source of truth.
-                WorkflowOS owns execution, CRM, campaigns, automation and
-                intelligence.
-              </p>
-            </div>
-
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-              Boundary-safe
-            </span>
+    <WorkspaceShell title="Integrations" subtitle="Connected systems" profile={profile}>
+      <div className="space-y-6">
+        <section className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <div className="text-xs font-black uppercase tracking-[0.18em] text-cyan-600">Platform</div>
+            <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-950">Integrations</h1>
           </div>
 
-          <div className="mt-5 grid gap-3">
-            {integrations.length > 0 ? (
-              integrations.map((x: any) => (
-                <article
-                  key={x.id}
-                  className="rounded-2xl border p-4"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <div className="font-semibold">{x.name}</div>
-
-                      <div className="text-xs text-slate-500">
-                        {x.kind} · {x.slug}
-                      </div>
-                    </div>
-
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold capitalize">
-                      {x.status}
-                    </span>
-                  </div>
-
-                  {x.base_url && (
-                    <div className="mt-2 truncate text-xs text-slate-500">
-                      {x.base_url}
-                    </div>
-                  )}
-
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {(x.capabilities ?? []).map((cap: string) => (
-                      <span
-                        key={cap}
-                        className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600"
-                      >
-                        {cap}
-                      </span>
-                    ))}
-                  </div>
-                </article>
-              ))
-            ) : (
-              <div className="rounded-2xl border border-dashed p-6 text-sm text-slate-500">
-                No bridge configured yet. Create GadgetPoint first, then add
-                other businesses or channels as needed.
-              </div>
-            )}
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-2.5">
+            <div className="text-[10px] font-black uppercase tracking-wide text-emerald-700">Connected</div>
+            <div className="text-xl font-black text-slate-950">{connected}</div>
           </div>
         </section>
 
-        <IntegrationQuickCreate />
-      </div>
+        <section className="grid gap-6 xl:grid-cols-[1.2fr_.8fr]">
+          <div className="rounded-[28px] border border-white/80 bg-white/90 p-5 shadow-sm sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-black text-slate-950">Connected systems</h2>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase text-emerald-700">Boundary safe</span>
+            </div>
 
-      <section className="mt-6 rounded-3xl border bg-slate-950 p-6 text-white">
-        <h2 className="text-lg font-semibold">
-          Data ownership contract
-        </h2>
+            <div className="mt-5 grid gap-3">
+              {integrations.length > 0 ? (
+                integrations.map((item: any, index: number) => (
+                  <article key={item.id} className="overflow-hidden rounded-2xl border border-slate-100 bg-white">
+                    <div className={`h-1 bg-gradient-to-r ${gradients[index % gradients.length]}`} />
+                    <div className="p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-black text-slate-900">{item.name}</div>
+                          <div className="mt-1 text-xs font-medium text-slate-500">{item.kind} · {item.slug}</div>
+                        </div>
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
+                          {item.status}
+                        </span>
+                      </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 p-4">
-            <b>GadgetPoint Admin</b>
-            <p className="mt-2 text-sm text-slate-300">
-              Products, stock, POS and store-order truth.
-            </p>
+                      {item.base_url && <div className="mt-3 truncate text-xs text-slate-400">{item.base_url}</div>}
+
+                      {!!item.capabilities?.length && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {item.capabilities.map((cap: string) => (
+                            <span key={cap} className="rounded-full bg-cyan-50 px-2.5 py-1 text-[10px] font-bold text-cyan-700">
+                              {cap}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/60 p-6 text-sm font-medium text-slate-500">
+                  No bridge configured yet.
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 p-4">
-            <b>WorkflowOS</b>
-            <p className="mt-2 text-sm text-slate-300">
-              Tasks, staff execution, CRM, campaigns, approvals, automation
-              and intelligence.
-            </p>
+          <div className="rounded-[28px] border border-white/80 bg-white/90 p-5 shadow-sm sm:p-6">
+            <IntegrationQuickCreate />
           </div>
+        </section>
 
-          <div className="rounded-2xl border border-white/10 p-4">
-            <b>Storefront</b>
-            <p className="mt-2 text-sm text-slate-300">
-              Customer shopping experience and commerce entry points.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-6 rounded-3xl border bg-white p-6">
-        <h2 className="text-lg font-semibold">
-          Bridge event contract
-        </h2>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {eventTypes.map((x) => (
-            <code
-              key={x}
-              className="rounded-full bg-slate-100 px-3 py-1.5 text-xs"
-            >
-              {x}
-            </code>
+        <section className="grid gap-4 md:grid-cols-3">
+          {[
+            ['GadgetPoint Admin', 'Retail truth', 'from-cyan-500 to-blue-500'],
+            ['WorkflowOS', 'Execution + intelligence', 'from-violet-500 to-fuchsia-500'],
+            ['Storefront', 'Customer commerce', 'from-emerald-400 to-teal-500'],
+          ].map(([name, role, gradient]) => (
+            <div key={name} className="rounded-[24px] border border-white/80 bg-white/90 p-5 shadow-sm">
+              <div className={`h-10 w-10 rounded-2xl bg-gradient-to-br ${gradient}`} />
+              <div className="mt-4 text-base font-black text-slate-950">{name}</div>
+              <div className="mt-1 text-sm font-medium text-slate-500">{role}</div>
+            </div>
           ))}
-        </div>
+        </section>
 
-        <p className="mt-4 text-sm text-slate-500">
-          Connected systems publish events; WorkflowOS mirrors only the
-          fields required for work and intelligence. This prevents two
-          applications from competing to own the same business record.
-        </p>
-      </section>
+        <section className="rounded-[28px] border border-white/80 bg-white/90 p-5 shadow-sm sm:p-6">
+          <h2 className="text-lg font-black text-slate-950">Bridge events</h2>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {eventTypes.map((event) => (
+              <code key={event} className="rounded-full bg-slate-950 px-3 py-1.5 text-[11px] font-semibold text-cyan-200">
+                {event}
+              </code>
+            ))}
+          </div>
+        </section>
+      </div>
     </WorkspaceShell>
   );
 }
