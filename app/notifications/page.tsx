@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import WorkspaceShell from '@/components/WorkspaceShell';
+import NotificationSoundControls from '@/components/NotificationSoundControls';
 import { requireUser } from '@/lib/auth';
 
 type Alert = {
@@ -127,7 +128,10 @@ export default async function NotificationsPage() {
             <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-950">Notifications</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Only work that needs attention is surfaced here. The list is ranked by urgency instead of notification time.</p>
           </div>
-          <Link href="/settings" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50">Notification settings →</Link>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <NotificationSoundControls />
+            <Link href="/settings" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-700 shadow-sm hover:bg-slate-50">Settings →</Link>
+          </div>
         </section>
 
         <section className="grid gap-4 sm:grid-cols-3">
