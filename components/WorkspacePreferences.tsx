@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { playWorkflowNotificationSound } from '@/components/NotificationSoundController';
 
 type Prefs = {
   smartSidebar: boolean;
   showRecent: boolean;
   desktopNotifications: boolean;
+  soundAlerts: boolean;
   overdueAlerts: boolean;
   approvalAlerts: boolean;
   followupAlerts: boolean;
@@ -16,6 +18,7 @@ const defaults: Prefs = {
   smartSidebar: true,
   showRecent: true,
   desktopNotifications: false,
+  soundAlerts: true,
   overdueAlerts: true,
   approvalAlerts: true,
   followupAlerts: true,
@@ -25,10 +28,11 @@ const defaults: Prefs = {
 const rows: Array<{ key: keyof Prefs; title: string; note: string }> = [
   { key: 'smartSidebar', title: 'Smart sidebar', note: 'Prioritize Focus Now, pinned tools and the current work area.' },
   { key: 'showRecent', title: 'Recent tools', note: 'Keep recently used destinations close for faster navigation.' },
+  { key: 'soundAlerts', title: 'Sound alerts', note: 'Play a short WorkflowOS chime when a new urgent item appears while the app is open.' },
   { key: 'overdueAlerts', title: 'Overdue work alerts', note: 'Surface overdue tasks and execution risks.' },
   { key: 'approvalAlerts', title: 'Approval alerts', note: 'Notify when owner decisions are waiting.' },
   { key: 'followupAlerts', title: 'Customer follow-up alerts', note: 'Surface overdue and soon-due lead follow-ups.' },
-  { key: 'quietMode', title: 'Quiet mode', note: 'Keep alerts inside WorkflowOS without attention-grabbing browser notifications.' },
+  { key: 'quietMode', title: 'Quiet mode', note: 'Mute WorkflowOS sounds and keep alerts inside the app.' },
 ];
 
 export default function WorkspacePreferences() {
@@ -62,6 +66,12 @@ export default function WorkspacePreferences() {
     if (result === 'granted') commit({ ...prefs, desktopNotifications: true });
   }
 
+  function testSound() {
+    if (prefs.quietMode) commit({ ...prefs, quietMode: false, soundAlerts: true });
+    else if (!prefs.soundAlerts) commit({ ...prefs, soundAlerts: true });
+    playWorkflowNotificationSound();
+  }
+
   return (
     <div className="space-y-5">
       <section className="rounded-[28px] border border-white/80 bg-white/90 p-5 shadow-sm sm:p-6">
@@ -71,7 +81,16 @@ export default function WorkspacePreferences() {
             <h2 className="mt-1 text-lg font-black text-slate-950">How WorkflowOS should behave for you</h2>
             <p className="mt-1 text-sm text-slate-500">These preferences stay on this browser and apply immediately.</p>
           </div>
-          {saved && <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">Saved ✓</span>}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={testSound}
+              className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-black text-violet-800 transition hover:bg-violet-100"
+            >
+              🔔 Test sound
+            </button>
+            {saved && <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">Saved ✓</span>}
+          </div>
         </div>
 
         <div className="mt-5 divide-y divide-slate-100">
