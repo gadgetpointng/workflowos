@@ -11,9 +11,22 @@ const allowedStaffRoles = new Set([
   'staff',
 ]);
 
+const gadgetPointRoleAliases: Record<string, string> = {
+  administrator: 'admin',
+  'store manager': 'manager',
+  'sales staff': 'sales',
+  'marketing staff': 'marketing',
+  employee: 'staff',
+};
+
 function normalizeStaffRole(role: unknown) {
-  const value = String(role ?? '').toLowerCase();
-  return allowedStaffRoles.has(value) ? value : 'staff';
+  const value = String(role ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ');
+  const normalized = gadgetPointRoleAliases[value] ?? value;
+  return allowedStaffRoles.has(normalized) ? normalized : 'staff';
 }
 
 function fallbackEmail(externalStaffId: string) {
