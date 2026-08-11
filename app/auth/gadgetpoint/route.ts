@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
+const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
+
 function loginError(request: Request, message: string) {
   const url = new URL('/login', request.url);
   url.searchParams.set('error', message);
@@ -25,9 +27,7 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = String(requestUrl.searchParams.get('code') ?? '').trim();
 
-  if (!code) {
-    return loginError(request, 'Missing GadgetPoint sign-in code.');
-  }
+  if (!code) return loginError(request, 'Missing GadgetPoint sign-in code.');
 
   const codeHash = crypto.createHash('sha256').update(code).digest('hex');
   const admin = createAdminClient();
@@ -40,9 +40,7 @@ export async function GET(request: Request) {
     .eq('entity_id', codeHash)
     .maybeSingle();
 
-  if (eventError || !event) {
-    return loginError(request, 'This GadgetPoint sign-in link is invalid or has already been used.');
-  }
+  if (eventError || !event) return loginError(request, 'This GadgetPoint sign-in link is invalid or has already been used.');
 
   const expiresAt = event.payload?.expires_at
     ? new Date(String(event.payload.expires_at))
@@ -54,25 +52,17 @@ export async function GET(request: Request) {
 
   const { data: claimed, error: claimError } = await admin
     .from('integration_events')
-    .update({
-      entity_id: `consumed:${codeHash}`,
-      processed_at: new Date().toISOString(),
-    })
+    .update({ entity_id: `consumed:${codeHash}`, processed_at: new Date().toISOString() })
     .eq('id', event.id)
     .eq('entity_id', codeHash)
     .select('id')
     .maybeSingle();
 
-  if (claimError || !claimed) {
-    return loginError(request, 'This GadgetPoint sign-in link has already been used.');
-  }
+  if (claimError || !claimed) return loginError(request, 'This GadgetPoint sign-in link has already been used.');
 
   const staff = event.payload?.staff ?? {};
   const externalStaffId = String(staff.external_staff_id ?? '').trim();
-
-  if (!externalStaffId) {
-    return loginError(request, 'GadgetPoint staff identity is incomplete.');
-  }
+  if (!externalStaffId) return loginError(request, 'GadgetPoint staff identity is incomplete.');
 
   const { data: connectedStaff, error: staffError } = await admin
     .from('connected_staff')
@@ -85,14 +75,18 @@ export async function GET(request: Request) {
     return loginError(request, 'This GadgetPoint staff account cannot access WorkflowOS.');
   }
 
+  const role = String(connectedStaff.role ?? staff.role ?? 'staff').trim().toLowerCase();
   let email = String(connectedStaff.email ?? staff.email ?? '').trim().toLowerCase();
+
+  if (role === 'owner' && email !== OWNER_EMAIL) {
+    return loginError(request, `WorkflowOS owner access is restricted to ${OWNER_EMAIL}.`);
+  }
 
   if (!email.includes('@')) {
     email = createInternalAuthEmail(externalStaffId, staff.username);
   }
 
   let existingProfile: any = null;
-
   if (connectedStaff.profile_id) {
     const { data: profile } = await admin
       .from('profiles')
@@ -108,17 +102,17 @@ export async function GET(request: Request) {
     if (profile.email?.includes('@')) email = String(profile.email).toLowerCase();
   }
 
-  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-    type: 'magiclink',
-    email,
-  });
+  if (role === 'owner' && email !== OWNER_EMAIL) {
+    return loginError(request, `WorkflowOS owner access is restricted to ${OWNER_EMAIL}.`);
+  }
 
+  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({ type: 'magiclink', email });
   if (linkError || !linkData?.user || !linkData.properties?.hashed_token) {
-    return loginError(request, 'WorkflowOS could not create a secure staff session.');
+    return loginError(request, 'WorkflowOS could not create a secure GadgetPoint session.');
   }
 
   if (existingProfile && linkData.user.id !== existingProfile.id) {
-    return loginError(request, 'The GadgetPoint staff identity is linked to a different WorkflowOS account.');
+    return loginError(request, 'The GadgetPoint identity is linked to a different WorkflowOS account.');
   }
 
   const { data: profileForAuthUser } = await admin
@@ -127,78 +121,56 @@ export async function GET(request: Request) {
     .eq('id', linkData.user.id)
     .maybeSingle();
 
-  if (
-    profileForAuthUser &&
-    profileForAuthUser.organization_id !== event.organization_id
-  ) {
+  if (profileForAuthUser && profileForAuthUser.organization_id !== event.organization_id) {
     return loginError(request, 'This account already belongs to another WorkflowOS workspace.');
   }
 
-  const fullName = String(
-    connectedStaff.full_name ?? staff.full_name ?? staff.username ?? email
-  ).trim();
-  const role = String(connectedStaff.role ?? staff.role ?? 'staff');
+  const fullName = String(connectedStaff.full_name ?? staff.full_name ?? staff.username ?? email).trim();
   const department = connectedStaff.department ?? staff.department ?? null;
 
-  const { error: profileError } = await admin
-    .from('profiles')
-    .upsert(
-      {
-        id: linkData.user.id,
-        organization_id: event.organization_id,
-        full_name: fullName || email.split('@')[0],
-        email,
-        role,
-        department,
-        active: true,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'id' }
-    );
+  const { error: profileError } = await admin.from('profiles').upsert(
+    {
+      id: linkData.user.id,
+      organization_id: event.organization_id,
+      full_name: fullName || email.split('@')[0],
+      email,
+      role,
+      department,
+      active: true,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'id' }
+  );
 
-  if (profileError) {
-    return loginError(request, 'WorkflowOS could not provision this GadgetPoint staff profile.');
-  }
+  if (profileError) return loginError(request, 'WorkflowOS could not provision this GadgetPoint profile.');
 
   await admin
     .from('connected_staff')
-    .update({
-      profile_id: linkData.user.id,
-      last_synced_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
+    .update({ profile_id: linkData.user.id, last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('id', connectedStaff.id);
 
-  await admin
-    .from('shared_identity_links')
-    .upsert(
-      {
-        organization_id: event.organization_id,
-        profile_id: linkData.user.id,
-        integration_id: event.integration_id,
-        external_staff_id: externalStaffId,
-        external_email: staff.external_email ?? null,
-        verified_at: new Date().toISOString(),
-        metadata: {
-          username: staff.username ?? null,
-          identity_source: 'gadgetpoint-staff-login',
-          password_owner: 'gadgetpoint',
-          auth_identity: connectedStaff.email || staff.email ? 'email' : 'internal-shadow-email',
-        },
-        updated_at: new Date().toISOString(),
+  await admin.from('shared_identity_links').upsert(
+    {
+      organization_id: event.organization_id,
+      profile_id: linkData.user.id,
+      integration_id: event.integration_id,
+      external_staff_id: externalStaffId,
+      external_email: staff.external_email ?? null,
+      verified_at: new Date().toISOString(),
+      metadata: {
+        username: staff.username ?? null,
+        identity_source: 'gadgetpoint-staff-login',
+        password_owner: 'gadgetpoint',
+        auth_identity: connectedStaff.email || staff.email ? 'email' : 'internal-shadow-email',
       },
-      { onConflict: 'integration_id,external_staff_id' }
-    );
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'integration_id,external_staff_id' }
+  );
 
   const supabase = await createClient();
-  const { error: verifyError } = await supabase.auth.verifyOtp({
-    token_hash: linkData.properties.hashed_token,
-    type: 'email',
-  });
-
-  if (verifyError) {
-    return loginError(request, 'WorkflowOS could not finish the GadgetPoint staff sign-in.');
-  }
+  const { error: verifyError } = await supabase.auth.verifyOtp({ token_hash: linkData.properties.hashed_token, type: 'email' });
+  if (verifyError) return loginError(request, 'WorkflowOS could not finish the GadgetPoint sign-in.');
 
   const response = NextResponse.redirect(new URL('/dashboard', request.url));
   response.headers.set('Referrer-Policy', 'no-referrer');
