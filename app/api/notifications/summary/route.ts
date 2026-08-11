@@ -33,7 +33,7 @@ export async function GET() {
     followupQuery = followupQuery.eq('assigned_to', user.id);
   }
 
-  const [taskQ, followupQ, approvalQ, bridgeQ] = await Promise.all([
+  const [taskQ, followupQ, approvalQ, bridgeQ, messageQ] = await Promise.all([
     taskQuery,
     followupQuery,
     canManage
@@ -52,6 +52,14 @@ export async function GET() {
           .eq('slug', 'gadgetpoint')
           .maybeSingle()
       : Promise.resolve({ data: null as { id?: string; status?: string } | null }),
+    supabase
+      .from('notifications')
+      .select('id,type')
+      .eq('recipient_id', user.id)
+      .is('read_at', null)
+      .in('type', ['owner_feed', 'owner_private_message'])
+      .order('created_at', { ascending: false })
+      .limit(100),
   ]);
 
   const urgentIds = new Set<string>();
@@ -67,6 +75,10 @@ export async function GET() {
 
   for (const approval of approvalQ.data ?? []) {
     urgentIds.add(`approval:${approval.id}`);
+  }
+
+  for (const notification of messageQ.data ?? []) {
+    urgentIds.add(`message:${notification.id}`);
   }
 
   if (canManage) {
