@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import WorkspaceShell from '@/components/WorkspaceShell';
+import CommandCenterPulse from '@/components/CommandCenterPulse';
 
 const quickLinks = [
   ['Today', '/today', '☀', 'from-amber-400 to-orange-500'],
@@ -58,8 +59,10 @@ export default async function Dashboard() {
   if (!user || !profile) redirect('/login');
 
   const org = profile.organization_id;
+  const now = new Date();
+  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [recQ, campQ, leadQ, taskQ, topQ] = await Promise.all([
+  const [recQ, campQ, leadQ, taskQ, topQ, approvalQ, teamQ, bridgeQ, activityQ] = await Promise.all([
     supabase
       .from('growth_recommendations')
       .select('id', { count: 'exact', head: true })
@@ -79,7 +82,7 @@ export default async function Dashboard() {
       .from('tasks')
       .select('id', { count: 'exact', head: true })
       .eq('organization_id', org)
-      .lt('due_at', new Date().toISOString())
+      .lt('due_at', now.toISOString())
       .not('status', 'in', '("completed","approved","cancelled")'),
     supabase
       .from('growth_recommendations')
@@ -88,6 +91,27 @@ export default async function Dashboard() {
       .eq('status', 'new')
       .order('score', { ascending: false })
       .limit(4),
+    supabase
+      .from('approvals')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', org)
+      .eq('status', 'pending'),
+    supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', org)
+      .eq('active', true),
+    supabase
+      .from('external_integrations')
+      .select('id,status,last_synced_at')
+      .eq('organization_id', org)
+      .eq('slug', 'gadgetpoint')
+      .maybeSingle(),
+    supabase
+      .from('activity_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', org)
+      .gte('created_at', dayAgo),
   ]);
 
   const metrics = [
@@ -97,6 +121,19 @@ export default async function Dashboard() {
     ['Overdue tasks', String(taskQ.count ?? 0), 'Attention'],
   ] as const;
 
+  const bridgeStatus = bridgeQ.data
+    ? ['active', 'connected'].includes(String(bridgeQ.data.status).toLowerCase())
+      ? 'Connected'
+      : 'Setup'
+    : 'Missing';
+
+  const ownerPulse = [
+    { label: 'Pending approvals', value: approvalQ.count ?? 0, href: '/approvals', tone: 'orange' as const },
+    { label: 'Active team', value: teamQ.count ?? 0, href: '/team', tone: 'emerald' as const },
+    { label: 'GadgetPoint bridge', value: bridgeStatus, href: '/integrations', tone: 'cyan' as const },
+    { label: 'Activity · 24h', value: activityQ.count ?? 0, href: '/activity', tone: 'violet' as const },
+  ];
+
   const firstName = profile.full_name?.split(' ')[0] || 'there';
   const dateLabel = new Intl.DateTimeFormat('en-NG', {
     weekday: 'long',
@@ -104,7 +141,7 @@ export default async function Dashboard() {
     month: 'long',
     year: 'numeric',
     timeZone: 'Africa/Lagos',
-  }).format(new Date());
+  }).format(now);
 
   return (
     <WorkspaceShell title="Overview" profile={profile}>
@@ -134,6 +171,8 @@ export default async function Dashboard() {
             </Link>
           </div>
         </section>
+
+        <CommandCenterPulse items={ownerPulse} />
 
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
