@@ -137,7 +137,7 @@ export default function WorkspaceShell({
       .sort((a, b) => b.href.length - a.href.length)[0]?.href ?? '';
 
   const role = profile?.role || 'member';
-  const displayName = role === 'owner' ? 'GADGETPOINT' : profile?.full_name || 'WorkflowOS user';
+  const displayName = profile?.full_name || 'WorkflowOS user';
   const initials = displayName
     .split(' ')
     .map((name) => name.charAt(0))
