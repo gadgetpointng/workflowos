@@ -47,13 +47,7 @@ function ToggleRow({ title, note, checked, disabled = false, onChange }: ToggleR
         <div className="mt-1 text-xs leading-5 text-slate-500">{note}</div>
       </div>
       <span className="relative inline-flex shrink-0 items-center">
-        <input
-          type="checkbox"
-          checked={checked}
-          disabled={disabled}
-          onChange={(event) => onChange(event.target.checked)}
-          className="peer sr-only"
-        />
+        <input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} className="peer sr-only" />
         <span className="h-7 w-12 rounded-full bg-slate-200 shadow-inner transition peer-checked:bg-emerald-500 peer-disabled:bg-slate-100" />
         <span className="absolute left-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-5" />
       </span>
@@ -94,8 +88,34 @@ export default function WorkspacePreferences() {
 
   function testSound() {
     const next = { ...prefs, notificationsEnabled: true, quietMode: false, soundAlerts: true };
-    if (next !== prefs) commit(next);
+    commit(next);
     playWorkflowNotificationSound();
+  }
+
+  function enableImportantAlerts() {
+    commit({
+      ...prefs,
+      notificationsEnabled: true,
+      soundAlerts: true,
+      messageAlerts: true,
+      overdueAlerts: true,
+      approvalAlerts: true,
+      followupAlerts: true,
+      integrationAlerts: true,
+      quietMode: false,
+    });
+  }
+
+  function muteDelivery() {
+    commit({ ...prefs, notificationsEnabled: true, soundAlerts: false, desktopNotifications: false, quietMode: true });
+  }
+
+  function resetPreferences() {
+    commit(defaults);
+    try {
+      localStorage.removeItem('workflowos.sidebar.pins');
+      localStorage.removeItem('workflowos.sidebar.recent');
+    } catch {}
   }
 
   const notificationsOff = !prefs.notificationsEnabled;
@@ -125,12 +145,7 @@ export default function WorkspacePreferences() {
             {saved && <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">Saved ✓</span>}
           </div>
           <div className="mt-5 border-t border-slate-100 pt-4">
-            <ToggleRow
-              title="Allow notifications"
-              note="Master switch for WorkflowOS alerts. Turning this off keeps your data available but stops sounds and desktop popups."
-              checked={prefs.notificationsEnabled}
-              onChange={(checked) => commit({ ...prefs, notificationsEnabled: checked })}
-            />
+            <ToggleRow title="Allow notifications" note="Master switch for WorkflowOS alerts. Turning this off keeps your data available but stops sounds and desktop popups." checked={prefs.notificationsEnabled} onChange={(checked) => commit({ ...prefs, notificationsEnabled: checked })} />
           </div>
         </div>
 
@@ -138,16 +153,7 @@ export default function WorkspacePreferences() {
           <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Delivery</div>
           <div className="divide-y divide-slate-200">
             <ToggleRow title="Sound" note="Play the WorkflowOS chime for a new urgent alert while the app is active." checked={prefs.soundAlerts} disabled={notificationsOff} onChange={(checked) => commit({ ...prefs, soundAlerts: checked })} />
-            <ToggleRow
-              title="Desktop popups"
-              note={permission === 'granted' ? 'Show important WorkflowOS alerts when this browser is in the background.' : permission === 'denied' ? 'Blocked by this browser. Re-enable notifications in your browser site permissions first.' : permission === 'unsupported' ? 'Desktop notifications are not supported by this browser.' : 'Allow this browser to show important WorkflowOS alerts.'}
-              checked={prefs.desktopNotifications && permission === 'granted'}
-              disabled={notificationsOff || permission === 'denied' || permission === 'unsupported'}
-              onChange={(checked) => {
-                if (checked && permission !== 'granted') void enableDesktop();
-                else commit({ ...prefs, desktopNotifications: checked });
-              }}
-            />
+            <ToggleRow title="Desktop popups" note={permission === 'granted' ? 'Show important WorkflowOS alerts when this browser is in the background.' : permission === 'denied' ? 'Blocked by this browser. Re-enable notifications in your browser site permissions first.' : permission === 'unsupported' ? 'Desktop notifications are not supported by this browser.' : 'Allow this browser to show important WorkflowOS alerts.'} checked={prefs.desktopNotifications && permission === 'granted'} disabled={notificationsOff || permission === 'denied' || permission === 'unsupported'} onChange={(checked) => { if (checked && permission !== 'granted') void enableDesktop(); else commit({ ...prefs, desktopNotifications: checked }); }} />
             <ToggleRow title="Quiet mode" note="Keep alerts inside WorkflowOS but mute sound and desktop popups." checked={prefs.quietMode} disabled={notificationsOff} onChange={(checked) => commit({ ...prefs, quietMode: checked })} />
           </div>
 
@@ -160,12 +166,22 @@ export default function WorkspacePreferences() {
             <ToggleRow title="GadgetPoint connection" note="Alert when the GadgetPoint bridge is disconnected or needs attention." checked={prefs.integrationAlerts} disabled={notificationsOff} onChange={(checked) => commit({ ...prefs, integrationAlerts: checked })} />
           </div>
 
-          <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border border-violet-100 bg-violet-50 p-4">
-            <button type="button" onClick={testSound} className="rounded-xl bg-white px-4 py-2.5 text-xs font-black text-violet-800 shadow-sm ring-1 ring-violet-200 transition hover:bg-violet-100">
-              🔔 Test notification sound
-            </button>
-            <div className="text-xs font-semibold text-violet-700">Testing sound temporarily turns notifications and sound on and exits quiet mode.</div>
+          <div className="mt-6 grid gap-2 sm:grid-cols-3">
+            <button type="button" onClick={enableImportantAlerts} className="rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-black text-white transition hover:bg-slate-800">Enable important alerts</button>
+            <button type="button" onClick={muteDelivery} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-700 transition hover:bg-slate-100">Mute delivery</button>
+            <button type="button" onClick={testSound} className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-xs font-black text-violet-800 transition hover:bg-violet-100">🔔 Test sound</button>
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-amber-100 bg-amber-50 p-5 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-700">Reset</div>
+            <h2 className="mt-1 text-lg font-black text-slate-950">Restore app preferences</h2>
+            <p className="mt-1 text-sm text-slate-600">Reset notification choices, smart navigation, pins and recent tools on this browser. This does not delete account or business data.</p>
+          </div>
+          <button type="button" onClick={resetPreferences} className="rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-xs font-black text-amber-800 transition hover:bg-amber-100">Reset preferences</button>
         </div>
       </section>
     </div>
