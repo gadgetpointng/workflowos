@@ -32,4 +32,6 @@ WorkflowOS can capture consented buyer enquiries and public demand signals, scor
 
 ## Live sales loop
 The integration bridge now turns opted-in WhatsApp inquiries into a connected customer/lead, Buyer Intelligence record, product matches against the read-only GadgetPoint catalog mirror, a recommended sales assignee, and a follow-up task. Public marketplace demand is captured as non-contactable Buyer Intelligence until consent exists. Commerce ownership remains in GadgetPoint Admin.
- 
+
+## Storefront demand intelligence
+Anonymous GadgetPoint storefront views, cart additions and meaningful searches are recorded as commerce signals. WorkflowOS aggregates those weak signals over a rolling window and creates or refreshes ranked growth recommendations only after demand crosses a useful threshold. The Opportunity Center remains the human decision point: recommendations can be accepted and converted into tasks without turning ordinary browsing activity into task spam or transferring store administration into WorkflowOS.
