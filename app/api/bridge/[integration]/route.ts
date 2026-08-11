@@ -5,6 +5,7 @@ import { resolveCustomer, refreshCustomerCommerce } from '@/lib/customers';
 import { domainForEvent } from '@/lib/integrations/ownership';
 import { canPublishEvents } from '@/lib/integrations/capabilities';
 import { matchProducts, scoreBuyerIntent } from '@/lib/buyers/intelligence';
+import { evaluateStorefrontSignal } from '@/lib/growth/storefront-intelligence';
 
 
 async function connectedProductsFor(supabase:any, orgId:string) {
@@ -167,6 +168,33 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     result = { signal: data };
+
+    if (event.type !== 'marketplace.demand') {
+      try {
+        const intelligence = await evaluateStorefrontSignal({
+          supabase,
+          organizationId: orgId,
+          source: slug,
+          event,
+          integrationEventId: tracked.eventId,
+        });
+        if (intelligence) result = { ...result, storefront_intelligence: intelligence };
+      } catch (intelligenceError: any) {
+        await supabase.from('activity_logs').insert({
+          organization_id: orgId,
+          actor_id: null,
+          action: 'storefront.intelligence.failed',
+          entity_type: 'integration_event',
+          entity_id: tracked.eventId,
+          metadata: {
+            event_type: event.type,
+            source: slug,
+            error: intelligenceError?.message ?? 'Storefront intelligence failed',
+          },
+        });
+      }
+    }
+
     if (event.type === 'marketplace.demand' && (d.query || d.search_query || d.product_interest)) {
       const input:any = { product_query:d.product_interest ?? d.query ?? d.search_query, category:d.category ?? null, brand:d.brand ?? null, model:d.model ?? null, budget_min:d.budget_min ?? null, budget_max:d.budget_max ?? d.value ?? null, state:d.state ?? null, city:d.city ?? null, urgency:d.urgency ?? 'normal', source:slug, consent_status:'public_signal' };
       const products=await connectedProductsFor(supabase,orgId); const matches=matchProducts(input,products); const score=scoreBuyerIntent(input);
