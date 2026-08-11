@@ -3,9 +3,32 @@ import { requireUser } from '@/lib/auth';
 
 const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
 
+type OwnerControls = {
+  teamFeed: boolean;
+  privateMessages: boolean;
+  readReceipts: boolean;
+  messageRetraction: boolean;
+};
+
 function isOwner(profile: any, user: any) {
   const email = String(profile?.email ?? user?.email ?? '').trim().toLowerCase();
   return profile?.role === 'owner' && email === OWNER_EMAIL;
+}
+
+async function getOwnerControls(supabase: any, organizationId: string): Promise<OwnerControls> {
+  const { data } = await supabase
+    .from('organization_settings')
+    .select('metadata')
+    .eq('organization_id', organizationId)
+    .maybeSingle();
+
+  const stored = data?.metadata?.owner_controls ?? {};
+  return {
+    teamFeed: stored.teamFeed !== false,
+    privateMessages: stored.privateMessages !== false,
+    readReceipts: stored.readReceipts !== false,
+    messageRetraction: stored.messageRetraction !== false,
+  };
 }
 
 export async function POST(request: Request) {
@@ -19,6 +42,14 @@ export async function POST(request: Request) {
   const title = String(body.title ?? '').trim().slice(0, 140);
   const message = String(body.message ?? '').trim().slice(0, 4000);
   const recipientId = String(body.recipientId ?? '').trim();
+  const controls = await getOwnerControls(supabase, profile.organization_id);
+
+  if (mode === 'broadcast' && !controls.teamFeed) {
+    return NextResponse.json({ error: 'Team feed is switched Off in Owner Control' }, { status: 403 });
+  }
+  if (mode === 'private' && !controls.privateMessages) {
+    return NextResponse.json({ error: 'Private staff messages are switched Off in Owner Control' }, { status: 403 });
+  }
 
   if (!title || !message) {
     return NextResponse.json({ error: 'Title and message are required' }, { status: 400 });
@@ -109,6 +140,11 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Owner access required' }, { status: 403 });
   }
 
+  const controls = await getOwnerControls(supabase, profile.organization_id);
+  if (!controls.messageRetraction) {
+    return NextResponse.json({ error: 'Message retraction is switched Off in Owner Control' }, { status: 403 });
+  }
+
   const body = await request.json().catch(() => ({}));
   const actionId = String(body.actionId ?? '').trim();
   if (!actionId) {
@@ -138,7 +174,7 @@ export async function DELETE(request: Request) {
     .maybeSingle();
 
   if (existingRetraction) {
-    return NextResponse.json({ error: 'This send has already been retracted' }, { status: 409 });
+    return NextResponse.json({ error: 'This message has already been retracted' }, { status: 409 });
   }
 
   const ids = Array.isArray(action.metadata?.notification_ids)
