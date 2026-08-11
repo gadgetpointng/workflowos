@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { login } from './actions';
 
+const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -121,16 +123,37 @@ export default async function LoginPage({
                   <div className="h-px flex-1 bg-white/10" />
                 </div>
 
+                <div className="rounded-3xl border border-violet-300/20 bg-violet-400/10 p-4">
+                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-violet-200">Authorized owner identity</div>
+                  <div className="mt-1 text-sm font-black text-white">{OWNER_EMAIL}</div>
+                  <p className="mt-2 text-xs leading-5 text-slate-300">
+                    Sign in to GadgetPoint with ChatGPT using this same email, then continue into WorkflowOS as owner.
+                  </p>
+                  <Link
+                    href="https://gadgetpoint.ng/signin-with-chatgpt?return_to=%2Fadmin%3Fworkflowos%3D1"
+                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 px-4 py-3.5 text-sm font-black text-white shadow-xl shadow-violet-950/30 transition hover:-translate-y-0.5"
+                  >
+                    Owner: Continue with ChatGPT <span>→</span>
+                  </Link>
+                </div>
+
+                <div className="my-5 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-white/10" />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Direct owner fallback</span>
+                  <div className="h-px flex-1 bg-white/10" />
+                </div>
+
                 <form action={login} className="space-y-4">
                   <label className="block">
                     <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-slate-300">Owner email address</span>
                     <input
                       name="email"
                       required
+                      readOnly
                       type="email"
                       autoComplete="email"
-                      placeholder="owner@company.com"
-                      className="w-full rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/60 focus:bg-slate-950/50 focus:ring-4 focus:ring-cyan-400/10"
+                      value={OWNER_EMAIL}
+                      className="w-full cursor-not-allowed rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3.5 text-sm font-bold text-cyan-100 outline-none"
                     />
                   </label>
 
@@ -147,7 +170,7 @@ export default async function LoginPage({
                   </label>
 
                   <button className="group relative w-full overflow-hidden rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5 text-sm font-black text-white transition hover:bg-white/15">
-                    <span className="relative z-10 flex items-center justify-center gap-2">Owner sign in <span className="transition group-hover:translate-x-1">→</span></span>
+                    <span className="relative z-10 flex items-center justify-center gap-2">Owner password sign in <span className="transition group-hover:translate-x-1">→</span></span>
                   </button>
                 </form>
 
