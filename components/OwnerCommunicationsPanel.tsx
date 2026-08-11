@@ -16,7 +16,15 @@ type Action = {
   } | null;
 };
 
-export default function OwnerCommunicationsPanel({ staff, actions }: { staff: Staff[]; actions: Action[] }) {
+export default function OwnerCommunicationsPanel({
+  staff,
+  actions,
+  retractedActionIds,
+}: {
+  staff: Staff[];
+  actions: Action[];
+  retractedActionIds: string[];
+}) {
   const router = useRouter();
   const [mode, setMode] = useState<'broadcast' | 'private'>('broadcast');
   const [recipientId, setRecipientId] = useState(staff[0]?.id ?? '');
@@ -25,6 +33,7 @@ export default function OwnerCommunicationsPanel({ staff, actions }: { staff: St
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
   const [undoing, setUndoing] = useState<string | null>(null);
+  const retracted = new Set(retractedActionIds);
 
   async function send() {
     if (!title.trim() || !message.trim()) return;
@@ -120,16 +129,24 @@ export default function OwnerCommunicationsPanel({ staff, actions }: { staff: St
         <div className="mt-5 space-y-3">
           {actions.map((action) => {
             const names = action.metadata?.recipient_names ?? [];
+            const isRetracted = retracted.has(action.id);
             return (
-              <article key={action.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+              <article key={action.id} className={`rounded-2xl border p-4 ${isRetracted ? 'border-slate-200 bg-slate-100/80 opacity-75' : 'border-slate-100 bg-slate-50/70'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">{action.metadata?.mode === 'private' ? 'Private message' : 'Team feed'}</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">{action.metadata?.mode === 'private' ? 'Private message' : 'Team feed'}</div>
+                      {isRetracted && <span className="rounded-full bg-slate-200 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-slate-600">Retracted</span>}
+                    </div>
                     <div className="mt-1 font-black text-slate-950">{action.metadata?.title || 'Owner message'}</div>
                     <p className="mt-1 line-clamp-2 text-sm text-slate-500">{action.metadata?.message}</p>
                     <div className="mt-2 text-[11px] font-semibold text-slate-400">{names.length ? names.join(', ') : 'Staff'} · {new Date(action.created_at).toLocaleString()}</div>
                   </div>
-                  <button disabled={undoing === action.id} onClick={() => undo(action.id)} className="shrink-0 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 disabled:opacity-50">{undoing === action.id ? 'Undoing…' : 'Undo send'}</button>
+                  {isRetracted ? (
+                    <span className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-500">Undone</span>
+                  ) : (
+                    <button disabled={undoing === action.id} onClick={() => undo(action.id)} className="shrink-0 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 disabled:opacity-50">{undoing === action.id ? 'Undoing…' : 'Undo send'}</button>
+                  )}
                 </div>
               </article>
             );
