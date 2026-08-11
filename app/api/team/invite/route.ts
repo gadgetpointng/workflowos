@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+// Staff identities are provisioned only through the verified GadgetPoint SSO bridge.
 export async function POST() {
   return NextResponse.json(
     {
