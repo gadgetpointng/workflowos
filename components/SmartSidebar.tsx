@@ -17,7 +17,7 @@ type SmartSidebarProps = {
 };
 
 const ownerOnly = new Set([
-  '/approvals','/workload','/availability','/recurring-work','/analytics','/performance','/reports','/ai-proposals','/integrations','/integration-commands','/team','/activity','/settings','/launch-readiness','/branch-radar','/team/pulse',
+  '/owner','/owner-communications','/approvals','/workload','/availability','/recurring-work','/analytics','/performance','/reports','/ai-proposals','/integrations','/integration-commands','/team','/activity','/settings','/launch-readiness','/branch-radar','/team/pulse',
 ]);
 
 function hrefMatches(pathname: string, href: string) {
@@ -26,6 +26,7 @@ function hrefMatches(pathname: string, href: string) {
 
 export default function SmartSidebar({ pathname, open, onClose, navGroups, profile }: SmartSidebarProps) {
   const role = String(profile?.role || 'member').toLowerCase();
+  const isOwner = role === 'owner';
   const canManage = ['owner', 'admin', 'manager'].includes(role);
   const displayName = profile?.full_name || 'WorkflowOS user';
   const initials = displayName.split(' ').map((part) => part.charAt(0)).join('').slice(0, 2).toUpperCase();
@@ -68,11 +69,19 @@ export default function SmartSidebar({ pathname, open, onClose, navGroups, profi
     if (activeGroup) setExpanded((current) => (current.includes(activeGroup) ? current : [activeGroup]));
   }, [activeGroup, activeItem?.href]);
 
-  const focusHrefs = canManage
-    ? ['/dashboard', '/notifications', '/briefing', '/revenue-rescue', '/approvals']
-    : ['/today', '/notifications', '/my-work', '/tasks', '/follow-up-sla'];
+  const focusHrefs = isOwner
+    ? ['/owner', '/owner-communications', '/notifications', '/briefing', '/revenue-rescue']
+    : canManage
+      ? ['/dashboard', '/notifications', '/briefing', '/revenue-rescue', '/approvals']
+      : ['/today', '/notifications', '/my-work', '/tasks', '/follow-up-sla'];
 
   const specialItems: NavItem[] = [
+    ...(isOwner
+      ? [
+          { label: 'Owner Control', href: '/owner', icon: '◆' },
+          { label: 'Owner Communications', href: '/owner-communications', icon: '✦' },
+        ]
+      : []),
     { label: 'Notifications', href: '/notifications', icon: '●' },
     { label: 'Daily Briefing', href: '/briefing', icon: '☀' },
     { label: 'Revenue Rescue', href: '/revenue-rescue', icon: '₦' },
@@ -85,7 +94,7 @@ export default function SmartSidebar({ pathname, open, onClose, navGroups, profi
   const focusItems = focusHrefs.map((href) => itemMap.get(href)).filter(Boolean) as NavItem[];
   const recentItems = recent.map((href) => itemMap.get(href)).filter(Boolean) as NavItem[];
   const pinnedItems = pins.map((href) => itemMap.get(href)).filter(Boolean) as NavItem[];
-  const searchResults = query.trim() ? [...allItems, ...specialItems].filter((item, index, list) => list.findIndex((candidate) => candidate.href === item.href) === index).filter((item) => (canManage || !ownerOnly.has(item.href)) && item.label.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 10) : [];
+  const searchResults = query.trim() ? [...allItems, ...specialItems].filter((item, index, list) => list.findIndex((candidate) => candidate.href === item.href) === index).filter((item) => (canManage || !ownerOnly.has(item.href)) && (!ownerOnly.has(item.href) || isOwner) && item.label.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 10) : [];
 
   function togglePin(href: string) {
     setPins((current) => {
@@ -120,7 +129,7 @@ export default function SmartSidebar({ pathname, open, onClose, navGroups, profi
       <div className="border-b border-white/10 p-3">
         <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.07] p-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-600 text-sm font-black shadow-lg shadow-blue-950/40">WO</div>
-          <div className="min-w-0 flex-1"><div className="truncate text-sm font-black">WorkflowOS</div><div className="mt-0.5 truncate text-[11px] font-semibold text-cyan-100/75">{canManage ? 'Owner command center' : 'My operating workspace'}</div></div>
+          <div className="min-w-0 flex-1"><div className="truncate text-sm font-black">WorkflowOS</div><div className="mt-0.5 truncate text-[11px] font-semibold text-cyan-100/75">{isOwner ? 'Owner command center' : canManage ? 'Management workspace' : 'My operating workspace'}</div></div>
           <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-slate-300 hover:bg-white/10 lg:hidden">×</button>
         </div>
         <div className="relative mt-3"><span className="pointer-events-none absolute left-3 top-2.5 text-xs text-slate-400">⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find anything…" className="w-full rounded-xl border border-white/10 bg-white/[0.07] py-2.5 pl-8 pr-3 text-xs font-semibold text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/40 focus:bg-white/10" /></div>
@@ -142,7 +151,7 @@ export default function SmartSidebar({ pathname, open, onClose, navGroups, profi
       </nav>
 
       <div className="border-t border-white/10 p-3">
-        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.07] p-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-pink-500 text-xs font-black">{initials}</div><div className="min-w-0 flex-1"><div className="truncate text-xs font-bold">{displayName}</div><div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-semibold capitalize text-slate-300"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />{role}</div></div><Link href="/notifications" onClick={onClose} className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Notifications">●</Link>{canManage && <Link href="/settings" onClick={onClose} className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Settings">⚙</Link>}</div>
+        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.07] p-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-pink-500 text-xs font-black">{initials}</div><div className="min-w-0 flex-1"><div className="truncate text-xs font-bold">{displayName}</div><div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-semibold capitalize text-slate-300"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />{role}</div></div>{isOwner && <Link href="/owner" onClick={onClose} className="rounded-lg p-2 text-cyan-300 transition hover:bg-white/10 hover:text-white" title="Owner Control">◆</Link>}<Link href="/notifications" onClick={onClose} className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Notifications">●</Link>{canManage && <Link href="/settings" onClick={onClose} className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white" title="Settings">⚙</Link>}</div>
         <form action={logout} className="mt-2"><button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.07] px-3 py-2.5 text-xs font-bold text-slate-100 transition hover:bg-white/15 hover:text-white">↪ Log out</button></form>
       </div>
     </aside>
