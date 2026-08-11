@@ -22,17 +22,9 @@ export default function CommandCenterPulse({ items }: { items: PulseItem[] }) {
           <div className="text-[10px] font-black uppercase tracking-[0.17em] text-cyan-600">Command center</div>
           <h2 className="mt-1 text-lg font-black text-slate-950">Owner pulse</h2>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link href="/revenue-rescue" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800 transition hover:bg-emerald-100">
-            Revenue rescue
-          </Link>
-          <Link href="/team/pulse" className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-black text-violet-800 transition hover:bg-violet-100">
-            Team pulse
-          </Link>
-          <Link href="/briefing" className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white transition hover:bg-slate-800">
-            Daily briefing →
-          </Link>
-        </div>
+        <Link href="/briefing" className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white transition hover:bg-slate-800">
+          Daily briefing →
+        </Link>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -52,9 +44,24 @@ export default function CommandCenterPulse({ items }: { items: PulseItem[] }) {
         })}
       </div>
 
-      <div className="mt-4 border-t border-slate-100 pt-4">
+      <div className="mt-4 grid gap-2 border-t border-slate-100 pt-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Link href="/revenue-rescue" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-center text-xs font-black text-emerald-800 transition hover:bg-emerald-100">
+          Revenue rescue
+        </Link>
+        <Link href="/follow-up-sla" className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 text-center text-xs font-black text-orange-800 transition hover:bg-orange-100">
+          Follow-up SLA
+        </Link>
+        <Link href="/team/pulse" className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 text-center text-xs font-black text-violet-800 transition hover:bg-violet-100">
+          Team pulse
+        </Link>
+        <Link href="/branch-radar" className="rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2.5 text-center text-xs font-black text-cyan-800 transition hover:bg-cyan-100">
+          Branch radar
+        </Link>
+      </div>
+
+      <div className="mt-3 text-right">
         <Link href="/activity" className="text-xs font-bold text-slate-500 hover:text-slate-950">
-          View full activity trail →
+          Full activity trail →
         </Link>
       </div>
     </section>
