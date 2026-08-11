@@ -122,17 +122,21 @@ export async function GET(request: Request) {
     .eq('role', 'owner')
     .neq('id', data.user.id);
 
-  await admin.from('activity_logs').insert({
-    organization_id: organizationId,
-    actor_id: data.user.id,
-    action: 'owner.email_identity.verified',
-    entity_type: 'profile',
-    entity_id: data.user.id,
-    metadata: {
-      email: OWNER_EMAIL,
-      identity_source: 'workflowos-owner-email-link',
-    },
-  }).catch(() => null);
+  try {
+    await admin.from('activity_logs').insert({
+      organization_id: organizationId,
+      actor_id: data.user.id,
+      action: 'owner.email_identity.verified',
+      entity_type: 'profile',
+      entity_id: data.user.id,
+      metadata: {
+        email: OWNER_EMAIL,
+        identity_source: 'workflowos-owner-email-link',
+      },
+    });
+  } catch {
+    // Audit logging must not block a valid verified owner sign-in.
+  }
 
   const response = NextResponse.redirect(new URL('/dashboard', request.url));
   response.headers.set('Referrer-Policy', 'no-referrer');
