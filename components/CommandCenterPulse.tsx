@@ -22,9 +22,14 @@ export default function CommandCenterPulse({ items }: { items: PulseItem[] }) {
           <div className="text-[10px] font-black uppercase tracking-[0.17em] text-cyan-600">Command center</div>
           <h2 className="mt-1 text-lg font-black text-slate-950">Owner pulse</h2>
         </div>
-        <Link href="/activity" className="text-xs font-bold text-slate-500 hover:text-slate-950">
-          Activity →
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/activity" className="text-xs font-bold text-slate-500 hover:text-slate-950">
+            Activity
+          </Link>
+          <Link href="/briefing" className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white transition hover:bg-slate-800">
+            Daily briefing →
+          </Link>
+        </div>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
