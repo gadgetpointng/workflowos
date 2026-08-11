@@ -1,3 +1,4 @@
+import './tailwind-v4.css';
 import './globals.css';
 import './workflow-theme.css';
 import type { Metadata, Viewport } from 'next';
