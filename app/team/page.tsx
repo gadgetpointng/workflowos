@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import CapabilityManager from '@/components/CapabilityManager';
 import WorkspaceShell from '@/components/WorkspaceShell';
-import TeamInvite from '@/components/TeamInvite';
 
 const avatarGradients = [
   'from-violet-500 to-fuchsia-500',
@@ -41,11 +40,13 @@ export default async function Team() {
           </div>
         </section>
 
-        {['owner', 'admin', 'manager'].includes(profile.role) && (
-          <section className="rounded-[28px] border border-white/80 bg-white/90 p-5 shadow-sm sm:p-6">
-            <TeamInvite />
-          </section>
-        )}
+        <section className="rounded-[28px] border border-cyan-100 bg-gradient-to-br from-cyan-50 to-violet-50 p-5 shadow-sm sm:p-6">
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-700">Access controlled by GadgetPoint</div>
+          <h2 className="mt-2 text-lg font-black text-slate-950">Staff accounts are created in GadgetPoint Admin</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            WorkflowOS does not create staff logins. The GadgetPoint owner creates the staff username, password, branch and access permissions in GadgetPoint Admin. Verified staff are linked to WorkflowOS when they use the GadgetPoint WorkflowOS sign-in flow.
+          </p>
+        </section>
 
         <section className="rounded-[28px] border border-white/80 bg-white/90 p-5 shadow-sm sm:p-6">
           <CapabilityManager people={(people ?? []) as any} />
