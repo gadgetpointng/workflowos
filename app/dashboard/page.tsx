@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import WorkspaceShell from '@/components/WorkspaceShell';
 
-// Owner-facing UI uses the GadgetPoint business identity instead of a personal profile label.
 const quickLinks = [
   ['Today', '/today', '☀', 'from-amber-400 to-orange-500'],
   ['Tasks', '/tasks', '✓', 'from-emerald-400 to-teal-500'],
@@ -98,7 +97,7 @@ export default async function Dashboard() {
     ['Overdue tasks', String(taskQ.count ?? 0), 'Attention'],
   ] as const;
 
-  const firstName = profile.role === 'owner' ? 'GADGETPOINT' : profile.full_name?.split(' ')[0] || 'there';
+  const firstName = profile.full_name?.split(' ')[0] || 'there';
   const dateLabel = new Intl.DateTimeFormat('en-NG', {
     weekday: 'long',
     day: 'numeric',
