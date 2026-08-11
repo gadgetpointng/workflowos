@@ -15,22 +15,22 @@ const policyRows: { key: PolicyKey; title: string; note: string }[] = [
   {
     key: 'teamFeed',
     title: 'Team feed',
-    note: 'Yes allows the owner to broadcast one message to all active staff. No disables team-wide sending.',
+    note: 'Allow the owner to broadcast one message to every active staff member.',
   },
   {
     key: 'privateMessages',
     title: 'Private staff messages',
-    note: 'Yes allows direct owner-to-staff messages. No disables private sending.',
+    note: 'Allow direct one-to-one messages from the owner to a selected staff member.',
   },
   {
     key: 'readReceipts',
     title: 'Message read receipts',
-    note: 'Yes shows who has read owner messages and who is still pending. No hides read tracking.',
+    note: 'Show which staff have read an owner message and who is still pending.',
   },
   {
     key: 'messageRetraction',
     title: 'Message retraction',
-    note: 'Yes allows the owner to retract a sent notification. No removes the retract action from owner controls.',
+    note: 'Allow the owner to retract a previously sent notification when needed.',
   },
 ];
 
@@ -53,7 +53,7 @@ export default function OwnerPolicyControls({ initialPolicies }: { initialPolici
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Could not save control');
-      setStatus(`${enabled ? 'Yes' : 'No'} saved.`);
+      setStatus(`${enabled ? 'On' : 'Off'} saved`);
     } catch (error) {
       setPolicies((current) => ({ ...current, [key]: previous }));
       setStatus(error instanceof Error ? error.message : 'Could not save control');
@@ -63,30 +63,30 @@ export default function OwnerPolicyControls({ initialPolicies }: { initialPolici
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
+    <section className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4 px-1 pb-4">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Owner yes / no controls</div>
-          <h2 className="mt-1 text-xl font-extrabold tracking-tight text-slate-950">Turn business controls on or off</h2>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">Use these like iPhone switches. Green means Yes / On. Grey means No / Off. Changes apply to the organization, not only this browser.</p>
+          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Owner controls</div>
+          <h2 className="mt-1 text-xl font-extrabold tracking-tight text-slate-950">Yes / No business options</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">Each option has its own space, like iPhone Settings. Green is On / Yes. Grey is Off / No.</p>
         </div>
-        {status && <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">{status}</span>}
+        {status && <span className="rounded-full border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm">{status}</span>}
       </div>
 
-      <div className="divide-y divide-slate-200 px-5 sm:px-6">
+      <div className="grid gap-3">
         {policyRows.map((row) => {
           const checked = policies[row.key];
           const busy = saving === row.key;
           return (
-            <div key={row.key} className="flex items-center gap-4 py-4">
+            <div key={row.key} className="flex min-h-[92px] items-center gap-5 rounded-[18px] border border-slate-200 bg-slate-50/70 px-4 py-4 sm:px-5">
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="text-sm font-extrabold text-slate-900">{row.title}</div>
-                  <span className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${checked ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <div className="text-[15px] font-extrabold text-slate-950">{row.title}</div>
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${checked ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
                     {checked ? 'Yes · On' : 'No · Off'}
                   </span>
                 </div>
-                <div className="mt-1 text-xs leading-5 text-slate-500">{row.note}</div>
+                <div className="mt-1.5 max-w-2xl text-xs leading-5 text-slate-500">{row.note}</div>
               </div>
 
               <button
@@ -96,9 +96,9 @@ export default function OwnerPolicyControls({ initialPolicies }: { initialPolici
                 aria-label={`${row.title}: ${checked ? 'Yes' : 'No'}`}
                 disabled={busy}
                 onClick={() => toggle(row.key, !checked)}
-                className={`relative h-8 w-14 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:opacity-60 ${checked ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                className={`ios-switch relative h-[34px] w-[58px] shrink-0 rounded-full border transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-wait disabled:opacity-60 ${checked ? 'border-emerald-500 bg-emerald-500 shadow-[inset_0_0_0_1px_rgba(255,255,255,.14)]' : 'border-slate-300 bg-slate-300 shadow-inner'}`}
               >
-                <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-7' : 'translate-x-1'}`} />
+                <span className={`absolute top-[2px] h-[28px] w-[28px] rounded-full bg-white shadow-[0_2px_6px_rgba(15,23,42,.25)] transition-transform duration-200 ${checked ? 'translate-x-[27px]' : 'translate-x-[2px]'}`} />
               </button>
             </div>
           );
