@@ -12,7 +12,7 @@ export default async function OwnerCommunicationsPage() {
   const email = String(profile.email ?? user.email ?? '').trim().toLowerCase();
   if (profile.role !== 'owner' || email !== OWNER_EMAIL) redirect('/dashboard');
 
-  const [{ data: staff }, { data: actions }] = await Promise.all([
+  const [{ data: staff }, { data: actions }, { data: retractions }] = await Promise.all([
     supabase
       .from('profiles')
       .select('id,full_name,email,role,department,active')
@@ -28,7 +28,19 @@ export default async function OwnerCommunicationsPage() {
       .eq('action', 'owner.communication.sent')
       .order('created_at', { ascending: false })
       .limit(30),
+    supabase
+      .from('activity_logs')
+      .select('id,metadata')
+      .eq('organization_id', profile.organization_id)
+      .eq('actor_id', user.id)
+      .eq('action', 'owner.communication.retracted')
+      .order('created_at', { ascending: false })
+      .limit(100),
   ]);
+
+  const retractedActionIds = (retractions ?? [])
+    .map((item: any) => String(item.metadata?.original_action_id ?? ''))
+    .filter(Boolean);
 
   return (
     <WorkspaceShell title="Owner Communications" subtitle="Broadcast, private messaging and reversible owner sends" profile={profile}>
@@ -45,7 +57,7 @@ export default async function OwnerCommunicationsPage() {
           </div>
         </section>
 
-        <OwnerCommunicationsPanel staff={staff ?? []} actions={actions ?? []} />
+        <OwnerCommunicationsPanel staff={staff ?? []} actions={actions ?? []} retractedActionIds={retractedActionIds} />
       </div>
     </WorkspaceShell>
   );
