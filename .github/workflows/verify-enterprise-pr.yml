@@ -1,15 +1,13 @@
-name: Verify enterprise PR
+name: Verify enterprise branch
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
-    paths-ignore:
-      - 'docs/**'
+      - enterprise-banking-ui
   workflow_dispatch:
 
 concurrency:
-  group: verify-enterprise-${{ github.event.pull_request.number || github.ref }}
+  group: verify-enterprise-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
