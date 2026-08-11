@@ -14,6 +14,13 @@ const ownerActions = [
     icon: '✦',
   },
   {
+    title: 'Daily briefing',
+    description: 'See overdue work, approvals, hot leads, campaigns and the strongest next moves.',
+    href: '/briefing',
+    cta: 'Open briefing',
+    icon: '☀',
+  },
+  {
     title: 'Inbox',
     description: 'Review staff conversations and owner messages from one place.',
     href: '/inbox',
@@ -35,6 +42,41 @@ const ownerActions = [
     icon: '✓',
   },
   {
+    title: 'Approvals',
+    description: 'Review sensitive requests and decisions waiting for management attention.',
+    href: '/approvals',
+    cta: 'Review approvals',
+    icon: '◇',
+  },
+  {
+    title: 'Revenue rescue',
+    description: 'Recover high-value open leads before sales conversations go cold.',
+    href: '/revenue-rescue',
+    cta: 'Rescue revenue',
+    icon: '₦',
+  },
+  {
+    title: 'Follow-up SLA',
+    description: 'Track overdue and upcoming customer follow-ups and close the loop quickly.',
+    href: '/follow-up-sla',
+    cta: 'Open follow-ups',
+    icon: '⏱',
+  },
+  {
+    title: 'Team Pulse',
+    description: 'See staff workload, overdue work, urgent tasks and submitted work at a glance.',
+    href: '/team/pulse',
+    cta: 'View team pulse',
+    icon: '♙',
+  },
+  {
+    title: 'Branch Radar',
+    description: 'Compare branch workload, overdue pressure and open sales pipeline.',
+    href: '/branch-radar',
+    cta: 'Compare branches',
+    icon: '⌁',
+  },
+  {
     title: 'Team',
     description: 'Review active staff, roles and operating coverage.',
     href: '/team',
@@ -42,11 +84,25 @@ const ownerActions = [
     icon: '♙',
   },
   {
+    title: 'GadgetPoint bridge',
+    description: 'Check integration health and the connection between WorkflowOS and GadgetPoint.',
+    href: '/integrations',
+    cta: 'Open integrations',
+    icon: '↗',
+  },
+  {
     title: 'Audit activity',
     description: 'Track owner sends, reversals and important workspace actions.',
     href: '/activity',
     cta: 'View audit trail',
     icon: '◌',
+  },
+  {
+    title: 'Settings',
+    description: 'Control sound alerts, desktop notifications, smart navigation and workspace preferences.',
+    href: '/settings',
+    cta: 'Open settings',
+    icon: '⚙',
   },
 ] as const;
 
@@ -67,12 +123,15 @@ export default async function OwnerPage() {
             <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">Owner command center</div>
             <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Run WorkflowOS from one control surface</h1>
             <p className="mt-3 text-sm leading-6 text-slate-300">
-              Every control below opens a real WorkflowOS workspace. Communications remains reversible through the owner audit trail.
+              Every control below opens a live WorkflowOS workspace. Communications remains reversible through the owner audit trail.
             </p>
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
             <Link href="/owner-communications" className="rounded-xl bg-white px-4 py-2.5 text-xs font-black text-slate-950 transition hover:bg-cyan-50">
               Send team message
+            </Link>
+            <Link href="/briefing" className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-black text-white transition hover:bg-white/15">
+              Daily briefing
             </Link>
             <Link href="/notifications" className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-black text-white transition hover:bg-white/15">
               Open notifications
@@ -104,9 +163,14 @@ export default async function OwnerPage() {
             <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">Verified owner session</div>
             <div className="mt-1 text-sm font-black text-slate-950">{OWNER_EMAIL}</div>
           </div>
-          <Link href="/settings" className="rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-black text-emerald-800 transition hover:bg-emerald-100">
-            Open settings
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/activity" className="rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-black text-emerald-800 transition hover:bg-emerald-100">
+              Audit activity
+            </Link>
+            <Link href="/settings" className="rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-black text-emerald-800 transition hover:bg-emerald-100">
+              Open settings
+            </Link>
+          </div>
         </section>
       </div>
     </WorkspaceShell>
