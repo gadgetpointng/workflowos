@@ -99,6 +99,40 @@ export async function login(formData: FormData) {
   redirect('/dashboard');
 }
 
+export async function sendOwnerEmailLink() {
+  const supabase = await createClient();
+  const appUrl = (
+    process.env.NEXT_PUBLIC_APP_URL || 'https://workflowos-nine.vercel.app'
+  ).replace(/\/$/, '');
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email: OWNER_EMAIL,
+    options: {
+      shouldCreateUser: true,
+      emailRedirectTo: `${appUrl}/auth/owner-email`,
+      data: {
+        identity_source: 'workflowos-owner-email-link',
+      },
+    },
+  });
+
+  if (error) {
+    redirect(
+      '/login?error=' +
+        encodeURIComponent(
+          error.message || 'Could not send the secure owner sign-in link.'
+        )
+    );
+  }
+
+  redirect(
+    '/login?message=' +
+      encodeURIComponent(
+        `A secure sign-in link was sent to ${OWNER_EMAIL}. Open that email to continue into WorkflowOS.`
+      )
+  );
+}
+
 export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();
