@@ -2,13 +2,20 @@ import './tailwind-v4.css';
 import './globals.css';
 import './workflow-theme.css';
 import type { Metadata, Viewport } from 'next';
+import { Inter } from 'next/font/google';
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-workflow',
+});
 
 export const metadata: Metadata = {
   title: { default: 'WorkflowOS', template: '%s · WorkflowOS' },
   description: 'Business execution, growth, marketplace and integration operating system.',
   applicationName: 'WorkflowOS',
   manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, title: 'WorkflowOS', statusBarStyle: 'black-translucent' },
+  appleWebApp: { capable: true, title: 'WorkflowOS', statusBarStyle: 'default' },
   formatDetection: { telephone: false }
 };
 
@@ -16,13 +23,13 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#111827'
+  themeColor: '#102a43'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={inter.variable}>{children}</body>
     </html>
   );
 }

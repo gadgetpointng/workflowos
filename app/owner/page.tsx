@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import WorkspaceShell from '@/components/WorkspaceShell';
+import OwnerPolicyControls from '@/components/OwnerPolicyControls';
 import { requireUser } from '@/lib/auth';
 
 const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
@@ -8,7 +9,7 @@ const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
 const ownerActions = [
   {
     title: 'Team communications',
-    description: 'Send a feed to all staff, message one person privately, and undo recent sends.',
+    description: 'Send a team feed, message one staff member privately, track delivery, and retract a sent notification when allowed.',
     href: '/owner-communications',
     cta: 'Open communications',
     icon: '✦',
@@ -92,14 +93,14 @@ const ownerActions = [
   },
   {
     title: 'Audit activity',
-    description: 'Track owner sends, reversals and important workspace actions.',
+    description: 'Track policy changes, owner messages, retractions and important workspace actions.',
     href: '/activity',
     cta: 'View audit trail',
     icon: '◌',
   },
   {
     title: 'Settings',
-    description: 'Control sound alerts, desktop notifications, smart navigation and workspace preferences.',
+    description: 'Control personal alerts, navigation and workspace preferences.',
     href: '/settings',
     cta: 'Open settings',
     icon: '⚙',
@@ -107,7 +108,7 @@ const ownerActions = [
 ] as const;
 
 export default async function OwnerPage() {
-  const { user, profile } = await requireUser();
+  const { supabase, user, profile } = await requireUser();
   if (!user || !profile) redirect('/login');
 
   const email = String(profile.email ?? user.email ?? '').trim().toLowerCase();
@@ -115,61 +116,59 @@ export default async function OwnerPage() {
     redirect('/dashboard');
   }
 
+  const { data: settings } = await supabase
+    .from('organization_settings')
+    .select('metadata')
+    .eq('organization_id', profile.organization_id)
+    .maybeSingle();
+
+  const stored = settings?.metadata?.owner_controls ?? {};
+  const initialPolicies = {
+    teamFeed: stored.teamFeed !== false,
+    privateMessages: stored.privateMessages !== false,
+    readReceipts: stored.readReceipts !== false,
+    messageRetraction: stored.messageRetraction !== false,
+  };
+
   return (
-    <WorkspaceShell title="Owner Control" subtitle="Direct access to owner actions" profile={profile}>
+    <WorkspaceShell title="Owner Control" subtitle="Business controls and owner actions" profile={profile}>
       <div className="space-y-6">
-        <section className="overflow-hidden rounded-[30px] border border-violet-100 bg-gradient-to-br from-violet-950 via-slate-950 to-cyan-950 p-6 text-white shadow-xl sm:p-8">
-          <div className="max-w-3xl">
-            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">Owner command center</div>
-            <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Run WorkflowOS from one control surface</h1>
-            <p className="mt-3 text-sm leading-6 text-slate-300">
-              Every control below opens a live WorkflowOS workspace. Communications remains reversible through the owner audit trail.
-            </p>
-          </div>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Link href="/owner-communications" className="rounded-xl bg-white px-4 py-2.5 text-xs font-black text-slate-950 transition hover:bg-cyan-50">
-              Send team message
-            </Link>
-            <Link href="/briefing" className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-black text-white transition hover:bg-white/15">
-              Daily briefing
-            </Link>
-            <Link href="/notifications" className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-black text-white transition hover:bg-white/15">
-              Open notifications
-            </Link>
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex flex-wrap items-end justify-between gap-5">
+            <div className="max-w-3xl">
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Owner command center</div>
+              <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">Control WorkflowOS from one place</h1>
+              <p className="mt-3 text-sm leading-6 text-slate-600">Use Yes / No switches for business controls. Use normal action buttons for work such as sending, assigning, approving or retracting a message.</p>
+            </div>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <div className="text-[10px] font-black uppercase tracking-wide text-emerald-700">Verified owner</div>
+              <div className="mt-1 text-xs font-bold text-slate-900">{OWNER_EMAIL}</div>
+            </div>
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {ownerActions.map((action) => (
-            <Link
-              key={action.href}
-              href={action.href}
-              className="group rounded-[24px] border border-white/80 bg-white/90 p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-md"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-lg font-black text-white">
-                  {action.icon}
+        <OwnerPolicyControls initialPolicies={initialPolicies} />
+
+        <section>
+          <div className="mb-3">
+            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Owner workspaces</div>
+            <h2 className="mt-1 text-xl font-extrabold text-slate-950">Actions & oversight</h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {ownerActions.map((action) => (
+              <Link
+                key={action.href}
+                href={action.href}
+                className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow-md"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-sm font-black text-white">{action.icon}</div>
+                  <span className="text-xs font-bold text-blue-700">{action.cta} →</span>
                 </div>
-                <span className="text-xs font-black text-cyan-700 transition group-hover:translate-x-0.5">{action.cta} →</span>
-              </div>
-              <h2 className="mt-5 text-lg font-black text-slate-950">{action.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">{action.description}</p>
-            </Link>
-          ))}
-        </section>
-
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4">
-          <div>
-            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">Verified owner session</div>
-            <div className="mt-1 text-sm font-black text-slate-950">{OWNER_EMAIL}</div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/activity" className="rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-black text-emerald-800 transition hover:bg-emerald-100">
-              Audit activity
-            </Link>
-            <Link href="/settings" className="rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-black text-emerald-800 transition hover:bg-emerald-100">
-              Open settings
-            </Link>
+                <h3 className="mt-4 text-base font-extrabold text-slate-950">{action.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-500">{action.description}</p>
+              </Link>
+            ))}
           </div>
         </section>
       </div>

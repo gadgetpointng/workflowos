@@ -8,21 +8,21 @@ type PulseItem = {
 };
 
 const tones = {
-  cyan: 'from-cyan-500 to-blue-500',
-  violet: 'from-violet-500 to-fuchsia-500',
-  emerald: 'from-emerald-400 to-teal-500',
-  orange: 'from-orange-400 to-rose-500',
+  cyan: { bar: 'bg-[#2563a9]', text: 'text-[#2563a9]', soft: 'bg-[#edf3f8]' },
+  violet: { bar: 'bg-[#52738f]', text: 'text-[#52738f]', soft: 'bg-[#f1f5f8]' },
+  emerald: { bar: 'bg-[#157347]', text: 'text-[#157347]', soft: 'bg-[#edf7f2]' },
+  orange: { bar: 'bg-[#946200]', text: 'text-[#946200]', soft: 'bg-[#fff5dc]' },
 } as const;
 
 export default function CommandCenterPulse({ items }: { items: PulseItem[] }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="rounded-[16px] border border-[#dfe5eb] bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.17em] text-cyan-600">Command center</div>
-          <h2 className="mt-1 text-lg font-black text-slate-950">Owner pulse</h2>
+          <div className="text-[10px] font-bold uppercase tracking-[0.11em] text-[#52738f]">Management overview</div>
+          <h2 className="mt-1 text-lg font-bold text-[#172b3a]">Operating pulse</h2>
         </div>
-        <Link href="/activity" className="text-xs font-bold text-slate-500 hover:text-slate-950">
+        <Link href="/activity" className="text-xs font-semibold text-[#5f6f7f] hover:text-[#172b3a]">
           Activity →
         </Link>
       </div>
@@ -30,15 +30,21 @@ export default function CommandCenterPulse({ items }: { items: PulseItem[] }) {
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {items.map((item, index) => {
           const tone = item.tone ?? (['cyan', 'violet', 'emerald', 'orange'] as const)[index % 4];
+          const style = tones[tone];
           return (
             <Link
               key={item.label}
               href={item.href}
-              className="group rounded-xl border border-slate-100 bg-slate-50/70 p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
+              className="group relative overflow-hidden rounded-xl border border-[#e2e7ec] bg-[#fafbfc] p-4 transition hover:border-[#c8d2db] hover:bg-white"
             >
-              <div className={`h-1.5 w-10 rounded-full bg-gradient-to-r ${tones[tone]}`} />
-              <div className="mt-4 text-3xl font-black tracking-tight text-slate-950">{item.value}</div>
-              <div className="mt-1 text-xs font-bold text-slate-500 group-hover:text-slate-900">{item.label}</div>
+              <div className={`absolute inset-y-0 left-0 w-[3px] ${style.bar}`} />
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-2xl font-bold tabular-nums tracking-[-0.025em] text-[#172b3a]">{item.value}</div>
+                  <div className="mt-1 text-xs font-semibold text-[#657686] group-hover:text-[#32485b]">{item.label}</div>
+                </div>
+                <span className={`mt-1 h-2 w-2 rounded-full ${style.bar}`} />
+              </div>
             </Link>
           );
         })}
