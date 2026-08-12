@@ -80,7 +80,7 @@ export default async function Team({
                 <div className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">Owner access</div>
                 <h2 className="mt-2 text-xl font-black text-slate-950">Add or reset staff login</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Create the username and password once here. WorkflowOS stores the password securely through authentication; it is never displayed in the staff directory.
+                  Create the username and four-word password once here. Each word must be at least 3 characters. WorkflowOS stores the password securely through authentication; it is never displayed in the staff directory.
                 </p>
                 <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-800">
                   Owner verified as <strong>{WORKFLOWOS_OWNER_EMAIL}</strong>.
@@ -102,16 +102,17 @@ export default async function Team({
                   />
                 </label>
                 <label className="block">
-                  <span className="text-xs font-black text-slate-700">Password</span>
+                  <span className="text-xs font-black text-slate-700">4-word password</span>
                   <input
                     name="password"
                     type="password"
                     required
-                    minLength={8}
+                    minLength={15}
                     autoComplete="new-password"
                     className="mt-1.5 min-h-[46px] w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm outline-none focus:border-blue-500"
-                    placeholder="At least 8 characters"
+                    placeholder="mango river copper lamp"
                   />
+                  <span className="mt-1.5 block text-[11px] font-medium text-slate-500">Exactly 4 words, at least 3 characters per word.</span>
                 </label>
                 <label className="block">
                   <span className="text-xs font-black text-slate-700">Full name</span>
