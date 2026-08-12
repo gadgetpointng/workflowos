@@ -16,6 +16,7 @@ const navGroups: NavGroup[] = [
     items: [
       { label: 'Overview', href: '/dashboard', icon: '⌂' },
       { label: 'Today', href: '/today', icon: '☀' },
+      { label: 'Daily Briefing', href: '/briefing', icon: '☀' },
       { label: 'Tasks', href: '/tasks', icon: '✓' },
       { label: 'Inbox', href: '/inbox', icon: '◎' },
       { label: 'Notifications', href: '/notifications', icon: '●' },
@@ -29,14 +30,17 @@ const navGroups: NavGroup[] = [
       { label: 'Leads', href: '/leads', icon: '◎' },
       { label: 'Campaigns', href: '/campaigns', icon: '☆' },
       { label: 'Sales', href: '/sales', icon: '₦' },
+      { label: 'Revenue Rescue', href: '/revenue-rescue', icon: '₦' },
     ],
   },
   {
     label: 'Management',
     items: [
       { label: 'Owner Control', href: '/owner', icon: '◆' },
+      { label: 'Owner Communications', href: '/owner-communications', icon: '✦' },
       { label: 'Approvals', href: '/approvals', icon: '◇' },
       { label: 'Team', href: '/team', icon: '♙' },
+      { label: 'Team Pulse', href: '/team/pulse', icon: '♙' },
       { label: 'Activity', href: '/activity', icon: '◌' },
     ],
   },
@@ -45,7 +49,10 @@ const navGroups: NavGroup[] = [
     items: [
       { label: 'Integrations', href: '/integrations', icon: '↗' },
       { label: 'Automations', href: '/automations', icon: '⚡' },
+      { label: 'AI Assistant', href: '/ai', icon: '✧' },
+      { label: 'AI Proposals', href: '/ai-proposals', icon: '✦' },
       { label: 'Analytics', href: '/analytics', icon: '⌁' },
+      { label: 'Launch Readiness', href: '/launch-readiness', icon: '✓' },
       { label: 'Settings', href: '/settings', icon: '⚙' },
     ],
   },
@@ -123,6 +130,7 @@ export default function WorkspaceShell({
             </div>
 
             <div className="hidden items-center gap-2 sm:flex">
+              <Link href="/ai" prefetch className="rounded-lg border border-[#d7e0e8] bg-white px-3 py-2 text-xs font-semibold text-[#405567] transition hover:bg-[#f7f9fb]">AI</Link>
               <Link href="/notifications" prefetch className="rounded-lg border border-[#d7e0e8] bg-white px-3 py-2 text-xs font-semibold text-[#405567] transition hover:bg-[#f7f9fb]">Alerts</Link>
               <Link href="/inbox" prefetch className="rounded-lg border border-[#d7e0e8] bg-white px-3 py-2 text-xs font-semibold text-[#405567] transition hover:bg-[#f7f9fb]">Inbox</Link>
             </div>
