@@ -28,7 +28,7 @@ export default async function LoginPage({
               Direct staff access available
             </div>
             <h1 className="mt-6 max-w-xl text-5xl font-black leading-[1.04] tracking-[-0.04em] xl:text-6xl">Clock in. Open your workspace. Get to work.</h1>
-            <p className="mt-6 max-w-xl text-base leading-7 text-slate-300 xl:text-lg">Staff can sign in directly with the username and password created by the GadgetPoint owner. WorkflowOS keeps the work session separate and secure.</p>
+            <p className="mt-6 max-w-xl text-base leading-7 text-slate-300 xl:text-lg">Staff can sign in directly with the username and password created by the owner while the GadgetPoint bridge is being restored.</p>
           </div>
 
           <div className="grid gap-2 text-xs text-slate-400 sm:grid-cols-2">
@@ -44,7 +44,7 @@ export default async function LoginPage({
                 <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Staff operations</div>
                 <h2 className="mt-2 text-3xl font-black tracking-[-0.03em] text-[#102a43]">Clock in and get to work.</h2>
               </div>
-              <p className="mt-3 text-sm leading-6 text-slate-600">Enter the exact username and password the GadgetPoint owner assigned to you.</p>
+              <p className="mt-3 text-sm leading-6 text-slate-600">Enter the exact username and password the owner assigned to you in WorkflowOS.</p>
 
               {error && <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-700">{error}</div>}
               {message && <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold leading-6 text-emerald-700">{message}</div>}
@@ -75,8 +75,19 @@ export default async function LoginPage({
               <section className="rounded-2xl border border-blue-200 bg-blue-50/50 p-4 sm:p-5">
                 <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#52718e]">Authorized owner identity</div>
                 <div className="mt-1 break-all text-sm font-black text-[#102a43]">{OWNER_EMAIL}</div>
-                <p className="mt-2 text-xs leading-5 text-slate-600">Use your WorkflowOS owner password to manage staff access without waiting for the old GadgetPoint Admin bridge.</p>
-                <form action="/api/auth/owner-login" method="post" className="mt-4 space-y-3">
+                <p className="mt-2 text-xs leading-5 text-slate-600">If the owner password is not working, use the secure email link below. It signs in only through the authorized owner email account.</p>
+
+                <form action="/api/auth/owner-link" method="post" className="mt-4">
+                  <button type="submit" className="min-h-[46px] w-full rounded-xl bg-[#102a43] px-4 text-sm font-black text-white shadow-sm">Email me a secure owner sign-in link</button>
+                </form>
+
+                <div className="my-4 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-blue-200" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#52718e]">or use password</span>
+                  <div className="h-px flex-1 bg-blue-200" />
+                </div>
+
+                <form action="/api/auth/owner-login" method="post" className="space-y-3">
                   <input type="hidden" name="return_to" value="/staff-access" />
                   <input name="password" type="password" required autoComplete="current-password" className="min-h-[46px] w-full rounded-xl border border-blue-200 bg-white px-3.5 text-sm outline-none focus:border-blue-500" placeholder="Owner password" />
                   <button type="submit" className="min-h-[46px] w-full rounded-xl border border-[#b9cce0] bg-white px-4 text-sm font-black text-[#214e78]">Owner: manage staff access</button>
