@@ -7,7 +7,7 @@ The product is standalone by design. GadgetPoint is the first deep integration, 
 ## Run locally
 
 1. Copy `.env.example` to `.env.local` and fill the Supabase values.
-2. Run `supabase/schema.sql`, then `supabase/rls.sql` in the Supabase SQL editor.
+2. Run `supabase/schema.sql`, then `supabase/rls.sql`, then `supabase/security-hardening.sql` in the Supabase SQL editor. The hardening script must run last so inactive staff are denied at the RLS layer and the identity helper functions remain outside the exposed API schema.
 3. Install dependencies with `npm install`.
 4. Run `npm run dev`.
 5. Open `/login`. WorkflowOS does not use public account creation; GadgetPoint identity is the access source for the production workspace.
