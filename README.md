@@ -52,4 +52,4 @@ Anonymous GadgetPoint storefront views, cart additions and meaningful searches a
 
 <!-- Production deployment retrigger: 2026-08-12. No application behavior changed. -->
 <!-- Production deployment retry after free-build cooldown: 2026-08-12 07:45 UTC. No application behavior changed. -->
-<!-- Production deployment retry for owner-access fix: 2026-08-12 20:50 UTC. No application behavior changed. -->
+<!-- Owner-access production retry after deployment capacity returned: 2026-08-12 20:56 UTC. -->
