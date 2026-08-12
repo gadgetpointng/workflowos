@@ -3,7 +3,7 @@ import Link from 'next/link';
 const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
 const STAFF_LOGIN_URL = 'https://gadgetpoint.ng/staff-login';
 const OWNER_GADGETPOINT_URL = 'https://gadgetpoint.ng/admin?workflowos=1';
-const OWNER_CHATGPT_URL = 'https://gadgetpoint.ng/signin-with-chatgpt?return_to=%2Fadmin%3Fworkflowos%3D1';
+const OWNER_CHATGPT_URL = 'https://gadgetpoint.ng/signin-with-chatgpt?return_to=https%3A%2F%2Fworkflow.gadgetpoint.ng%2Fapi%2Fauth%2Fgadgetpoint%2Fsso';
 
 export default async function LoginPage({
   searchParams,
