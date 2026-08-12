@@ -22,6 +22,7 @@ const supportedTypes = new Map([
   ['buyer_request', { prefix: 'buyer:', preference: 'buyerAlerts' }],
   ['task', { prefix: 'assignment:', preference: 'assignmentAlerts' }],
   ['task_assigned', { prefix: 'assignment:', preference: 'assignmentAlerts' }],
+  ['task_submitted', { prefix: 'approval:', preference: 'approvalAlerts' }],
   ['automation', { prefix: 'automation:', preference: 'automationAlerts' }],
 ]);
 
@@ -33,7 +34,8 @@ function nearbyNotificationTypes(source, index) {
   const values = new Set();
   for (const property of nearby.matchAll(/\btype\s*:\s*([^,\n}]+)/g)) {
     const expression = property[1] || '';
-    for (const literal of expression.matchAll(/['"]([^'"]+)['"]/g)) {
+    const notificationExpression = expression.includes('?') ? expression.slice(expression.indexOf('?') + 1) : expression;
+    for (const literal of notificationExpression.matchAll(/['"]([^'"]+)['"]/g)) {
       if (literal[1]) values.add(literal[1]);
     }
   }
