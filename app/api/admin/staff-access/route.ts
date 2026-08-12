@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import {
   internalStaffEmail,
+  isFourWordStaffPassphrase,
   normalizeStaffUsername,
   WORKFLOWOS_OWNER_EMAIL,
   WORKFLOWOS_STAFF_ROLES,
@@ -60,8 +61,8 @@ export async function POST(request: Request) {
   if (username.length < 3) {
     return back(request, 'error', 'Staff username must contain at least 3 letters or numbers.', returnTo);
   }
-  if (password.length < 8) {
-    return back(request, 'error', 'Staff password must be at least 8 characters.', returnTo);
+  if (!isFourWordStaffPassphrase(password)) {
+    return back(request, 'error', 'Staff password must be exactly 4 words, with at least 3 characters in each word.', returnTo);
   }
   if (!WORKFLOWOS_STAFF_ROLES.has(requestedRole)) {
     return back(request, 'error', 'Choose a valid staff role.', returnTo);
@@ -193,6 +194,7 @@ export async function POST(request: Request) {
       username,
       role: requestedRole,
       password_changed: true,
+      password_policy: 'four_words',
       source: 'owner-team-management',
     },
   });
@@ -201,8 +203,8 @@ export async function POST(request: Request) {
     request,
     'message',
     existingStaff
-      ? `Access updated for ${username}. The new password is active now.`
-      : `Access created for ${username}. Staff can sign in now.`,
+      ? `Access updated for ${username}. The new 4-word password is active now.`
+      : `Access created for ${username}. Staff can sign in with the 4-word password now.`,
     returnTo
   );
 }
