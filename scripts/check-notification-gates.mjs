@@ -28,29 +28,41 @@ const supportedTypes = new Map([
 const discovered = [];
 const unresolved = [];
 
+function nearbyNotificationTypes(source, index) {
+  const nearby = source.slice(Math.max(0, index - 2600), index + 2200);
+  const values = new Set();
+  for (const property of nearby.matchAll(/\btype\s*:\s*([^,\n}]+)/g)) {
+    const expression = property[1] || '';
+    for (const literal of expression.matchAll(/['"]([^'"]+)['"]/g)) {
+      if (literal[1]) values.add(literal[1]);
+    }
+  }
+  return [...values];
+}
+
 for (const file of sourceFiles) {
   const source = fs.readFileSync(file, 'utf8');
   const marker = /\.from\(\s*['"]notifications['"]\s*\)\s*\.insert\(/g;
   let match;
   while ((match = marker.exec(source))) {
-    const window = source.slice(match.index, match.index + 2200);
-    const typeMatch = window.match(/\btype\s*:\s*['"]([^'"]+)['"]/);
-    if (!typeMatch) {
-      unresolved.push(`${file}: notification insert has no nearby literal type`);
+    const types = nearbyNotificationTypes(source, match.index);
+    if (!types.length) {
+      unresolved.push(`${file}: notification insert has no nearby literal notification type`);
       continue;
     }
-    discovered.push({ file, type: typeMatch[1] });
+    for (const type of types) discovered.push({ file, type });
   }
 }
 
-const unsupported = discovered.filter(({ type }) => !supportedTypes.has(type));
+const uniqueDiscovered = [...new Map(discovered.map((item) => [`${item.file}:${item.type}`, item])).values()];
+const unsupported = uniqueDiscovered.filter(({ type }) => !supportedTypes.has(type));
 
 const summary = fs.readFileSync('app/api/notifications/summary/route.ts', 'utf8');
 const controller = fs.readFileSync('components/NotificationSoundController.tsx', 'utf8');
 const preferences = fs.readFileSync('components/WorkspacePreferences.tsx', 'utf8');
 const missingMappings = [];
 
-for (const type of new Set(discovered.map((item) => item.type))) {
+for (const type of new Set(uniqueDiscovered.map((item) => item.type))) {
   const mapping = supportedTypes.get(type);
   if (!mapping) continue;
   if (!summary.includes(`'${type}'`) && !summary.includes(`\"${type}\"`)) {
@@ -72,4 +84,4 @@ if (unresolved.length || unsupported.length || missingMappings.length) {
   process.exit(1);
 }
 
-console.log(`Notification preference gates OK: ${discovered.length} creation path(s), ${new Set(discovered.map((item) => item.type)).size} stored type(s) classified.`);
+console.log(`Notification preference gates OK: ${uniqueDiscovered.length} creation mapping(s), ${new Set(uniqueDiscovered.map((item) => item.type)).size} stored type(s) classified.`);
