@@ -2,8 +2,8 @@ import Link from 'next/link';
 
 const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
 const STAFF_LOGIN_URL = 'https://gadgetpoint.ng/staff-login';
-const OWNER_GADGETPOINT_URL = 'https://gadgetpoint.ng/admin?workflowos=1';
-const OWNER_CHATGPT_URL = 'https://gadgetpoint.ng/signin-with-chatgpt?return_to=%2Fadmin%3Fworkflowos%3D1';
+const OWNER_GADGETPOINT_URL = 'https://gadgetpoint.ng/workflowos';
+const OWNER_CHATGPT_URL = 'https://gadgetpoint.ng/signin-with-chatgpt?return_to=%2Fworkflowos';
 
 export default async function LoginPage({
   searchParams,
