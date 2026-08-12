@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { authenticateBridge } from '@/lib/integrations/bridge';
 import { canPublishEvents } from '@/lib/integrations/capabilities';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 
 const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
 
@@ -46,6 +48,163 @@ function staffIdentityEmail(externalStaffId: string, username: string) {
 
   // Reserved non-delivery identity used only to establish the WorkflowOS session.
   return `${label}.${digest}@staff.workflowos.invalid`;
+}
+
+function legacyLoginError(request: Request, message: string) {
+  const url = new URL('/login', request.url);
+  url.searchParams.set('error', message);
+  const response = NextResponse.redirect(url);
+  response.headers.set('Cache-Control', 'no-store');
+  response.headers.set('Referrer-Policy', 'no-referrer');
+  return response;
+}
+
+/**
+ * Backward-compatible browser handoff for older GadgetPoint Admin builds.
+ *
+ * This deliberately does NOT decode or trust arbitrary JWT claims. The token must
+ * first be accepted by this project's Supabase Auth service. Once verified, the
+ * database profile remains the source of truth for active status and role, and a
+ * fresh WorkflowOS session is minted instead of reusing the legacy URL token.
+ */
+export async function GET(request: Request) {
+  const requestUrl = new URL(request.url);
+  const token = String(requestUrl.searchParams.get('token') ?? '').trim();
+
+  if (!token) {
+    return legacyLoginError(request, 'Missing GadgetPoint Admin sign-in token.');
+  }
+
+  const tokenFingerprint = crypto
+    .createHash('sha256')
+    .update(token)
+    .digest('hex')
+    .slice(0, 12);
+
+  const admin = createAdminClient();
+  const { data: verified, error: verificationError } = await admin.auth.getUser(token);
+  const verifiedUser = verified?.user;
+
+  if (verificationError || !verifiedUser) {
+    console.warn('Rejected legacy GadgetPoint SSO token', {
+      tokenFingerprint,
+      reason: 'untrusted_identity_provider',
+    });
+    return legacyLoginError(
+      request,
+      'This GadgetPoint Admin sign-in token is not issued by the trusted WorkflowOS identity provider. Please open WorkflowOS again from GadgetPoint Admin.'
+    );
+  }
+
+  const email = String(verifiedUser.email ?? '').trim().toLowerCase();
+  if (!email.includes('@')) {
+    console.warn('Rejected legacy GadgetPoint SSO token', {
+      tokenFingerprint,
+      userId: verifiedUser.id,
+      reason: 'missing_verified_email',
+    });
+    return legacyLoginError(request, 'The verified GadgetPoint identity has no usable login email.');
+  }
+
+  const { data: profile, error: profileError } = await admin
+    .from('profiles')
+    .select('id,organization_id,email,role,active')
+    .eq('id', verifiedUser.id)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    console.warn('Legacy GadgetPoint SSO identity has no WorkflowOS profile', {
+      tokenFingerprint,
+      userId: verifiedUser.id,
+      email,
+    });
+    return legacyLoginError(
+      request,
+      'This GadgetPoint identity is verified but is not linked to a WorkflowOS profile yet.'
+    );
+  }
+
+  const profileEmail = String(profile.email ?? '').trim().toLowerCase();
+  const role = String(profile.role ?? '').trim().toLowerCase();
+
+  if (profile.active === false) {
+    console.warn('Rejected inactive legacy GadgetPoint SSO profile', {
+      tokenFingerprint,
+      userId: verifiedUser.id,
+      email,
+      role,
+    });
+    return legacyLoginError(request, 'This GadgetPoint identity is inactive in WorkflowOS.');
+  }
+
+  if (profileEmail !== email) {
+    console.warn('Rejected mismatched legacy GadgetPoint SSO profile', {
+      tokenFingerprint,
+      userId: verifiedUser.id,
+      tokenEmail: email,
+      profileEmail,
+    });
+    return legacyLoginError(request, 'The GadgetPoint sign-in identity does not match its WorkflowOS profile.');
+  }
+
+  const isOwner = role === 'owner' || profileEmail === OWNER_EMAIL;
+  if (isOwner) {
+    if (role !== 'owner' || profileEmail !== OWNER_EMAIL) {
+      return legacyLoginError(
+        request,
+        `WorkflowOS owner access is restricted to ${OWNER_EMAIL}.`
+      );
+    }
+  } else if (!allowedStaffRoles.has(role)) {
+    return legacyLoginError(request, 'This GadgetPoint identity is not a permitted WorkflowOS staff role.');
+  }
+
+  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+    type: 'magiclink',
+    email: profileEmail,
+  });
+
+  if (
+    linkError ||
+    !linkData?.user ||
+    !linkData.properties?.hashed_token ||
+    linkData.user.id !== profile.id
+  ) {
+    console.warn('Could not mint fresh WorkflowOS session for legacy GadgetPoint SSO', {
+      tokenFingerprint,
+      userId: verifiedUser.id,
+      role,
+    });
+    return legacyLoginError(request, 'WorkflowOS could not create a fresh secure session for this identity.');
+  }
+
+  const supabase = await createClient();
+  const { error: verifyError } = await supabase.auth.verifyOtp({
+    token_hash: linkData.properties.hashed_token,
+    type: 'email',
+  });
+
+  if (verifyError) {
+    return legacyLoginError(request, 'WorkflowOS could not finish the GadgetPoint Admin sign-in.');
+  }
+
+  await admin.from('activity_logs').insert({
+    organization_id: profile.organization_id,
+    actor_id: profile.id,
+    action: 'auth.gadgetpoint.legacy_sso.accepted',
+    entity_type: 'profile',
+    entity_id: profile.id,
+    metadata: {
+      token_fingerprint: tokenFingerprint,
+      compatibility_path: 'verified_supabase_access_token',
+      role,
+    },
+  });
+
+  const response = NextResponse.redirect(new URL('/dashboard', request.url));
+  response.headers.set('Cache-Control', 'no-store');
+  response.headers.set('Referrer-Policy', 'no-referrer');
+  return response;
 }
 
 export async function POST(request: Request) {
