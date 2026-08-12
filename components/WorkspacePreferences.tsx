@@ -10,6 +10,9 @@ type Prefs = {
   desktopNotifications: boolean;
   soundAlerts: boolean;
   messageAlerts: boolean;
+  buyerAlerts: boolean;
+  assignmentAlerts: boolean;
+  automationAlerts: boolean;
   overdueAlerts: boolean;
   approvalAlerts: boolean;
   followupAlerts: boolean;
@@ -24,6 +27,9 @@ const defaults: Prefs = {
   desktopNotifications: false,
   soundAlerts: true,
   messageAlerts: true,
+  buyerAlerts: true,
+  assignmentAlerts: true,
+  automationAlerts: true,
   overdueAlerts: true,
   approvalAlerts: true,
   followupAlerts: true,
@@ -101,6 +107,9 @@ export default function WorkspacePreferences() {
       notificationsEnabled: true,
       soundAlerts: true,
       messageAlerts: true,
+      buyerAlerts: true,
+      assignmentAlerts: true,
+      automationAlerts: true,
       overdueAlerts: true,
       approvalAlerts: true,
       followupAlerts: true,
@@ -142,18 +151,18 @@ export default function WorkspacePreferences() {
           <div>
             <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Notifications</div>
             <h2 className="mt-1 text-xl font-extrabold tracking-tight text-slate-950">Notification settings</h2>
-            <p className="mt-1 text-sm text-slate-500">Spacious iPhone-style controls for how alerts reach you.</p>
+            <p className="mt-1 text-sm text-slate-500">Choose which alert categories may make a sound or show a desktop popup. Notification records still remain available inside WorkflowOS.</p>
           </div>
           {saved && <span className="rounded-full bg-emerald-50 px-3.5 py-2 text-xs font-black text-emerald-700 ring-1 ring-emerald-100">Saved ✓</span>}
         </div>
 
         <div className="mt-4 grid gap-3">
-          <ToggleRow title="Allow notifications" note="Master switch for WorkflowOS alerts. Off stops sounds and desktop popups while keeping your data available." checked={prefs.notificationsEnabled} onChange={(checked) => commit({ ...prefs, notificationsEnabled: checked })} />
+          <ToggleRow title="Allow notifications" note="Master switch for WorkflowOS alert delivery. Off stops sounds and desktop popups while keeping notification records available in the app." checked={prefs.notificationsEnabled} onChange={(checked) => commit({ ...prefs, notificationsEnabled: checked })} />
         </div>
 
         <div className="mb-2 mt-7 px-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Delivery</div>
         <div className="grid gap-3">
-          <ToggleRow title="Sound" note="Play the WorkflowOS chime for a new urgent alert while the app is active." checked={prefs.soundAlerts} disabled={notificationsOff} onChange={(checked) => commit({ ...prefs, soundAlerts: checked })} />
+          <ToggleRow title="Sound" note="Play the WorkflowOS chime when a newly eligible alert appears while the app is active." checked={prefs.soundAlerts} disabled={notificationsOff} onChange={(checked) => commit({ ...prefs, soundAlerts: checked })} />
           <ToggleRow title="Desktop popups" note={permission === 'granted' ? 'Show important WorkflowOS alerts when this browser is in the background.' : permission === 'denied' ? 'Blocked by this browser. Re-enable notifications in your browser site permissions first.' : permission === 'unsupported' ? 'Desktop notifications are not supported by this browser.' : 'Allow this browser to show important WorkflowOS alerts.'} checked={prefs.desktopNotifications && permission === 'granted'} disabled={notificationsOff || permission === 'denied' || permission === 'unsupported'} onChange={(checked) => { if (checked && permission !== 'granted') void enableDesktop(); else commit({ ...prefs, desktopNotifications: checked }); }} />
           <ToggleRow title="Quiet mode" note="Keep alerts inside WorkflowOS but mute sound and desktop popups." checked={prefs.quietMode} disabled={notificationsOff} onChange={(checked) => commit({ ...prefs, quietMode: checked })} />
         </div>
@@ -161,6 +170,9 @@ export default function WorkspacePreferences() {
         <div className="mb-2 mt-7 px-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">What can notify you</div>
         <div className="grid gap-3">
           <ToggleRow title="Owner messages" note="Feed announcements and private messages sent by the owner." checked={prefs.messageAlerts} disabled={notificationsOff} onChange={(checked) => commit({ ...prefs, messageAlerts: checked })} />
+          <ToggleRow title="Buyer requests" note="New opted-in buyer requests that need owner or sales attention." checked={prefs.buyerAlerts} disabled={notificationsOff} onChange={(checked) => commit({ ...prefs, buyerAlerts: checked })} />
+          <ToggleRow title="Work assignments" note="New recurring or system-generated task assignments." checked={prefs.assignmentAlerts} disabled={notificationsOff} onChange={(checked) => commit({ ...prefs, assignmentAlerts: checked })} />
+          <ToggleRow title="Automation alerts" note="Notifications created by WorkflowOS automation rules." checked={prefs.automationAlerts} disabled={notificationsOff} onChange={(checked) => commit({ ...prefs, automationAlerts: checked })} />
           <ToggleRow title="Urgent & overdue work" note="High-priority tasks that have passed their deadline." checked={prefs.overdueAlerts} disabled={notificationsOff} onChange={(checked) => commit({ ...prefs, overdueAlerts: checked })} />
           <ToggleRow title="Approvals" note="Decisions and requests waiting for management attention." checked={prefs.approvalAlerts} disabled={notificationsOff} onChange={(checked) => commit({ ...prefs, approvalAlerts: checked })} />
           <ToggleRow title="Customer follow-ups" note="Lead follow-ups that are overdue and need attention." checked={prefs.followupAlerts} disabled={notificationsOff} onChange={(checked) => commit({ ...prefs, followupAlerts: checked })} />

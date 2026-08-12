@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import WorkspaceShell from '@/components/WorkspaceShell';
+import NotificationActions from '@/components/NotificationActions';
 import NotificationSoundControls from '@/components/NotificationSoundControls';
 import { requireUser } from '@/lib/auth';
 
@@ -11,6 +12,7 @@ type Alert = {
   href: string;
   tone: 'rose' | 'orange' | 'violet' | 'cyan' | 'emerald';
   priority: number;
+  notificationId?: string;
 };
 
 const toneClass = {
@@ -20,6 +22,32 @@ const toneClass = {
   cyan: 'bg-cyan-50 text-cyan-700 border-cyan-100',
   emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
 } as const;
+
+function storedAlert(notification: any): Alert {
+  const type = String(notification.type || '').toLowerCase();
+  const created = notification.created_at ? new Date(notification.created_at).toLocaleString() : '';
+  const note = [notification.body, created].filter(Boolean).join(' · ');
+
+  if (type === 'buyer_request') {
+    return { id: `stored-${notification.id}`, notificationId: notification.id, title: notification.title, note, href: '/buyers/radar', tone: 'emerald', priority: 92 };
+  }
+  if (type === 'owner_private_message') {
+    return { id: `stored-${notification.id}`, notificationId: notification.id, title: notification.title, note, href: '/inbox', tone: 'violet', priority: 82 };
+  }
+  if (type === 'owner_feed') {
+    return { id: `stored-${notification.id}`, notificationId: notification.id, title: notification.title, note, href: '/inbox', tone: 'cyan', priority: 68 };
+  }
+  if (type === 'task_submitted') {
+    return { id: `stored-${notification.id}`, notificationId: notification.id, title: notification.title, note, href: '/approvals', tone: 'violet', priority: 84 };
+  }
+  if (type === 'task' || type === 'task_assigned') {
+    return { id: `stored-${notification.id}`, notificationId: notification.id, title: notification.title, note, href: '/my-work', tone: 'cyan', priority: 72 };
+  }
+  if (type === 'automation') {
+    return { id: `stored-${notification.id}`, notificationId: notification.id, title: notification.title, note, href: '/automations', tone: 'violet', priority: 66 };
+  }
+  return { id: `stored-${notification.id}`, notificationId: notification.id, title: notification.title, note, href: '/activity', tone: 'cyan', priority: 60 };
+}
 
 export default async function NotificationsPage() {
   const { supabase, user, profile } = await requireUser();
@@ -48,7 +76,7 @@ export default async function NotificationsPage() {
     .order('due_at', { ascending: true })
     .limit(100);
 
-  const [taskQ, followupQ, approvalQ, bridgeQ] = await Promise.all([
+  const [taskQ, followupQ, approvalQ, bridgeQ, storedQ] = await Promise.all([
     canManage ? taskQuery : taskQuery.eq('assignee_id', user.id),
     canManage ? followupQuery : followupQuery.eq('assigned_to', user.id),
     canManage
@@ -57,9 +85,21 @@ export default async function NotificationsPage() {
     canManage
       ? supabase.from('external_integrations').select('id,status,last_synced_at').eq('organization_id', org).eq('slug', 'gadgetpoint').maybeSingle()
       : Promise.resolve({ data: null as any }),
+    supabase
+      .from('notifications')
+      .select('id,title,body,type,read_at,created_at')
+      .eq('organization_id', org)
+      .eq('recipient_id', user.id)
+      .is('read_at', null)
+      .order('created_at', { ascending: false })
+      .limit(100),
   ]);
 
   const alerts: Alert[] = [];
+
+  for (const notification of storedQ.data ?? []) {
+    alerts.push(storedAlert(notification));
+  }
 
   for (const task of taskQ.data ?? []) {
     if (!task.due_at) continue;
@@ -126,7 +166,7 @@ export default async function NotificationsPage() {
           <div>
             <div className="text-xs font-black uppercase tracking-[0.18em] text-violet-600">Attention center</div>
             <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-950">Notifications</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Only work that needs attention is surfaced here. The list is ranked by urgency instead of notification time.</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Stored messages and system alerts stay visible here even when a delivery category is muted. Sound and desktop popups follow your Settings choices.</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <NotificationSoundControls />
@@ -148,11 +188,14 @@ export default async function NotificationsPage() {
 
           <div className="space-y-3">
             {alerts.map((alert) => (
-              <Link key={alert.id} href={alert.href} className="group flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-md">
-                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-lg font-black ${toneClass[alert.tone]}`}>{alert.priority >= 90 ? '!' : alert.priority >= 75 ? '•' : '○'}</div>
-                <div className="min-w-0 flex-1"><div className="truncate text-sm font-black text-slate-950">{alert.title}</div><div className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{alert.note}</div></div>
-                <span className="text-sm font-black text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-slate-600">→</span>
-              </Link>
+              <article key={alert.id} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-3 transition hover:-translate-y-0.5 hover:shadow-md sm:p-4">
+                <Link href={alert.href} className="group flex min-w-0 flex-1 items-center gap-4">
+                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-lg font-black ${toneClass[alert.tone]}`}>{alert.priority >= 90 ? '!' : alert.priority >= 75 ? '•' : '○'}</div>
+                  <div className="min-w-0 flex-1"><div className="truncate text-sm font-black text-slate-950">{alert.title}</div><div className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{alert.note}</div></div>
+                  <span className="text-sm font-black text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-slate-600">→</span>
+                </Link>
+                {alert.notificationId && <NotificationActions id={alert.notificationId} read={false} />}
+              </article>
             ))}
             {!alerts.length && <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/60 p-8 text-center"><div className="text-lg font-black text-emerald-800">All clear</div><div className="mt-1 text-sm font-medium text-slate-500">Nothing needs your attention right now.</div></div>}
           </div>

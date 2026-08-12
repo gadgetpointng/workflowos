@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth';
 
+function storedNotificationPrefix(type: unknown) {
+  const normalized = String(type || '').toLowerCase();
+  if (normalized === 'owner_feed' || normalized === 'owner_private_message') return 'message';
+  if (normalized === 'buyer_request') return 'buyer';
+  if (normalized === 'task' || normalized === 'task_assigned') return 'assignment';
+  if (normalized === 'task_submitted') return 'approval';
+  if (normalized === 'automation') return 'automation';
+  return 'general';
+}
+
 export async function GET() {
   const { supabase, user, profile } = await requireUser();
   if (!user || !profile) {
@@ -33,7 +43,7 @@ export async function GET() {
     followupQuery = followupQuery.eq('assigned_to', user.id);
   }
 
-  const [taskQ, followupQ, approvalQ, bridgeQ, messageQ] = await Promise.all([
+  const [taskQ, followupQ, approvalQ, bridgeQ, storedQ] = await Promise.all([
     taskQuery,
     followupQuery,
     canManage
@@ -55,9 +65,9 @@ export async function GET() {
     supabase
       .from('notifications')
       .select('id,type')
+      .eq('organization_id', org)
       .eq('recipient_id', user.id)
       .is('read_at', null)
-      .in('type', ['owner_feed', 'owner_private_message'])
       .order('created_at', { ascending: false })
       .limit(100),
   ]);
@@ -77,8 +87,8 @@ export async function GET() {
     urgentIds.add(`approval:${approval.id}`);
   }
 
-  for (const notification of messageQ.data ?? []) {
-    urgentIds.add(`message:${notification.id}`);
+  for (const notification of storedQ.data ?? []) {
+    urgentIds.add(`${storedNotificationPrefix(notification.type)}:${notification.id}`);
   }
 
   if (canManage) {

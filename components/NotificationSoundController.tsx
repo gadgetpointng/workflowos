@@ -8,6 +8,9 @@ type Preferences = {
   soundAlerts?: boolean;
   quietMode?: boolean;
   messageAlerts?: boolean;
+  buyerAlerts?: boolean;
+  assignmentAlerts?: boolean;
+  automationAlerts?: boolean;
   overdueAlerts?: boolean;
   approvalAlerts?: boolean;
   followupAlerts?: boolean;
@@ -31,6 +34,9 @@ function readPreferences(): Preferences {
 function isEnabledAlert(id: string, preferences: Preferences) {
   if (preferences.notificationsEnabled === false) return false;
   if (id.startsWith('message:')) return preferences.messageAlerts !== false;
+  if (id.startsWith('buyer:')) return preferences.buyerAlerts !== false;
+  if (id.startsWith('assignment:')) return preferences.assignmentAlerts !== false;
+  if (id.startsWith('automation:')) return preferences.automationAlerts !== false;
   if (id.startsWith('task:')) return preferences.overdueAlerts !== false;
   if (id.startsWith('approval:')) return preferences.approvalAlerts !== false;
   if (id.startsWith('followup:')) return preferences.followupAlerts !== false;
@@ -83,7 +89,7 @@ function showDesktopNotification(newCount: number) {
   if (document.visibilityState === 'visible') return;
 
   const notification = new Notification('WorkflowOS needs your attention', {
-    body: `${newCount} new urgent ${newCount === 1 ? 'item' : 'items'} waiting.`,
+    body: `${newCount} new ${newCount === 1 ? 'alert' : 'alerts'} waiting.`,
     tag: 'workflowos-urgent',
   });
 
