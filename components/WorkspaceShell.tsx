@@ -121,13 +121,13 @@ export default function WorkspaceShell({
   const currentItem = allNavItems.find((item) => item.href === activeHref);
 
   return (
-    <div className="min-h-screen bg-[#f4f6f8] text-[#172b3a]" style={{ forcedColorAdjust: 'none', colorScheme: 'light' }}>
+    <div className="min-h-screen bg-[#f7f7f7] text-[#171717]" style={{ forcedColorAdjust: 'none', colorScheme: 'light' }}>
       <NotificationSoundController />
 
       {open && (
         <button
           aria-label="Close navigation"
-          className="fixed inset-0 z-40 bg-[#081a2b]/45 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/35 lg:hidden"
           onClick={() => setOpen(false)}
         />
       )}
@@ -135,44 +135,44 @@ export default function WorkspaceShell({
       <SmartSidebar pathname={pathname} open={open} onClose={() => setOpen(false)} navGroups={navGroups} profile={profile} />
 
       <div className="min-h-screen lg:pl-[292px]">
-        <header className="sticky top-0 z-30 border-b border-[#dfe5eb] bg-white/95 backdrop-blur-xl">
-          <div className="flex min-h-[64px] items-center gap-4 px-4 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-30 border-b border-[#e5e5e5] bg-[#fbfbfb]/95 backdrop-blur-xl">
+          <div className="flex min-h-[56px] items-center gap-3 px-4 sm:px-6 lg:px-7">
             <button
               type="button"
               aria-label="Open navigation"
               onClick={() => setOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#ccd5de] bg-white text-sm font-bold text-[#102a43] shadow-sm lg:hidden"
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-[#d4d4d4] bg-white text-sm font-semibold text-[#262626] lg:hidden"
             >
               ☰
             </button>
 
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#7b8996]">
+              <div className="flex items-center gap-1.5 text-[11px] text-[#8a8a8a]">
                 <span>WorkflowOS</span>
-                <span className="text-[#bdc7d0]">/</span>
-                <span className="truncate font-bold normal-case tracking-normal text-[#263b4c]">{title || currentItem?.label || 'Workspace'}</span>
+                <span className="text-[#c2c2c2]">/</span>
+                <span className="truncate font-medium text-[#404040]">{title || currentItem?.label || 'Workspace'}</span>
               </div>
-              {subtitle && <div className="mt-0.5 truncate text-[11px] font-medium text-[#738291]">{subtitle}</div>}
+              {subtitle && <div className="mt-0.5 truncate text-[10px] text-[#a3a3a3]">{subtitle}</div>}
             </div>
 
             <div className="hidden items-center gap-2 sm:flex">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#c5e2d3] bg-[#edf7f2] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-[#157347]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#157347]" /> Online
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ccebdc] bg-[#f1fbf6] px-2.5 py-1.5 text-[10px] font-medium text-[#1f7a57]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#3ecf8e]" /> Live
               </span>
-              <Link href="/notifications" prefetch className="rounded-lg border border-[#d7e0e8] bg-white px-3 py-2 text-xs font-semibold text-[#405567] transition hover:bg-[#f7f9fb]">Alerts</Link>
-              <Link href="/inbox" prefetch className="rounded-lg border border-[#d7e0e8] bg-white px-3 py-2 text-xs font-semibold text-[#405567] transition hover:bg-[#f7f9fb]">Inbox</Link>
-              <Link href="/ai" prefetch className="rounded-lg border border-[#102a43] bg-[#102a43] px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#173a5e]">Copilot</Link>
+              <Link href="/notifications" prefetch className="rounded-md border border-[#e1e1e1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#525252] transition hover:bg-[#fafafa]">Alerts</Link>
+              <Link href="/inbox" prefetch className="rounded-md border border-[#e1e1e1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#525252] transition hover:bg-[#fafafa]">Inbox</Link>
+              <Link href="/ai" prefetch className="rounded-md border border-[#2d8a66] bg-[#2e8b67] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#267859]">AI</Link>
             </div>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1580px] px-4 pb-32 pt-5 sm:px-6 lg:px-8 lg:pb-10 lg:pt-7">
+        <main className="w-full px-4 pb-32 pt-5 sm:px-6 lg:px-7 lg:pb-10 lg:pt-6">
           {children}
         </main>
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-2 lg:hidden">
-        <nav className="mx-auto grid max-w-xl grid-cols-5 gap-1 rounded-[18px] border border-[#d7e0e8] bg-white/96 p-1.5 shadow-[0_-8px_28px_rgba(8,26,43,.10)] backdrop-blur-xl">
+        <nav className="mx-auto grid max-w-xl grid-cols-5 gap-1 rounded-xl border border-[#dedede] bg-white/96 p-1.5 shadow-[0_-6px_24px_rgba(0,0,0,.08)] backdrop-blur-xl">
           {mobileNav.map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
@@ -181,10 +181,10 @@ export default function WorkspaceShell({
                 href={item.href}
                 prefetch
                 aria-current={active ? 'page' : undefined}
-                className={`group flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 transition ${active ? 'bg-[#edf3f8]' : 'hover:bg-[#f6f8fa]'}`}
+                className={`group flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 transition ${active ? 'bg-[#f1fbf6]' : 'hover:bg-[#fafafa]'}`}
               >
-                <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-[14px] font-bold transition ${active ? 'bg-[#102a43] text-white' : 'bg-[#eef2f5] text-[#53697c] group-hover:bg-[#e5ebf0]'}`}>{item.icon}</span>
-                <span className={`max-w-full truncate text-[10px] font-bold leading-none ${active ? 'text-[#102a43]' : 'text-[#697988]'}`}>{item.label}</span>
+                <span className={`flex h-7 w-7 items-center justify-center rounded-md text-[13px] font-semibold ${active ? 'bg-[#2e8b67] text-white' : 'bg-[#f1f1f1] text-[#666]'}`}>{item.icon}</span>
+                <span className={`max-w-full truncate text-[10px] font-medium leading-none ${active ? 'text-[#1f7a57]' : 'text-[#737373]'}`}>{item.label}</span>
               </Link>
             );
           })}
@@ -193,10 +193,10 @@ export default function WorkspaceShell({
             type="button"
             onClick={() => setOpen(true)}
             aria-label="Open all WorkflowOS tools"
-            className="group flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 transition hover:bg-[#f6f8fa]"
+            className="group flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 transition hover:bg-[#fafafa]"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#dfe6ec] text-[14px] font-bold text-[#102a43]">☰</span>
-            <span className="text-[10px] font-bold leading-none text-[#697988]">More</span>
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#ededed] text-[13px] font-semibold text-[#404040]">☰</span>
+            <span className="text-[10px] font-medium leading-none text-[#737373]">More</span>
           </button>
         </nav>
       </div>
