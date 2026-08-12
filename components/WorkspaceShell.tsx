@@ -16,69 +16,37 @@ const navGroups: NavGroup[] = [
     items: [
       { label: 'Overview', href: '/dashboard', icon: '⌂' },
       { label: 'Today', href: '/today', icon: '☀' },
-      { label: 'My Work', href: '/my-work', icon: '▤' },
       { label: 'Tasks', href: '/tasks', icon: '✓' },
       { label: 'Inbox', href: '/inbox', icon: '◎' },
-      { label: 'Notifications', href: '/notifications', icon: '♢' },
-      { label: 'Approvals', href: '/approvals', icon: '◇' },
+      { label: 'Notifications', href: '/notifications', icon: '●' },
     ],
   },
   {
-    label: 'Operations',
-    items: [
-      { label: 'Schedule', href: '/schedule', icon: '▦' },
-      { label: 'Time', href: '/time', icon: '◷' },
-      { label: 'Workload', href: '/workload', icon: '▤' },
-      { label: 'Availability', href: '/availability', icon: '◴' },
-      { label: 'Recurring Work', href: '/recurring-work', icon: '↻' },
-      { label: 'SLA', href: '/sla', icon: '⏱' },
-    ],
-  },
-  {
-    label: 'Growth & Sales',
+    label: 'Business',
     items: [
       { label: 'Opportunities', href: '/opportunities', icon: '✦' },
-      { label: 'Buyer Intelligence', href: '/buyers', icon: '⌕' },
       { label: 'Buyer Radar', href: '/buyers/radar', icon: '◉' },
       { label: 'Leads', href: '/leads', icon: '◎' },
-      { label: 'Customers', href: '/customers', icon: '◉' },
-      { label: 'Sales', href: '/sales', icon: '₦' },
-      { label: 'Quotes', href: '/quotes', icon: '▱' },
       { label: 'Campaigns', href: '/campaigns', icon: '☆' },
-      { label: 'Goals', href: '/goals', icon: '◎' },
+      { label: 'Sales', href: '/sales', icon: '₦' },
     ],
   },
   {
-    label: 'Commerce',
+    label: 'Management',
     items: [
-      { label: 'Sites', href: '/sites', icon: '◐' },
-      { label: 'Catalog', href: '/catalog', icon: '▦' },
-      { label: 'Vendors', href: '/vendors', icon: '♢' },
-      { label: 'Settlements', href: '/settlements', icon: '₦' },
-      { label: 'Marketplaces', href: '/marketplaces', icon: '◇' },
-      { label: 'Marketplace Jobs', href: '/marketplace-jobs', icon: '⇄' },
-    ],
-  },
-  {
-    label: 'Intelligence',
-    items: [
-      { label: 'Automations', href: '/automations', icon: '⚡' },
-      { label: 'Analytics', href: '/analytics', icon: '⌁' },
-      { label: 'Performance', href: '/performance', icon: '▲' },
-      { label: 'Reports', href: '/reports', icon: '▧' },
-      { label: 'AI Proposals', href: '/ai-proposals', icon: '✦' },
-      { label: 'AI Assistant', href: '/ai', icon: '✧' },
-    ],
-  },
-  {
-    label: 'Administration',
-    items: [
-      { label: 'Integrations', href: '/integrations', icon: '↗' },
-      { label: 'Integration Commands', href: '/integration-commands', icon: '⇢' },
+      { label: 'Owner Control', href: '/owner', icon: '◆' },
+      { label: 'Approvals', href: '/approvals', icon: '◇' },
       { label: 'Team', href: '/team', icon: '♙' },
       { label: 'Activity', href: '/activity', icon: '◌' },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { label: 'Integrations', href: '/integrations', icon: '↗' },
+      { label: 'Automations', href: '/automations', icon: '⚡' },
+      { label: 'Analytics', href: '/analytics', icon: '⌁' },
       { label: 'Settings', href: '/settings', icon: '⚙' },
-      { label: 'Launch Readiness', href: '/launch-readiness', icon: '✓' },
     ],
   },
 ];
@@ -87,9 +55,9 @@ const allNavItems = navGroups.flatMap((group) => group.items);
 
 const mobileNav = [
   { label: 'Home', href: '/dashboard', icon: '⌂' },
-  { label: 'Opportunities', href: '/opportunities', icon: '✦' },
   { label: 'Tasks', href: '/tasks', icon: '✓' },
   { label: 'Inbox', href: '/inbox', icon: '◎' },
+  { label: 'Alerts', href: '/notifications', icon: '●' },
 ];
 
 export default function WorkspaceShell({
@@ -114,10 +82,9 @@ export default function WorkspaceShell({
     }
   }, []);
 
-  const activeHref =
-    allNavItems
-      .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
-      .sort((a, b) => b.href.length - a.href.length)[0]?.href ?? '';
+  const activeHref = allNavItems
+    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href ?? '';
   const currentItem = allNavItems.find((item) => item.href === activeHref);
 
   return (
@@ -134,7 +101,7 @@ export default function WorkspaceShell({
 
       <SmartSidebar pathname={pathname} open={open} onClose={() => setOpen(false)} navGroups={navGroups} profile={profile} />
 
-      <div className="min-h-screen lg:pl-[292px]">
+      <div className="min-h-screen lg:pl-[276px]">
         <header className="sticky top-0 z-30 border-b border-[#dfe5eb] bg-white/95 backdrop-blur-xl">
           <div className="flex min-h-[64px] items-center gap-4 px-4 sm:px-6 lg:px-8">
             <button
@@ -156,12 +123,8 @@ export default function WorkspaceShell({
             </div>
 
             <div className="hidden items-center gap-2 sm:flex">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#c5e2d3] bg-[#edf7f2] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.06em] text-[#157347]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#157347]" /> Online
-              </span>
               <Link href="/notifications" prefetch className="rounded-lg border border-[#d7e0e8] bg-white px-3 py-2 text-xs font-semibold text-[#405567] transition hover:bg-[#f7f9fb]">Alerts</Link>
               <Link href="/inbox" prefetch className="rounded-lg border border-[#d7e0e8] bg-white px-3 py-2 text-xs font-semibold text-[#405567] transition hover:bg-[#f7f9fb]">Inbox</Link>
-              <Link href="/ai" prefetch className="rounded-lg border border-[#102a43] bg-[#102a43] px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#173a5e]">Copilot</Link>
             </div>
           </div>
         </header>
@@ -192,7 +155,7 @@ export default function WorkspaceShell({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            aria-label="Open all WorkflowOS tools"
+            aria-label="Open WorkflowOS navigation"
             className="group flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 transition hover:bg-[#f6f8fa]"
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#dfe6ec] text-[14px] font-bold text-[#102a43]">☰</span>
