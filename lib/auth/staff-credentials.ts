@@ -20,6 +20,15 @@ export function normalizeStaffUsername(value: unknown) {
     .slice(0, 48);
 }
 
+export function isFourWordStaffPassphrase(value: unknown) {
+  const words = String(value ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  return words.length === 4 && words.every((word) => word.length >= 3);
+}
+
 export function internalStaffEmail(integrationId: string, username: string) {
   const label = normalizeStaffUsername(username).replace(/[^a-z0-9]/g, '.').replace(/\.{2,}/g, '.').slice(0, 24) || 'staff';
   const digest = crypto
