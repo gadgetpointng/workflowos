@@ -26,3 +26,5 @@ jobs:
         run: npm run build
       - name: Boundary checks
         run: npm run check:boundaries
+      - name: Notification preference gates
+        run: npm run check:notifications
