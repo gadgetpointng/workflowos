@@ -6,6 +6,7 @@ function storedNotificationPrefix(type: unknown) {
   if (normalized === 'owner_feed' || normalized === 'owner_private_message') return 'message';
   if (normalized === 'buyer_request') return 'buyer';
   if (normalized === 'task' || normalized === 'task_assigned') return 'assignment';
+  if (normalized === 'task_submitted') return 'approval';
   if (normalized === 'automation') return 'automation';
   return 'general';
 }
