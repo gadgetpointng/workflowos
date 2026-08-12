@@ -37,6 +37,9 @@ function storedAlert(notification: any): Alert {
   if (type === 'owner_feed') {
     return { id: `stored-${notification.id}`, notificationId: notification.id, title: notification.title, note, href: '/inbox', tone: 'cyan', priority: 68 };
   }
+  if (type === 'task_submitted') {
+    return { id: `stored-${notification.id}`, notificationId: notification.id, title: notification.title, note, href: '/approvals', tone: 'violet', priority: 84 };
+  }
   if (type === 'task' || type === 'task_assigned') {
     return { id: `stored-${notification.id}`, notificationId: notification.id, title: notification.title, note, href: '/my-work', tone: 'cyan', priority: 72 };
   }
