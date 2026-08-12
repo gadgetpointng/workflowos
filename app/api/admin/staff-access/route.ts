@@ -8,8 +8,13 @@ import {
   WORKFLOWOS_STAFF_ROLES,
 } from '@/lib/auth/staff-credentials';
 
-function back(request: Request, key: 'error' | 'message', value: string) {
-  const url = new URL('/staff-access', request.url);
+function back(
+  request: Request,
+  key: 'error' | 'message',
+  value: string,
+  pathname: '/team' | '/staff-access' = '/team'
+) {
+  const url = new URL(pathname, request.url);
   url.searchParams.set(key, value);
   return NextResponse.redirect(url, 303);
 }
@@ -25,6 +30,10 @@ export async function POST(request: Request) {
     return NextResponse.redirect(url, 303);
   }
 
+  const form = await request.formData().catch(() => null);
+  const requestedReturnTo = String(form?.get('return_to') ?? '/team');
+  const returnTo: '/team' | '/staff-access' = requestedReturnTo === '/staff-access' ? '/staff-access' : '/team';
+
   const admin = createAdminClient();
   const { data: ownerProfile } = await admin
     .from('profiles')
@@ -39,10 +48,9 @@ export async function POST(request: Request) {
     String(ownerProfile.email ?? '').trim().toLowerCase() !== WORKFLOWOS_OWNER_EMAIL ||
     String(currentUser.email ?? '').trim().toLowerCase() !== WORKFLOWOS_OWNER_EMAIL
   ) {
-    return back(request, 'error', 'Only the authorized GadgetPoint owner can manage staff credentials.');
+    return back(request, 'error', 'Only the authorized GadgetPoint owner can manage staff credentials.', returnTo);
   }
 
-  const form = await request.formData().catch(() => null);
   const username = normalizeStaffUsername(form?.get('username'));
   const password = String(form?.get('password') ?? '');
   const fullName = String(form?.get('full_name') ?? '').trim();
@@ -50,13 +58,13 @@ export async function POST(request: Request) {
   const department = String(form?.get('department') ?? '').trim() || null;
 
   if (username.length < 3) {
-    return back(request, 'error', 'Staff username must contain at least 3 letters or numbers.');
+    return back(request, 'error', 'Staff username must contain at least 3 letters or numbers.', returnTo);
   }
   if (password.length < 8) {
-    return back(request, 'error', 'Staff password must be at least 8 characters.');
+    return back(request, 'error', 'Staff password must be at least 8 characters.', returnTo);
   }
   if (!WORKFLOWOS_STAFF_ROLES.has(requestedRole)) {
-    return back(request, 'error', 'Choose a valid staff role.');
+    return back(request, 'error', 'Choose a valid staff role.', returnTo);
   }
 
   const { data: integration } = await admin
@@ -66,7 +74,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (!integration || integration.organization_id !== ownerProfile.organization_id) {
-    return back(request, 'error', 'The GadgetPoint workspace connection could not be found.');
+    return back(request, 'error', 'The GadgetPoint workspace connection could not be found.', returnTo);
   }
 
   const { data: existingStaff } = await admin
@@ -95,7 +103,7 @@ export async function POST(request: Request) {
     });
 
     if (updateAuthError) {
-      return back(request, 'error', 'Could not update the staff password. Please try again.');
+      return back(request, 'error', 'Could not update the staff password. Please try again.', returnTo);
     }
   } else {
     const { data: created, error: createAuthError } = await admin.auth.admin.createUser({
@@ -117,7 +125,12 @@ export async function POST(request: Request) {
     });
 
     if (createAuthError || !created.user) {
-      return back(request, 'error', 'Could not create this staff login. If the username already exists, use the same username to reset it.');
+      return back(
+        request,
+        'error',
+        'Could not create this staff login. If the username already exists, use the same username to reset it.',
+        returnTo
+      );
     }
     userId = created.user.id;
   }
@@ -138,7 +151,7 @@ export async function POST(request: Request) {
   );
 
   if (profileError) {
-    return back(request, 'error', 'The staff account was created, but its workspace profile could not be saved.');
+    return back(request, 'error', 'The staff account was created, but its workspace profile could not be saved.', returnTo);
   }
 
   const { error: staffError } = await admin.from('connected_staff').upsert(
@@ -167,7 +180,7 @@ export async function POST(request: Request) {
   );
 
   if (staffError) {
-    return back(request, 'error', 'The login was created, but the staff directory link could not be saved.');
+    return back(request, 'error', 'The login was created, but the staff directory link could not be saved.', returnTo);
   }
 
   await admin.from('activity_logs').insert({
@@ -180,7 +193,7 @@ export async function POST(request: Request) {
       username,
       role: requestedRole,
       password_changed: true,
-      source: 'owner-staff-access',
+      source: 'owner-team-management',
     },
   });
 
@@ -189,6 +202,7 @@ export async function POST(request: Request) {
     'message',
     existingStaff
       ? `Access updated for ${username}. The new password is active now.`
-      : `Access created for ${username}. Staff can sign in now.`
+      : `Access created for ${username}. Staff can sign in now.`,
+    returnTo
   );
 }
