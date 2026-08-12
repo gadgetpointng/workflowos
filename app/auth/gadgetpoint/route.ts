@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
+const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
+const STAFF_ROLES = new Set(['admin', 'manager', 'marketing', 'sales', 'staff']);
+
 function loginError(request: Request, message: string) {
   const url = new URL('/login', request.url);
   url.searchParams.set('error', message);
@@ -64,7 +67,7 @@ export async function GET(request: Request) {
 
   const { data: connectedStaff, error: staffError } = await admin
     .from('connected_staff')
-    .select('id,profile_id,email,full_name,role,department,status')
+    .select('id,profile_id,email,full_name,role,department,status,metadata')
     .eq('integration_id', event.integration_id)
     .eq('external_staff_id', externalStaffId)
     .maybeSingle();
@@ -73,10 +76,18 @@ export async function GET(request: Request) {
     return loginError(request, 'This GadgetPoint staff account cannot access WorkflowOS.');
   }
 
-  let email = String(connectedStaff.email ?? staff.email ?? '').trim().toLowerCase();
+  const role = String(connectedStaff.role ?? staff.role ?? 'staff').trim().toLowerCase();
+  if (!STAFF_ROLES.has(role)) {
+    return loginError(request, 'This GadgetPoint identity is not a permitted staff role.');
+  }
 
+  let email = String(connectedStaff.email ?? staff.email ?? '').trim().toLowerCase();
   if (!email.includes('@')) {
-    return loginError(request, 'GadgetPoint staff identity does not have a usable login address.');
+    return loginError(request, 'WorkflowOS could not establish the internal staff session identity.');
+  }
+
+  if (email === OWNER_EMAIL) {
+    return loginError(request, 'The GadgetPoint owner identity must use the owner sign-in route.');
   }
 
   let existingProfile: any = null;
@@ -84,7 +95,7 @@ export async function GET(request: Request) {
   if (connectedStaff.profile_id) {
     const { data: profile } = await admin
       .from('profiles')
-      .select('id,organization_id,email,active')
+      .select('id,organization_id,email,role,active')
       .eq('id', connectedStaff.profile_id)
       .maybeSingle();
 
@@ -92,8 +103,16 @@ export async function GET(request: Request) {
       return loginError(request, 'This GadgetPoint staff identity is not linked to this workspace.');
     }
 
+    if (String(profile.role ?? '').toLowerCase() === 'owner' || String(profile.email ?? '').trim().toLowerCase() === OWNER_EMAIL) {
+      return loginError(request, 'The GadgetPoint owner identity cannot be opened through the staff route.');
+    }
+
     existingProfile = profile;
-    if (profile.email?.includes('@')) email = String(profile.email).toLowerCase();
+    if (profile.email?.includes('@')) email = String(profile.email).trim().toLowerCase();
+  }
+
+  if (email === OWNER_EMAIL) {
+    return loginError(request, 'The GadgetPoint owner identity must use the owner sign-in route.');
   }
 
   const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
@@ -106,12 +125,12 @@ export async function GET(request: Request) {
   }
 
   if (existingProfile && linkData.user.id !== existingProfile.id) {
-    return loginError(request, 'The GadgetPoint staff email is linked to a different WorkflowOS identity.');
+    return loginError(request, 'The GadgetPoint staff identity is linked to a different WorkflowOS session identity.');
   }
 
   const { data: profileForAuthUser } = await admin
     .from('profiles')
-    .select('id,organization_id')
+    .select('id,organization_id,email,role')
     .eq('id', linkData.user.id)
     .maybeSingle();
 
@@ -122,10 +141,17 @@ export async function GET(request: Request) {
     return loginError(request, 'This account already belongs to another WorkflowOS workspace.');
   }
 
+  if (
+    profileForAuthUser &&
+    (String(profileForAuthUser.role ?? '').toLowerCase() === 'owner' ||
+      String(profileForAuthUser.email ?? '').trim().toLowerCase() === OWNER_EMAIL)
+  ) {
+    return loginError(request, 'The owner account cannot be provisioned from a staff sign-in.');
+  }
+
   const fullName = String(
-    connectedStaff.full_name ?? staff.full_name ?? staff.username ?? email
+    connectedStaff.full_name ?? staff.full_name ?? staff.username ?? externalStaffId
   ).trim();
-  const role = String(connectedStaff.role ?? staff.role ?? 'staff');
   const department = connectedStaff.department ?? staff.department ?? null;
 
   const { error: profileError } = await admin
@@ -134,7 +160,7 @@ export async function GET(request: Request) {
       {
         id: linkData.user.id,
         organization_id: event.organization_id,
-        full_name: fullName || email.split('@')[0],
+        full_name: fullName || String(staff.username ?? externalStaffId),
         email,
         role,
         department,
@@ -171,6 +197,8 @@ export async function GET(request: Request) {
           username: staff.username ?? null,
           identity_source: 'gadgetpoint-staff-login',
           password_owner: 'gadgetpoint',
+          workflowos_session_identity: email,
+          workflowos_identity_kind: staff.workflowos_identity_kind ?? connectedStaff.metadata?.workflowos_identity_kind ?? null,
         },
         updated_at: new Date().toISOString(),
       },
