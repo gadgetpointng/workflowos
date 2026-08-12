@@ -51,3 +51,4 @@ The integration bridge can turn opted-in inquiries into connected customer/lead 
 Anonymous GadgetPoint storefront views, cart additions and meaningful searches are recorded as commerce signals. WorkflowOS aggregates those weak signals over a rolling window and creates or refreshes ranked growth recommendations only after demand crosses a useful threshold. The Opportunity Center remains the human decision point: recommendations can be accepted and converted into tasks without turning ordinary browsing activity into task spam or transferring store administration into WorkflowOS.
 
 <!-- Production deployment retrigger: 2026-08-12. No application behavior changed. -->
+<!-- Production deployment retry after free-build cooldown: 2026-08-12 07:45 UTC. No application behavior changed. -->
