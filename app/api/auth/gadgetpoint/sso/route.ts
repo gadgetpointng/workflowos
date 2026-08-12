@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { authenticateBridge } from '@/lib/integrations/bridge';
 import { canPublishEvents } from '@/lib/integrations/capabilities';
 
+const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
+
 const allowedStaffRoles = new Set([
   'admin',
   'manager',
@@ -29,14 +31,21 @@ function normalizeStaffRole(role: unknown) {
   return allowedStaffRoles.has(normalized) ? normalized : 'staff';
 }
 
-function fallbackEmail(externalStaffId: string) {
+function staffIdentityEmail(externalStaffId: string, username: string) {
+  const label = String(username || 'staff')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '.')
+    .replace(/^\.+|\.+$/g, '')
+    .slice(0, 32) || 'staff';
   const digest = crypto
     .createHash('sha256')
     .update(externalStaffId)
     .digest('hex')
-    .slice(0, 24);
+    .slice(0, 16);
 
-  return `workflowos-${digest}@staff.gadgetpoint.ng`;
+  // Reserved non-delivery identity used only to establish the WorkflowOS session.
+  return `${label}.${digest}@staff.workflowos.invalid`;
 }
 
 export async function POST(request: Request) {
@@ -83,6 +92,20 @@ export async function POST(request: Request) {
     );
   }
 
+  const suppliedEmail = String(body.email ?? '').trim().toLowerCase();
+  const ownerIdentityAttempt = [
+    suppliedEmail,
+    externalStaffId.toLowerCase(),
+    username.toLowerCase(),
+  ].includes(OWNER_EMAIL);
+
+  if (ownerIdentityAttempt) {
+    return NextResponse.json(
+      { error: 'The GadgetPoint owner identity must use the owner sign-in route' },
+      { status: 403 }
+    );
+  }
+
   const { data: existingStaff } = await supabase
     .from('connected_staff')
     .select('id,status')
@@ -97,10 +120,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const suppliedEmail = String(body.email ?? '').trim().toLowerCase();
-  const email = suppliedEmail.includes('@')
+  const hasExternalEmail = suppliedEmail.includes('@');
+  const email = hasExternalEmail
     ? suppliedEmail
-    : fallbackEmail(externalStaffId);
+    : staffIdentityEmail(externalStaffId, username);
   const fullName = String(
     body.full_name ?? body.name ?? username ?? externalStaffId
   ).trim();
@@ -130,6 +153,9 @@ export async function POST(request: Request) {
           ...(body.metadata ?? {}),
           username: username || null,
           identity_source: 'gadgetpoint-staff-login',
+          workflowos_identity_kind: hasExternalEmail ? 'external_email' : 'non_delivery_staff_identity',
+          external_email: hasExternalEmail ? suppliedEmail : null,
+          password_owner: 'gadgetpoint',
         },
         last_synced_at: now.toISOString(),
         updated_at: now.toISOString(),
@@ -154,16 +180,17 @@ export async function POST(request: Request) {
       entity_type: 'staff_sso',
       entity_id: codeHash,
       payload: {
-        version: 1,
+        version: 2,
         expires_at: expiresAt.toISOString(),
         staff: {
           external_staff_id: externalStaffId,
           username: username || null,
           email,
-          external_email: suppliedEmail.includes('@') ? suppliedEmail : null,
+          external_email: hasExternalEmail ? suppliedEmail : null,
           full_name: fullName || username || externalStaffId,
           role,
           department,
+          workflowos_identity_kind: hasExternalEmail ? 'external_email' : 'non_delivery_staff_identity',
         },
       },
       processed_at: now.toISOString(),

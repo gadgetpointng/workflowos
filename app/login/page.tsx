@@ -1,7 +1,9 @@
 import Link from 'next/link';
-import { login } from './actions';
 
 const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
+const STAFF_LOGIN_URL = 'https://gadgetpoint.ng/staff-login';
+const OWNER_GADGETPOINT_URL = 'https://gadgetpoint.ng/admin?workflowos=1';
+const OWNER_CHATGPT_URL = 'https://gadgetpoint.ng/signin-with-chatgpt?return_to=%2Fadmin%3Fworkflowos%3D1';
 
 export default async function LoginPage({
   searchParams,
@@ -11,174 +13,148 @@ export default async function LoginPage({
   const { error, message } = await searchParams;
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 -top-24 h-80 w-80 rounded-full bg-violet-600/40 blur-3xl" />
-        <div className="absolute right-[-6rem] top-16 h-96 w-96 rounded-full bg-cyan-400/25 blur-3xl" />
-        <div className="absolute bottom-[-8rem] left-1/3 h-96 w-96 rounded-full bg-fuchsia-500/25 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.08),transparent_18%),radial-gradient(circle_at_80%_30%,rgba(34,211,238,0.08),transparent_20%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,27,75,0.94)_45%,rgba(49,46,129,0.88))]" />
-      </div>
-
-      <div className="relative mx-auto grid min-h-screen max-w-[1500px] lg:grid-cols-[1.08fr_.92fr]">
-        <section className="hidden min-h-screen flex-col justify-between px-10 py-10 lg:flex xl:px-14 xl:py-12">
+    <main className="min-h-screen bg-[#f4f6f8] text-[#172b3a]">
+      <div className="mx-auto grid min-h-screen max-w-[1500px] lg:grid-cols-[1.02fr_.98fr]">
+        <section className="hidden min-h-screen flex-col justify-between bg-[#102a43] px-10 py-10 text-white lg:flex xl:px-14 xl:py-12">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-400 via-fuchsia-500 to-cyan-400 text-xl font-black shadow-2xl shadow-violet-950/50">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-base font-black shadow-sm">
               W
             </div>
             <div>
-              <div className="text-xl font-black tracking-tight">WorkflowOS</div>
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/80">
-                Modern business workspace
-              </div>
+              <div className="text-lg font-black tracking-tight">WorkflowOS</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-200/80">GadgetPoint work operating system</div>
             </div>
           </div>
 
-          <div className="max-w-2xl py-12">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold text-cyan-100 backdrop-blur-xl">
+          <div className="max-w-2xl py-10">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-bold text-emerald-100">
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              Connected to GadgetPoint
-            </span>
+              Identity connected to GadgetPoint
+            </div>
 
-            <h1 className="mt-7 text-5xl font-black leading-[1.03] tracking-tight xl:text-6xl">
-              One staff login.
-              <span className="block bg-gradient-to-r from-violet-300 via-fuchsia-300 to-cyan-300 bg-clip-text text-transparent">
-                Two connected systems.
-              </span>
+            <h1 className="mt-6 max-w-xl text-5xl font-black leading-[1.04] tracking-[-0.04em] xl:text-6xl">
+              One business identity. Two connected systems.
             </h1>
-
             <p className="mt-6 max-w-xl text-base leading-7 text-slate-300 xl:text-lg">
-              Staff authenticate with the same GadgetPoint username and password already managed by the owner. WorkflowOS receives only the verified staff identity and access profile.
+              GadgetPoint authenticates the people. WorkflowOS receives the verified identity and runs the work around the store. No duplicate staff account system is created here.
             </p>
 
-            <div className="mt-10 grid max-w-xl grid-cols-3 gap-3">
-              <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 font-black">1</div>
-                <div className="mt-4 text-sm font-bold">GadgetPoint login</div>
-                <div className="mt-1 text-xs leading-5 text-slate-400">Use the staff username set by the owner</div>
-              </div>
-              <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-500 font-black">2</div>
-                <div className="mt-4 text-sm font-bold">Verified identity</div>
-                <div className="mt-1 text-xs leading-5 text-slate-400">Role, branch and permissions are carried across</div>
-              </div>
-              <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 font-black">3</div>
-                <div className="mt-4 text-sm font-bold">WorkflowOS</div>
-                <div className="mt-1 text-xs leading-5 text-slate-400">No second staff password is created</div>
-              </div>
+            <div className="mt-9 grid max-w-2xl gap-3 xl:grid-cols-3">
+              {[
+                ['1', 'Sign in at GadgetPoint', 'Use the owner or staff access already managed there.'],
+                ['2', 'Identity is verified', 'Role and staff identity cross the secure integration bridge.'],
+                ['3', 'WorkflowOS opens', 'Work tools load without a second WorkflowOS password.'],
+              ].map(([number, title, copy]) => (
+                <div key={number} className="rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-xs font-black text-[#102a43]">{number}</div>
+                  <div className="mt-4 text-sm font-black">{title}</div>
+                  <div className="mt-1 text-xs leading-5 text-slate-400">{copy}</div>
+                </div>
+              ))}
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-slate-400">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            Staff credentials remain controlled by GadgetPoint
+          <div className="grid gap-2 text-xs text-slate-400 sm:grid-cols-2">
+            <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-400" /> Staff credentials remain in GadgetPoint</div>
+            <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-blue-300" /> WorkflowOS has no public account creation</div>
           </div>
         </section>
 
-        <section className="flex min-h-screen items-center justify-center px-5 py-8 sm:px-8 lg:px-10">
-          <div className="w-full max-w-md">
-            <div className="mb-7 flex items-center gap-3 lg:hidden">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-400 via-fuchsia-500 to-cyan-400 text-lg font-black shadow-xl">W</div>
+        <section className="flex min-h-screen items-center justify-center px-4 py-6 sm:px-7 sm:py-9 lg:px-10">
+          <div className="w-full max-w-lg">
+            <div className="mb-5 flex items-center gap-3 lg:hidden">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#102a43] text-base font-black text-white shadow-sm">W</div>
               <div>
-                <div className="font-black">WorkflowOS</div>
-                <div className="text-xs text-cyan-200">Connected to GadgetPoint</div>
+                <div className="font-black text-[#102a43]">WorkflowOS</div>
+                <div className="text-xs font-semibold text-slate-500">Connected to GadgetPoint</div>
               </div>
             </div>
 
-            <div className="relative overflow-hidden rounded-[32px] border border-white/15 bg-white/10 p-6 shadow-2xl shadow-slate-950/50 backdrop-blur-2xl sm:p-8">
-              <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-cyan-400/15 blur-2xl" />
-              <div className="pointer-events-none absolute -bottom-20 -left-12 h-40 w-40 rounded-full bg-fuchsia-500/15 blur-2xl" />
+            <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Secure access</div>
+                  <h2 className="mt-2 text-3xl font-black tracking-[-0.03em] text-[#102a43]">Continue to WorkflowOS</h2>
+                </div>
+                <div className="hidden rounded-full bg-emerald-50 px-3 py-1.5 text-[10px] font-black text-emerald-700 sm:block">GadgetPoint identity</div>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-600">
+                Choose the access path that matches who you are. WorkflowOS does not ask staff to create another password.
+              </p>
 
-              <div className="relative">
-                <div className="inline-flex rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-violet-200">Welcome back</div>
+              {error && (
+                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-700">{error}</div>
+              )}
 
-                <h2 className="mt-5 text-3xl font-black tracking-tight text-white sm:text-4xl">Continue to WorkflowOS</h2>
-                <p className="mt-3 text-sm leading-6 text-slate-300">Choose the sign-in method that matches your GadgetPoint access.</p>
+              {message && (
+                <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold leading-6 text-emerald-700">{message}</div>
+              )}
 
-                {error && (
-                  <div className="mt-5 rounded-2xl border border-rose-300/20 bg-rose-500/15 px-4 py-3 text-sm font-medium text-rose-100">{error}</div>
-                )}
+              <section className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#102a43] text-xs font-black text-white">ST</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Staff access</div>
+                    <h3 className="mt-1 text-lg font-black text-slate-950">Use your GadgetPoint staff login</h3>
+                    <p className="mt-2 text-xs leading-5 text-slate-600">
+                      Use the normal GadgetPoint username and password created by the owner. Username-only staff do not need a WorkflowOS email address or WorkflowOS password.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href={STAFF_LOGIN_URL}
+                  className="ios-action primary-button mt-4 flex min-h-[46px] w-full items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-black"
+                >
+                  Staff: Sign in with GadgetPoint <span aria-hidden="true">→</span>
+                </Link>
+              </section>
 
-                {message && (
-                  <div className="mt-5 rounded-2xl border border-emerald-300/20 bg-emerald-500/15 px-4 py-3 text-sm font-medium text-emerald-100">{message}</div>
-                )}
+              <div className="my-6 flex items-center gap-3">
+                <div className="h-px flex-1 bg-slate-200" />
+                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Owner only</span>
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
 
-                <div className="mt-6 rounded-3xl border border-cyan-300/20 bg-cyan-400/10 p-4">
-                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-200">Staff access</div>
-                  <h3 className="mt-1 text-lg font-black text-white">Use your GadgetPoint username</h3>
-                  <p className="mt-2 text-xs leading-5 text-slate-300">
-                    Staff do not need an email address for WorkflowOS. Use the normal GadgetPoint username and password created by the owner, then choose <span className="font-bold text-white">Sign in &amp; open WorkflowOS</span>.
-                  </p>
+              <section className="rounded-2xl border border-blue-200 bg-blue-50/50 p-4 sm:p-5">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#214e78] text-xs font-black text-white">OW</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#52718e]">Authorized owner identity</div>
+                    <div className="mt-1 break-all text-sm font-black text-[#102a43]">{OWNER_EMAIL}</div>
+                    <p className="mt-2 text-xs leading-5 text-slate-600">
+                      Both owner routes must resolve to this exact GadgetPoint owner identity. Staff must never use either owner route.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <Link
-                    href="https://gadgetpoint.ng/staff-login"
-                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-500 px-4 py-3.5 text-sm font-black text-white shadow-xl shadow-cyan-950/30 transition hover:-translate-y-0.5"
+                    href={OWNER_GADGETPOINT_URL}
+                    className="ios-action primary-button flex min-h-[46px] items-center justify-center rounded-[14px] px-4 text-center text-sm font-black"
                   >
-                    Staff: Sign in with GadgetPoint <span>→</span>
+                    Owner: GadgetPoint sign-in
+                  </Link>
+                  <Link
+                    href={OWNER_CHATGPT_URL}
+                    className="ios-action secondary-button flex min-h-[46px] items-center justify-center rounded-[14px] border border-[#b9cce0] px-4 text-center text-sm font-black text-[#214e78]"
+                  >
+                    Owner: Continue with ChatGPT
                   </Link>
                 </div>
+              </section>
 
-                <div className="my-6 flex items-center gap-3">
-                  <div className="h-px flex-1 bg-white/10" />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Owner access only</span>
-                  <div className="h-px flex-1 bg-white/10" />
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="grid gap-3 text-xs leading-5 text-slate-600 sm:grid-cols-3">
+                  <div><span className="font-black text-slate-900">No public signup.</span><br />Accounts come from GadgetPoint.</div>
+                  <div><span className="font-black text-slate-900">No staff password here.</span><br />GadgetPoint owns staff credentials.</div>
+                  <div><span className="font-black text-slate-900">Independent systems.</span><br />Identity connects them securely.</div>
                 </div>
-
-                <div className="rounded-3xl border border-violet-300/20 bg-violet-400/10 p-4">
-                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-violet-200">Authorized owner identity</div>
-                  <div className="mt-1 text-sm font-black text-white">{OWNER_EMAIL}</div>
-                  <p className="mt-2 text-xs leading-5 text-slate-300">
-                    Sign in to GadgetPoint with ChatGPT using this same email, then continue into WorkflowOS as owner.
-                  </p>
-                  <Link
-                    href="https://gadgetpoint.ng/signin-with-chatgpt?return_to=%2Fadmin%3Fworkflowos%3D1"
-                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 px-4 py-3.5 text-sm font-black text-white shadow-xl shadow-violet-950/30 transition hover:-translate-y-0.5"
-                  >
-                    Owner: Continue with ChatGPT <span>→</span>
-                  </Link>
-                </div>
-
-                <div className="my-5 flex items-center gap-3">
-                  <div className="h-px flex-1 bg-white/10" />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Direct owner fallback</span>
-                  <div className="h-px flex-1 bg-white/10" />
-                </div>
-
-                <form action={login} className="space-y-4">
-                  <label className="block">
-                    <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-slate-300">Owner email address</span>
-                    <input
-                      name="email"
-                      required
-                      readOnly
-                      type="email"
-                      autoComplete="email"
-                      value={OWNER_EMAIL}
-                      className="w-full cursor-not-allowed rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3.5 text-sm font-bold text-cyan-100 outline-none"
-                    />
-                  </label>
-
-                  <label className="block">
-                    <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-slate-300">Owner password</span>
-                    <input
-                      name="password"
-                      required
-                      type="password"
-                      autoComplete="current-password"
-                      placeholder="Enter owner password"
-                      className="w-full rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-violet-300/60 focus:bg-slate-950/50 focus:ring-4 focus:ring-violet-400/10"
-                    />
-                  </label>
-
-                  <button className="group relative w-full overflow-hidden rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5 text-sm font-black text-white transition hover:bg-white/15">
-                    <span className="relative z-10 flex items-center justify-center gap-2">Owner password sign in <span className="transition group-hover:translate-x-1">→</span></span>
-                  </button>
-                </form>
-
-                <p className="mt-6 text-center text-xs leading-5 text-slate-400">
-                  No public account creation. Staff access is created and managed in GadgetPoint Admin.
-                </p>
               </div>
             </div>
+
+            <p className="mt-5 text-center text-xs leading-5 text-slate-500">
+              GadgetPoint Admin runs the store. WorkflowOS runs the work around it.
+            </p>
           </div>
         </section>
       </div>

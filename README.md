@@ -10,7 +10,17 @@ The product is standalone by design. GadgetPoint is the first deep integration, 
 2. Run `supabase/schema.sql`, then `supabase/rls.sql` in the Supabase SQL editor.
 3. Install dependencies with `npm install`.
 4. Run `npm run dev`.
-5. Open `/signup` to create the first owner workspace.
+5. Open `/login`. WorkflowOS does not use public account creation; GadgetPoint identity is the access source for the production workspace.
+
+## Identity and access
+
+- Authorized owner identity: `gadgetpoint.ng@gmail.com` only.
+- Owner access: GadgetPoint owner/admin handoff or the owner-only GadgetPoint ChatGPT path.
+- Staff access: GadgetPoint staff login only. GadgetPoint owns staff usernames, passwords, active status and roles.
+- Username-only staff do not need a deliverable WorkflowOS email address or a second WorkflowOS password.
+- `/signup` does not create accounts; it redirects users back to the managed login flow.
+
+See `docs/OWNER_ACCESS.md` for the identity boundary.
 
 ## Launch
 
@@ -19,7 +29,7 @@ See `LAUNCH.md` for the production deployment checklist and environment setup.
 ## Architecture boundaries
 
 - WorkflowOS: staff execution, campaigns, CRM, automation, AI decision support, marketplace operations and integrations.
-- GadgetPoint Admin: retail inventory/POS/order operations.
+- GadgetPoint Admin: retail inventory/POS/order operations and staff credential ownership.
 - GadgetPoint Storefront: customer-facing commerce and WhatsApp entry point.
 
 These systems can share identity and selected operational data without collapsing into a single application.
@@ -30,8 +40,12 @@ WorkflowOS is independent from GadgetPoint Admin and the storefront, but connect
 ### Buyer Intelligence
 WorkflowOS can capture consented buyer enquiries and public demand signals, score purchase intent, match demand against read-only connected product mirrors, and convert opted-in buyers into CRM leads. Product, stock, pricing and order ownership remain in the connected commerce system (for GadgetPoint, GadgetPoint Admin).
 
+## Public buyer request
+
+`/request` is a public, no-account GadgetPoint enquiry path. It captures genuine product requests with contact permission, source/campaign attribution and live catalog matching. It does not create a WorkflowOS account, accept payment or take over checkout/inventory from GadgetPoint.
+
 ## Live sales loop
-The integration bridge now turns opted-in WhatsApp inquiries into a connected customer/lead, Buyer Intelligence record, product matches against the read-only GadgetPoint catalog mirror, a recommended sales assignee, and a follow-up task. Public marketplace demand is captured as non-contactable Buyer Intelligence until consent exists. Commerce ownership remains in GadgetPoint Admin.
+The integration bridge can turn opted-in inquiries into connected customer/lead work, Buyer Intelligence records, product matches against the read-only GadgetPoint catalog mirror, recommended sales ownership and follow-up tasks. Public marketplace demand remains non-contactable until consent exists. Commerce ownership remains in GadgetPoint Admin.
 
 ## Storefront demand intelligence
 Anonymous GadgetPoint storefront views, cart additions and meaningful searches are recorded as commerce signals. WorkflowOS aggregates those weak signals over a rolling window and creates or refreshes ranked growth recommendations only after demand crosses a useful threshold. The Opportunity Center remains the human decision point: recommendations can be accepted and converted into tasks without turning ordinary browsing activity into task spam or transferring store administration into WorkflowOS.
