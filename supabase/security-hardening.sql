@@ -114,3 +114,53 @@ drop policy if exists "time_entries_self_update" on public.time_entries;
 create policy "time_entries_self_update" on public.time_entries for update
 using (organization_id = private.current_org_id() and user_id = (select auth.uid()))
 with check (organization_id = private.current_org_id() and user_id = (select auth.uid()));
+
+-- Consolidate notification inserts while preserving the existing permissions:
+-- owner can send any same-org notification; authenticated task flows may emit task_submitted.
+drop policy if exists "notifications insert owner" on public.notifications;
+drop policy if exists "notifications insert task submitted compatibility" on public.notifications;
+drop policy if exists "notifications insert authorized" on public.notifications;
+create policy "notifications insert authorized" on public.notifications
+for insert to authenticated
+with check (
+  organization_id = private.current_org_id()
+  and exists (
+    select 1 from public.profiles p
+    where p.id = notifications.recipient_id
+      and p.organization_id = private.current_org_id()
+      and p.active = true
+  )
+  and (private.current_role() = 'owner' or type = 'task_submitted')
+);
+
+drop policy if exists "notifications select recipient or owner" on public.notifications;
+create policy "notifications select recipient or owner" on public.notifications
+for select to authenticated
+using (
+  organization_id = private.current_org_id()
+  and (recipient_id = (select auth.uid()) or private.current_role() = 'owner')
+);
+
+drop policy if exists "notifications update recipient" on public.notifications;
+create policy "notifications update recipient" on public.notifications
+for update to authenticated
+using (organization_id = private.current_org_id() and recipient_id = (select auth.uid()))
+with check (organization_id = private.current_org_id() and recipient_id = (select auth.uid()));
+
+drop policy if exists "automation rules insert managers" on public.automation_rules;
+create policy "automation rules insert managers" on public.automation_rules
+for insert to authenticated
+with check (
+  organization_id = private.current_org_id()
+  and private.current_role() in ('owner','admin','manager')
+  and created_by = (select auth.uid())
+);
+
+drop policy if exists "marketplace jobs insert operators" on public.marketplace_jobs;
+create policy "marketplace jobs insert operators" on public.marketplace_jobs
+for insert to authenticated
+with check (
+  organization_id = private.current_org_id()
+  and private.current_role() in ('owner','admin','manager','marketing')
+  and requested_by = (select auth.uid())
+);
