@@ -253,6 +253,64 @@ export async function POST(request: Request) {
     .eq('active', true)
     .maybeSingle();
 
+  const { data: salesCapabilities } = await admin
+    .from('staff_capabilities')
+    .select('profile_id,proficiency,profiles!inner(active)')
+    .eq('organization_id', organizationId)
+    .eq('capability', 'sales')
+    .eq('active', true)
+    .order('proficiency', { ascending: false })
+    .limit(10);
+
+  const salesAssignee = (salesCapabilities ?? []).find((item: any) => item.profiles?.active !== false)?.profile_id ?? owner?.id ?? null;
+  const followupPriority = urgency === 'immediate' || score >= 85 ? 'urgent' : urgency === 'high' || score >= 65 ? 'high' : 'medium';
+  const dueMinutes = followupPriority === 'urgent' ? 30 : followupPriority === 'high' ? 120 : 480;
+  const followupDueAt = new Date(Date.now() + dueMinutes * 60_000).toISOString();
+
+  const { data: followupTask } = await admin
+    .from('tasks')
+    .insert({
+      organization_id: organizationId,
+      title: `Buyer follow-up: ${productQuery}`.slice(0, 180),
+      description: `Genuine opted-in buyer request. Source: ${attributionSource}. Campaign: ${campaign}. Intent score: ${Math.round(score)}/100. Open Buyer Intelligence to review contact details, location and live catalog matches.`,
+      creator_id: owner?.id ?? null,
+      assignee_id: salesAssignee,
+      department: 'sales',
+      priority: followupPriority,
+      status: salesAssignee ? 'assigned' : 'draft',
+      due_at: followupDueAt,
+      completion_notes: `buyer-intent:${intent.id}`,
+    })
+    .select('id')
+    .single();
+
+  if (followupTask?.id) {
+    await admin.from('activity_logs').insert({
+      organization_id: organizationId,
+      actor_id: null,
+      action: 'buyer_intent.followup_task_created',
+      entity_type: 'buyer_intent',
+      entity_id: intent.id,
+      metadata: {
+        task_id: followupTask.id,
+        assignee_id: salesAssignee,
+        priority: followupPriority,
+        attribution_source: attributionSource,
+        campaign,
+      },
+    });
+
+    if (salesAssignee && salesAssignee !== owner?.id) {
+      await admin.from('notifications').insert({
+        organization_id: organizationId,
+        recipient_id: salesAssignee,
+        title: 'New buyer follow-up assigned',
+        body: `${productQuery} · ${followupPriority} priority · open Buyers for details`.slice(0, 240),
+        type: 'buyer_request',
+      });
+    }
+  }
+
   if (owner?.id) {
     const location = [city, state].filter(Boolean).join(', ') || 'Location not supplied';
     const budgetText = budgetMax ? ` · Budget ₦${Math.round(budgetMax).toLocaleString('en-NG')}` : '';
