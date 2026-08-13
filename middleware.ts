@@ -1,12 +1,11 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-
-const protectedPrefixes = [
-  '/dashboard','/today','/tasks','/my-work','/approvals','/team','/availability','/workload','/performance','/time',
-  '/leads','/sales','/quotes','/customers','/campaigns','/marketing','/inbox','/conversations','/schedule','/recurring-work','/sla',
-  '/opportunities','/analytics','/reports','/goals','/ai','/ai-proposals','/automations','/activity','/integrations','/sites',
-  '/marketplaces','/marketplace-jobs','/vendors','/catalog','/settlements','/settings'
-];
+import {
+  canGadgetPointStaffAccessPath,
+  isGadgetPointStaffAppMetadata,
+  protectedWorkspacePrefixes,
+  requiredWorkflowOSScope,
+} from '@/lib/workflow-access';
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -29,13 +28,26 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
-  const protectedPath = protectedPrefixes.some(prefix => path === prefix || path.startsWith(prefix + '/'));
+  const protectedPath = protectedWorkspacePrefixes.some(prefix => path === prefix || path.startsWith(prefix + '/'));
 
   if (protectedPath && !user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/login';
     redirectUrl.searchParams.set('next', path);
     return NextResponse.redirect(redirectUrl);
+  }
+
+  if (protectedPath && user && isGadgetPointStaffAppMetadata(user.app_metadata as Record<string, unknown>)) {
+    if (!canGadgetPointStaffAccessPath(path, user.app_metadata as Record<string, unknown>)) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/access-denied';
+      redirectUrl.search = '';
+      const required = requiredWorkflowOSScope(path);
+      redirectUrl.searchParams.set('from', path);
+      redirectUrl.searchParams.set('reason', user.app_metadata?.workflowos_access_enabled === true ? 'permission' : 'disabled');
+      if (required && required !== 'owner') redirectUrl.searchParams.set('area', required);
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   if ((path === '/login' || path === '/signup') && user) {
