@@ -219,6 +219,7 @@ export default async function Dashboard() {
           <Link href="/analytics" className="text-[#404040] hover:text-[#1f7a57]">Analytics</Link>
           <Link href="/automations" className="text-[#404040] hover:text-[#1f7a57]">Automations</Link>
           <Link href="/integrations" className="text-[#404040] hover:text-[#1f7a57]">Integrations</Link>
+          {isOwner && <a href="https://gadgetpoint.ng/admin" className="text-[#404040] hover:text-[#1f7a57]">GadgetPoint Admin</a>}
         </section>
       </div>
     </WorkspaceShell>
