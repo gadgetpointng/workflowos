@@ -28,3 +28,13 @@ create index if not exists idx_customer_conversations_integration_id on public.c
 create index if not exists idx_customer_conversations_lead_id on public.customer_conversations (lead_id);
 
 create index if not exists idx_automation_rules_created_by on public.automation_rules (created_by);
+
+-- Hot approval / integration / messaging / AI paths added to production on 2026-08-13.
+create index if not exists idx_approvals_requested_by on public.approvals (requested_by);
+create index if not exists idx_approvals_approver_id on public.approvals (approver_id);
+create index if not exists idx_integration_commands_requested_by on public.integration_commands (requested_by);
+create index if not exists idx_integration_commands_approved_by on public.integration_commands (approved_by);
+create index if not exists idx_conversation_messages_org on public.conversation_messages (organization_id);
+create index if not exists idx_conversation_messages_sender on public.conversation_messages (sender_profile_id);
+create index if not exists idx_ai_proposals_created_by on public.ai_proposals (created_by);
+create index if not exists idx_ai_proposals_approved_by on public.ai_proposals (approved_by);
