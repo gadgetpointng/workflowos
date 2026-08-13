@@ -17,25 +17,25 @@ function walk(dir) {
 
 function routeFromFile(file) {
   const relative = path.relative(appDir, file).replaceAll(path.sep, '/');
-  const isPage = relative.endsWith('/page.tsx') || relative === 'page.tsx' || relative.endsWith('/page.jsx') || relative === 'page.jsx';
-  const isRoute = relative.endsWith('/route.ts') || relative === 'route.ts' || relative.endsWith('/route.js') || relative === 'route.js';
-  if (!isPage && !isRoute) return null;
-  let route = relative.replace(/\/(?:page|route)\.(?:tsx|ts|jsx|js)$/, '').replace(/^(?:page|route)\.(?:tsx|ts|jsx|js)$/, '');
-  route = route.split('/').filter((segment) => !/^\(.*\)$/.test(segment)).join('/');
-  return `/${route}`.replace(/\/$/, '') || '/';
+  const pageOrRoute = /(^|\/)(?:page\.(?:tsx|jsx)|route\.(?:ts|js))$/.test(relative);
+  if (!pageOrRoute) return null;
+  let route = relative.replace(/(^|\/)(?:page\.(?:tsx|jsx)|route\.(?:ts|js))$/, '');
+  route = route.split('/').filter((segment) => segment && !/^\(.*\)$/.test(segment)).join('/');
+  return route ? `/${route}` : '/';
 }
 
 function routeRegex(route) {
   const escaped = route.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`^${escaped.replace(/\\\[\\\.\\\.\\\.(.+?)\\\]/g, '.+').replace(/\\\[(.+?)\\\]/g, '[^/]+')}$`);
+  const dynamic = escaped
+    .replace(/\\\[\\\.\\\.\\\.(.+?)\\\]/g, '.+')
+    .replace(/\\\[(.+?)\\\]/g, '[^/]+');
+  return new RegExp(`^${dynamic}$`);
 }
 
-const appFiles = walk(appDir);
-const routes = appFiles.map(routeFromFile).filter(Boolean);
+const routes = walk(appDir).map(routeFromFile).filter(Boolean);
 const routeMatchers = routes.map(routeRegex);
 const missing = [];
-const hrefPattern = /href\s*=\s*["'](\/[^
-"']*)["']/g;
+const hrefPattern = /href\s*=\s*["'](\/[^"']*)["']/g;
 
 for (const dir of scanDirs) {
   for (const file of walk(dir)) {
@@ -47,9 +47,7 @@ for (const dir of scanDirs) {
       if (raw.includes('${')) continue;
       const clean = raw.split(/[?#]/)[0] || '/';
       if (clean.startsWith('/api/') || assetExt.test(clean) || clean === '/sw.js') continue;
-      if (!routeMatchers.some((regex) => regex.test(clean))) {
-        missing.push(`${path.relative(root, file)} -> ${raw}`);
-      }
+      if (!routeMatchers.some((regex) => regex.test(clean))) missing.push(`${path.relative(root, file)} -> ${raw}`);
     }
   }
 }
