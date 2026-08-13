@@ -25,7 +25,6 @@ const routeScopes: Array<[string, WorkflowOSRouteScope]> = [
   ['/inbox', 'work'],
   ['/notifications', 'work'],
   ['/briefing', 'work'],
-
   ['/schedule', 'operations'],
   ['/time', 'operations'],
   ['/workload', 'operations'],
@@ -33,32 +32,28 @@ const routeScopes: Array<[string, WorkflowOSRouteScope]> = [
   ['/recurring-work', 'operations'],
   ['/sla', 'operations'],
   ['/branch-radar', 'operations'],
-
   ['/opportunities', 'sales'],
+  ['/acquisition', 'sales'],
   ['/buyers', 'sales'],
   ['/leads', 'sales'],
   ['/customers', 'sales'],
   ['/sales', 'sales'],
   ['/quotes', 'sales'],
   ['/conversations', 'sales'],
-
   ['/campaigns', 'marketing'],
   ['/marketing', 'marketing'],
   ['/goals', 'marketing'],
-
   ['/catalog', 'commerce'],
   ['/vendors', 'commerce'],
   ['/settlements', 'commerce'],
   ['/marketplaces', 'commerce'],
   ['/marketplace-jobs', 'commerce'],
-
   ['/automations', 'intelligence'],
   ['/analytics', 'intelligence'],
   ['/performance', 'intelligence'],
   ['/reports', 'intelligence'],
   ['/ai-proposals', 'intelligence'],
   ['/ai', 'intelligence'],
-
   ['/owner', 'owner'],
   ['/approvals', 'owner'],
   ['/team', 'owner'],
