@@ -115,7 +115,7 @@ export default function SmartSidebar({ pathname, open, onClose, navGroups, profi
       <div className="group/row flex items-center gap-1">
         <Link
           href={item.href}
-          prefetch
+          prefetch={false}
           onClick={onClose}
           className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition ${active ? 'bg-[#214e78] text-white shadow-sm ring-1 ring-inset ring-white/10' : 'text-[#d6e0e8] hover:bg-white/[0.07] hover:text-white'}`}
         >
@@ -230,9 +230,9 @@ export default function SmartSidebar({ pathname, open, onClose, navGroups, profi
             <div className="truncate text-xs font-semibold text-white">{displayName}</div>
             <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-medium capitalize text-[#9db1c1]"><span className="h-1.5 w-1.5 rounded-full bg-[#79c79b]" />{role}</div>
           </div>
-          {isOwner && <Link href="/owner" onClick={onClose} className="rounded-md p-2 text-[#9fc0d8] transition hover:bg-white/[0.08] hover:text-white" title="Owner Control">◆</Link>}
-          <Link href="/notifications" onClick={onClose} className="rounded-md p-2 text-[#8fa6b7] transition hover:bg-white/[0.08] hover:text-white" title="Notifications">●</Link>
-          {canManage && <Link href="/settings" onClick={onClose} className="rounded-md p-2 text-[#8fa6b7] transition hover:bg-white/[0.08] hover:text-white" title="Settings">⚙</Link>}
+          {isOwner && <Link href="/owner" prefetch={false} onClick={onClose} className="rounded-md p-2 text-[#9fc0d8] transition hover:bg-white/[0.08] hover:text-white" title="Owner Control">◆</Link>}
+          <Link href="/notifications" prefetch={false} onClick={onClose} className="rounded-md p-2 text-[#8fa6b7] transition hover:bg-white/[0.08] hover:text-white" title="Notifications">●</Link>
+          {canManage && <Link href="/settings" prefetch={false} onClick={onClose} className="rounded-md p-2 text-[#8fa6b7] transition hover:bg-white/[0.08] hover:text-white" title="Settings">⚙</Link>}
         </div>
         <form action={logout} className="mt-2">
           <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/[0.09] bg-transparent px-3 py-2.5 text-xs font-semibold text-[#c9d5de] transition hover:bg-white/[0.06] hover:text-white">↪ Log out</button>
