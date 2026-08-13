@@ -37,10 +37,10 @@ export default function SmartSidebar({ pathname, open, onClose, navGroups, profi
   const activeGroup = visibleGroups.find((group) => group.items.some((item) => hrefMatches(pathname, item.href)))?.label;
 
   const [query, setQuery] = useState('');
-  const [expanded, setExpanded] = useState<string[]>(() => (activeGroup ? [activeGroup] : ['Workspace']));
+  const [expanded, setExpanded] = useState<string[]>(() => (activeGroup ? [activeGroup] : ['Home']));
   const [recent, setRecent] = useState<string[]>([]);
   const [pins, setPins] = useState<string[]>([]);
-  const [prefs, setPrefs] = useState<SidebarPrefs>({ smartSidebar: true, showRecent: true });
+  const [prefs, setPrefs] = useState<SidebarPrefs>({ smartSidebar: true, showRecent: false });
 
   useEffect(() => {
     function load() {
@@ -50,7 +50,7 @@ export default function SmartSidebar({ pathname, open, onClose, navGroups, profi
         const savedPrefs = JSON.parse(localStorage.getItem('workflowos.preferences') || '{}');
         if (Array.isArray(savedRecent)) setRecent(savedRecent);
         if (Array.isArray(savedPins)) setPins(savedPins);
-        setPrefs({ smartSidebar: true, showRecent: true, ...savedPrefs });
+        setPrefs({ smartSidebar: true, showRecent: false, ...savedPrefs });
       } catch {}
     }
     load();
@@ -66,14 +66,14 @@ export default function SmartSidebar({ pathname, open, onClose, navGroups, profi
       try { localStorage.setItem('workflowos.sidebar.recent', JSON.stringify(next)); } catch {}
       return next;
     });
-    if (activeGroup) setExpanded((current) => (current.includes(activeGroup) ? current : [activeGroup]));
+    if (activeGroup) setExpanded([activeGroup]);
   }, [activeGroup, activeItem?.href]);
 
   const focusHrefs = isOwner
-    ? ['/owner', '/owner-communications', '/notifications', '/briefing', '/revenue-rescue']
+    ? ['/dashboard', '/today', '/buyers', '/tasks', '/notifications', '/integrations']
     : canManage
-      ? ['/dashboard', '/notifications', '/briefing', '/revenue-rescue', '/approvals']
-      : ['/today', '/notifications', '/my-work', '/tasks', '/follow-up-sla'];
+      ? ['/dashboard', '/today', '/tasks', '/buyers', '/notifications', '/approvals']
+      : ['/today', '/my-work', '/tasks', '/inbox', '/notifications'];
 
   const specialItems: NavItem[] = [
     ...(isOwner
@@ -105,7 +105,7 @@ export default function SmartSidebar({ pathname, open, onClose, navGroups, profi
   }
 
   function toggleGroup(label: string) {
-    setExpanded((current) => (current.includes(label) ? current.filter((item) => item !== label) : [...current, label]));
+    setExpanded((current) => (current.includes(label) ? [] : [label]));
   }
 
   function NavRow({ item, compact = false }: { item: NavItem; compact?: boolean }) {
@@ -154,7 +154,7 @@ export default function SmartSidebar({ pathname, open, onClose, navGroups, profi
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search workspace"
+            placeholder="Find a page or tool"
             className="w-full rounded-lg border border-white/[0.11] bg-[#0b2238] py-2.5 pl-8 pr-3 text-xs font-medium text-white outline-none placeholder:text-[#71899b] focus:border-[#6f9abb] focus:bg-[#0d263e] focus:ring-2 focus:ring-[#6f9abb]/20"
           />
         </div>
@@ -174,8 +174,8 @@ export default function SmartSidebar({ pathname, open, onClose, navGroups, profi
             {prefs.smartSidebar !== false && (
               <section>
                 <div className="mb-2 flex items-center justify-between px-2">
-                  <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#8fa6b7]">Priority workspace</span>
-                  <span className="rounded border border-white/[0.10] bg-white/[0.05] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-[#b9c7d1]">Smart</span>
+                  <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#8fa6b7]">Quick access</span>
+                  <span className="rounded border border-white/[0.10] bg-white/[0.05] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-[#b9c7d1]">Essentials</span>
                 </div>
                 <div className="space-y-0.5">{focusItems.map((item) => <NavRow key={item.href} item={item} />)}</div>
               </section>
@@ -183,20 +183,23 @@ export default function SmartSidebar({ pathname, open, onClose, navGroups, profi
 
             {pinnedItems.length > 0 && (
               <section>
-                <div className="mb-2 px-2 text-[9px] font-bold uppercase tracking-[0.14em] text-[#b9a668]">Pinned</div>
+                <div className="mb-2 px-2 text-[9px] font-bold uppercase tracking-[0.14em] text-[#b9a668]">Pinned by you</div>
                 <div className="space-y-0.5">{pinnedItems.map((item) => <NavRow key={item.href} item={item} compact />)}</div>
               </section>
             )}
 
             {prefs.showRecent !== false && recentItems.length > 1 && (
               <section>
-                <div className="mb-2 px-2 text-[9px] font-bold uppercase tracking-[0.14em] text-[#71899b]">Recent</div>
+                <div className="mb-2 px-2 text-[9px] font-bold uppercase tracking-[0.14em] text-[#71899b]">Recently opened</div>
                 <div className="space-y-0.5">{recentItems.slice(0, 3).map((item) => <NavRow key={item.href} item={item} compact />)}</div>
               </section>
             )}
 
             <section className="border-t border-white/[0.09] pt-4">
-              <div className="mb-2 px-2 text-[9px] font-bold uppercase tracking-[0.14em] text-[#71899b]">Navigation</div>
+              <div className="mb-2 px-2">
+                <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#71899b]">All sections</div>
+                <div className="mt-1 text-[10px] leading-4 text-[#8199ab]">Tools are grouped by the job you are trying to do.</div>
+              </div>
               <div className="space-y-1">
                 {visibleGroups.map((group) => {
                   const isOpen = expanded.includes(group.label);
@@ -206,7 +209,7 @@ export default function SmartSidebar({ pathname, open, onClose, navGroups, profi
                       <button
                         type="button"
                         onClick={() => toggleGroup(group.label)}
-                        className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] font-bold uppercase tracking-[0.045em] transition ${hasActive ? 'bg-white/[0.07] text-white' : 'text-[#aabcc9] hover:bg-white/[0.05] hover:text-white'}`}
+                        className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2.5 text-left text-[12px] font-semibold transition ${hasActive ? 'bg-white/[0.07] text-white' : 'text-[#b9c7d1] hover:bg-white/[0.05] hover:text-white'}`}
                       >
                         <span className={`h-1.5 w-1.5 rounded-full ${hasActive ? 'bg-[#6fa1c8]' : 'bg-[#47667f]'}`} />
                         <span className="flex-1">{group.label}</span>
