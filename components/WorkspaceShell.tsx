@@ -159,9 +159,9 @@ export default function WorkspaceShell({
               <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ccebdc] bg-[#f1fbf6] px-2.5 py-1.5 text-[10px] font-medium text-[#1f7a57]">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#3ecf8e]" /> Live
               </span>
-              <Link href="/notifications" prefetch className="rounded-md border border-[#e1e1e1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#525252] transition hover:bg-[#fafafa]">Alerts</Link>
-              <Link href="/inbox" prefetch className="rounded-md border border-[#e1e1e1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#525252] transition hover:bg-[#fafafa]">Inbox</Link>
-              <Link href="/ai" prefetch className="rounded-md border border-[#2d8a66] bg-[#2e8b67] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#267859]">AI</Link>
+              <Link href="/notifications" prefetch={false} className="rounded-md border border-[#e1e1e1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#525252] transition hover:bg-[#fafafa]">Alerts</Link>
+              <Link href="/inbox" prefetch={false} className="rounded-md border border-[#e1e1e1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#525252] transition hover:bg-[#fafafa]">Inbox</Link>
+              <Link href="/ai" prefetch={false} className="rounded-md border border-[#2d8a66] bg-[#2e8b67] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#267859]">AI</Link>
             </div>
           </div>
         </header>
@@ -179,7 +179,7 @@ export default function WorkspaceShell({
               <Link
                 key={item.href}
                 href={item.href}
-                prefetch
+                prefetch={false}
                 aria-current={active ? 'page' : undefined}
                 className={`group flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 transition ${active ? 'bg-[#f1fbf6]' : 'hover:bg-[#fafafa]'}`}
               >
