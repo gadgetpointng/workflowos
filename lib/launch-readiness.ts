@@ -12,7 +12,7 @@ export function getLaunchChecks(databaseOk: boolean): LaunchCheck[] {
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const cron = process.env.CRON_SECRET;
-  const openai = process.env.OPENAI_API_KEY;
+  const openai = process.env.OPENAI_API_KEY || process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
 
   return [
     { key: 'appUrl', label: 'Production app URL', ok: Boolean(appUrl && /^https:\/\//.test(appUrl)), required: true, detail: appUrl ? 'Configured' : 'Set NEXT_PUBLIC_APP_URL' },
@@ -21,6 +21,6 @@ export function getLaunchChecks(databaseOk: boolean): LaunchCheck[] {
     { key: 'serviceRole', label: 'Supabase service role', ok: Boolean(serviceRole), required: true, detail: serviceRole ? 'Configured server-side' : 'Set SUPABASE_SERVICE_ROLE_KEY' },
     { key: 'database', label: 'Database connectivity', ok: databaseOk, required: true, detail: databaseOk ? 'Organizations table reachable' : 'Apply schema/RLS and verify connectivity' },
     { key: 'cron', label: 'Scheduled operations secret', ok: Boolean(cron && cron.length >= 24), required: true, detail: cron ? 'Configured' : 'Set a long CRON_SECRET' },
-    { key: 'openai', label: 'WorkflowOS Copilot', ok: Boolean(openai), required: false, detail: openai ? 'Enabled' : 'Optional — set OPENAI_API_KEY to enable Copilot' },
+    { key: 'openai', label: 'WorkflowOS Copilot', ok: Boolean(openai), required: false, detail: openai ? 'Enabled' : 'Optional — configure server-side AI authentication to enable Copilot' },
   ];
 }
