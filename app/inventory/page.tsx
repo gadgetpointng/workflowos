@@ -3,6 +3,8 @@ import { requireUser } from '@/lib/auth';
 import WorkspaceShell from '@/components/WorkspaceShell';
 import InventoryOperationPanel from '@/components/InventoryOperationPanel';
 
+const STALE_AFTER_MS = 30 * 60 * 1000;
+
 export default async function InventoryPage() {
   const { supabase, user, profile } = await requireUser();
   if (!user || !profile) redirect('/login');
@@ -17,7 +19,7 @@ export default async function InventoryPage() {
       .order('name'),
     supabase
       .from('external_integrations')
-      .select('id,name,status')
+      .select('id,name,status,last_synced_at')
       .eq('organization_id', org)
       .eq('slug', 'gadgetpoint')
       .neq('status', 'disabled')
@@ -34,16 +36,21 @@ export default async function InventoryPage() {
   const productRows = (products ?? []) as any[];
   const commandRows = (commands ?? []) as any[];
   const pending = commandRows.filter((command) => ['pending_approval', 'approved', 'dispatched'].includes(command.status)).length;
+  const failed = commandRows.filter((command) => command.status === 'failed').length;
   const branchStocks = productRows.flatMap((product) =>
     Array.isArray(product.metadata?.branches)
       ? product.metadata.branches.map((branch: any) => ({ product, branch }))
       : []
   );
-  const latestSync = productRows
-    .map((product) => product.last_synced_at)
-    .filter(Boolean)
-    .sort()
-    .at(-1);
+  const syncTimes = productRows.map((product) => product.last_synced_at).filter(Boolean).map((value) => new Date(value).getTime()).filter(Number.isFinite);
+  const latestSyncMs = syncTimes.length ? Math.max(...syncTimes) : 0;
+  const oldestSyncMs = syncTimes.length ? Math.min(...syncTimes) : 0;
+  const latestSync = latestSyncMs ? new Date(latestSyncMs).toISOString() : null;
+  const staleProducts = productRows.filter((product) => {
+    const time = product.last_synced_at ? new Date(product.last_synced_at).getTime() : 0;
+    return !time || Date.now() - time > STALE_AFTER_MS;
+  }).length;
+  const mirrorStale = productRows.length === 0 || staleProducts > 0 || (oldestSyncMs > 0 && Date.now() - oldestSyncMs > STALE_AFTER_MS);
 
   return (
     <WorkspaceShell title="Inventory" subtitle="Admin-backed stock workflow" profile={profile}>
@@ -54,16 +61,36 @@ export default async function InventoryPage() {
             <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-950">Inventory</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-500">Receive, count, and report damaged stock in WorkflowOS. Approved changes are applied to GadgetPoint Admin, which remains the inventory source of truth.</p>
           </div>
-          <div className={`rounded-2xl border px-4 py-2.5 ${integration ? 'border-emerald-100 bg-emerald-50' : 'border-amber-100 bg-amber-50'}`}>
+          <div className={`rounded-2xl border px-4 py-2.5 ${integration && !mirrorStale ? 'border-emerald-100 bg-emerald-50' : 'border-amber-100 bg-amber-50'}`}>
             <div className="text-[10px] font-black uppercase tracking-wide text-slate-600">Admin connection</div>
-            <div className="mt-0.5 text-sm font-black text-slate-950">{integration ? 'Connected' : 'Waiting for GadgetPoint Admin'}</div>
+            <div className="mt-0.5 text-sm font-black text-slate-950">{!integration ? 'Waiting for GadgetPoint Admin' : mirrorStale ? 'Connected · sync needed' : 'Connected · fresh'}</div>
           </div>
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-3">
+        {mirrorStale && (
+          <section className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950 shadow-sm">
+            <div className="text-xs font-black uppercase tracking-[0.12em] text-amber-700">Stock freshness warning</div>
+            <div className="mt-1 font-black">Do not treat this mirror as a live count until Admin syncs again.</div>
+            <p className="mt-1 text-sm leading-6 text-amber-800">{productRows.length ? `${staleProducts} of ${productRows.length} mirrored products are older than 30 minutes.` : 'No Admin stock snapshot has been received yet.'} GadgetPoint Admin remains authoritative, so WorkflowOS blocks direct stock editing and only creates approval requests.</p>
+          </section>
+        )}
+
+        {failed > 0 && (
+          <section className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-rose-950 shadow-sm">
+            <div className="text-xs font-black uppercase tracking-[0.12em] text-rose-700">Needs attention</div>
+            <div className="mt-1 font-black">{failed} recent inventory request{failed === 1 ? '' : 's'} failed.</div>
+            <p className="mt-1 text-sm text-rose-800">Review the failure reason below before submitting a replacement adjustment. Failed requests never silently change Admin stock.</p>
+          </section>
+        )}
+
+        <section className="grid gap-3 sm:grid-cols-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Products mirrored</div>
             <div className="mt-2 text-2xl font-black text-slate-950">{productRows.length}</div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Branch stock rows</div>
+            <div className="mt-2 text-2xl font-black text-slate-950">{branchStocks.length}</div>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Awaiting completion</div>
