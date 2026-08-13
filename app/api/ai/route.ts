@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     supabase.from('connected_orders').select('total_amount,currency,channel,status,ordered_at').eq('organization_id',org).order('ordered_at',{ascending:false}).limit(15),
     supabase.from('commerce_signals').select('source,signal_type,product_ref,search_query,value,observed_at').eq('organization_id',org).order('observed_at',{ascending:false}).limit(20),
     supabase.from('campaigns').select('name,status,objective,starts_at,ends_at,budget').eq('organization_id',org).order('created_at',{ascending:false}).limit(10),
-    supabase.from('goals').select('title,metric,target_value,current_value,status,due_at').eq('organization_id',org).in('status',['active','at_risk']).limit(10),
+    supabase.from('goals').select('name,description,metric,target_value,current_value,starts_at,ends_at').eq('organization_id',org).order('created_at',{ascending:false}).limit(10),
     supabase.from('vendors').select('name,status,commission_rate').eq('organization_id',org).limit(10),
     supabase.from('buyer_intents').select('source,product_query,city,state,intent_score,status,consent_status,observed_at').eq('organization_id',org).neq('status','ignored').order('observed_at',{ascending:false}).limit(30),
     supabase.from('external_integrations').select('name,slug,kind,status,capabilities,last_synced_at').eq('organization_id',org).limit(20),
