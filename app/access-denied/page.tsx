@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 const labels: Record<string,string> = {
   work: 'daily work',
   operations: 'operations workflow',
@@ -26,9 +24,9 @@ export default async function AccessDeniedPage({ searchParams }: { searchParams:
         <div className="rounded-lg border border-[#e6e6e6] bg-[#fafafa] p-4"><strong className="block text-[#262626]">What to do</strong><span className="mt-1 block text-xs leading-5 text-[#777]">Ask the GadgetPoint owner to enable WorkflowOS and select the work areas you need in GadgetPoint Admin → WorkflowOS access.</span></div>
         <div className="rounded-lg border border-[#d9efe5] bg-[#f3fbf7] p-4"><strong className="block text-[#1f6f52]">Your password stays private</strong><span className="mt-1 block text-xs leading-5 text-[#5f766c]">WorkflowOS never receives your GadgetPoint password. Access is controlled by a short-lived verified handoff and the owner-approved permissions.</span></div>
       </div>
-      <footer className="flex flex-col gap-2 border-t border-[#ededed] px-6 py-5 sm:flex-row">
-        <a href="https://gadgetpoint.ng/admin" className="rounded-md bg-[#202020] px-4 py-2.5 text-center text-xs font-semibold text-white">Return to GadgetPoint Admin</a>
-        <Link href="/dashboard" className="rounded-md border border-[#d8d8d8] px-4 py-2.5 text-center text-xs font-semibold text-[#404040]">WorkflowOS overview</Link>
+      <footer className="border-t border-[#ededed] px-6 py-5">
+        <a href="https://gadgetpoint.ng/admin" className="block rounded-md bg-[#202020] px-4 py-2.5 text-center text-xs font-semibold text-white">Return to GadgetPoint Admin</a>
+        <p className="mt-3 text-center text-[11px] leading-5 text-[#8a8a8a]">WorkflowOS will become available automatically after the owner grants the required access.</p>
       </footer>
     </section>
   </main>;
