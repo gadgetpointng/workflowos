@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import SmartSidebar from '@/components/SmartSidebar';
 import NotificationSoundController from '@/components/NotificationSoundController';
+import { normalizeWorkflowOSPermissions, scopeForNavigationHref } from '@/lib/workflow-access';
 
 type NavItem = { label: string; href: string; icon: string };
 type NavGroup = { label: string; items: NavItem[] };
@@ -83,8 +84,6 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-const allNavItems = navGroups.flatMap((group) => group.items);
-
 const mobileNav = [
   { label: 'Home', href: '/dashboard', icon: '⌂' },
   { label: 'Opportunities', href: '/opportunities', icon: '✦' },
@@ -101,10 +100,31 @@ export default function WorkspaceShell({
   children: ReactNode;
   title?: string;
   subtitle?: string;
-  profile?: { full_name?: string | null; role?: string | null };
+  profile?: {
+    full_name?: string | null;
+    role?: string | null;
+    workflowos_identity_source?: string | null;
+    workflowos_access_enabled?: boolean | null;
+    workflowos_permissions?: string[] | null;
+  };
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const gadgetPointStaff = profile?.workflowos_identity_source === 'gadgetpoint-staff-authorization-code';
+  const workflowPermissions = useMemo(() => normalizeWorkflowOSPermissions(profile?.workflowos_permissions), [profile?.workflowos_permissions]);
+  const canOpen = (href: string) => {
+    if (!gadgetPointStaff) return true;
+    if (profile?.workflowos_access_enabled !== true) return false;
+    const required = scopeForNavigationHref(href);
+    if (required === null) return true;
+    if (required === 'owner') return false;
+    return workflowPermissions.includes(required);
+  };
+  const visibleNavGroups = useMemo(() => navGroups
+    .map((group) => ({ ...group, items: group.items.filter((item) => canOpen(item.href)) }))
+    .filter((group) => group.items.length > 0), [gadgetPointStaff, profile?.workflowos_access_enabled, workflowPermissions]);
+  const visibleMobileNav = useMemo(() => mobileNav.filter((item) => canOpen(item.href)), [gadgetPointStaff, profile?.workflowos_access_enabled, workflowPermissions]);
+  const allNavItems = visibleNavGroups.flatMap((group) => group.items);
 
   useEffect(() => setOpen(false), [pathname]);
 
@@ -132,7 +152,7 @@ export default function WorkspaceShell({
         />
       )}
 
-      <SmartSidebar pathname={pathname} open={open} onClose={() => setOpen(false)} navGroups={navGroups} profile={profile} />
+      <SmartSidebar pathname={pathname} open={open} onClose={() => setOpen(false)} navGroups={visibleNavGroups} profile={profile} />
 
       <div className="min-h-screen lg:pl-[292px]">
         <header className="sticky top-0 z-30 border-b border-[#e5e5e5] bg-[#fbfbfb]/95 backdrop-blur-xl">
@@ -159,9 +179,9 @@ export default function WorkspaceShell({
               <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ccebdc] bg-[#f1fbf6] px-2.5 py-1.5 text-[10px] font-medium text-[#1f7a57]">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#3ecf8e]" /> Live
               </span>
-              <Link href="/notifications" prefetch={false} className="rounded-md border border-[#e1e1e1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#525252] transition hover:bg-[#fafafa]">Alerts</Link>
-              <Link href="/inbox" prefetch={false} className="rounded-md border border-[#e1e1e1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#525252] transition hover:bg-[#fafafa]">Inbox</Link>
-              <Link href="/ai" prefetch={false} className="rounded-md border border-[#2d8a66] bg-[#2e8b67] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#267859]">AI</Link>
+              {canOpen('/notifications') && <Link href="/notifications" prefetch={false} className="rounded-md border border-[#e1e1e1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#525252] transition hover:bg-[#fafafa]">Alerts</Link>}
+              {canOpen('/inbox') && <Link href="/inbox" prefetch={false} className="rounded-md border border-[#e1e1e1] bg-white px-2.5 py-1.5 text-xs font-medium text-[#525252] transition hover:bg-[#fafafa]">Inbox</Link>}
+              {canOpen('/ai') && <Link href="/ai" prefetch={false} className="rounded-md border border-[#2d8a66] bg-[#2e8b67] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#267859]">AI</Link>}
             </div>
           </div>
         </header>
@@ -172,8 +192,8 @@ export default function WorkspaceShell({
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-2 lg:hidden">
-        <nav className="mx-auto grid max-w-xl grid-cols-5 gap-1 rounded-xl border border-[#dedede] bg-white/96 p-1.5 shadow-[0_-6px_24px_rgba(0,0,0,.08)] backdrop-blur-xl">
-          {mobileNav.map((item) => {
+        <nav className={`mx-auto grid max-w-xl gap-1 rounded-xl border border-[#dedede] bg-white/96 p-1.5 shadow-[0_-6px_24px_rgba(0,0,0,.08)] backdrop-blur-xl ${visibleMobileNav.length >= 4 ? 'grid-cols-5' : visibleMobileNav.length === 3 ? 'grid-cols-4' : visibleMobileNav.length === 2 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          {visibleMobileNav.map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <Link
