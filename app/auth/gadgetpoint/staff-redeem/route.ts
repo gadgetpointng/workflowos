@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { normalizeWorkflowOSPermissions } from '@/lib/workflow-access';
 
 const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
 const GADGETPOINT_REDEEM_ENDPOINT = 'https://gadgetpoint.ng/api/workflowos/staff-redeem';
@@ -25,6 +26,8 @@ type RedeemedStaff = {
   department?: unknown;
   branch?: unknown;
   dashboard_permissions?: unknown;
+  workflow_permissions?: unknown;
+  workflowos_access_enabled?: unknown;
   active?: unknown;
   status?: unknown;
 };
@@ -81,16 +84,21 @@ export async function GET(request: Request) {
   }
 
   const staff = redeemed?.staff ?? {};
-  const externalStaffId = String(staff.external_staff_id ?? '').trim();
+  const externalStaffId = String(staff.external_staff_id ?? '').trim().toLowerCase();
   const username = String(staff.username ?? '').trim();
   const email = String(staff.email ?? '').trim().toLowerCase();
   const fullName = String(staff.full_name ?? '').trim();
   const department = String(staff.department ?? '').trim() || null;
   const role = normalizeRole(staff.role);
+  const workflowPermissions = normalizeWorkflowOSPermissions(staff.workflow_permissions);
+  const workflowAccessEnabled = staff.workflowos_access_enabled === true;
   const inactive = staff.active === false || String(staff.status ?? '').trim().toLowerCase() === 'inactive';
 
   if (!externalStaffId || !username || !email.includes('@') || !fullName || inactive || email === OWNER_EMAIL) {
     return loginError(request, 'The GadgetPoint staff identity is incomplete or not authorized for WorkflowOS.');
+  }
+  if (!workflowAccessEnabled || workflowPermissions.length === 0) {
+    return loginError(request, 'The GadgetPoint owner has not granted this staff member WorkflowOS access.');
   }
 
   const admin = createAdminClient();
@@ -139,6 +147,9 @@ export async function GET(request: Request) {
           username,
           branch: staff.branch ?? null,
           dashboard_permissions: Array.isArray(staff.dashboard_permissions) ? staff.dashboard_permissions : [],
+          workflowos_access_enabled: true,
+          workflowos_permissions: workflowPermissions,
+          workflowos_access_source: 'gadgetpoint-owner-control',
           identity_source: 'gadgetpoint-staff-authorization-code',
           workflowos_identity_kind: 'external_email',
           external_email: email,
@@ -163,7 +174,7 @@ export async function GET(request: Request) {
     entity_type: 'staff_sso',
     entity_id: workflowCodeHash,
     payload: {
-      version: 3,
+      version: 4,
       expires_at: expiresAt.toISOString(),
       staff: {
         external_staff_id: externalStaffId,
@@ -175,6 +186,8 @@ export async function GET(request: Request) {
         department,
         branch: staff.branch ?? null,
         dashboard_permissions: Array.isArray(staff.dashboard_permissions) ? staff.dashboard_permissions : [],
+        workflowos_access_enabled: true,
+        workflowos_permissions: workflowPermissions,
         workflowos_identity_kind: 'external_email',
         identity_source: 'gadgetpoint-staff-authorization-code',
       },
