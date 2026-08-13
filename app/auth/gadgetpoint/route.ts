@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { normalizeWorkflowOSPermissions, type WorkflowOSStaffScope } from '@/lib/workflow-access';
 
 const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
 const STAFF_ROLES = new Set(['admin', 'manager', 'marketing', 'sales', 'staff']);
@@ -10,6 +11,16 @@ function loginError(request: Request, message: string) {
   const url = new URL('/login', request.url);
   url.searchParams.set('error', message);
   return NextResponse.redirect(url);
+}
+
+function landingPath(permissions: WorkflowOSStaffScope[]) {
+  if (permissions.includes('work')) return '/today';
+  if (permissions.includes('operations')) return '/schedule';
+  if (permissions.includes('sales')) return '/opportunities';
+  if (permissions.includes('marketing')) return '/campaigns';
+  if (permissions.includes('commerce')) return '/catalog';
+  if (permissions.includes('intelligence')) return '/analytics';
+  return '/dashboard';
 }
 
 export async function GET(request: Request) {
@@ -59,7 +70,7 @@ export async function GET(request: Request) {
   }
 
   const staff = event.payload?.staff ?? {};
-  const externalStaffId = String(staff.external_staff_id ?? '').trim();
+  const externalStaffId = String(staff.external_staff_id ?? '').trim().toLowerCase();
 
   if (!externalStaffId) {
     return loginError(request, 'GadgetPoint staff identity is incomplete.');
@@ -74,6 +85,15 @@ export async function GET(request: Request) {
 
   if (staffError || !connectedStaff || connectedStaff.status === 'inactive') {
     return loginError(request, 'This GadgetPoint staff account cannot access WorkflowOS.');
+  }
+
+  const handoffPermissions = normalizeWorkflowOSPermissions(staff.workflowos_permissions);
+  const metadataPermissions = normalizeWorkflowOSPermissions(connectedStaff.metadata?.workflowos_permissions);
+  const metadataEnabled = connectedStaff.metadata?.workflowos_access_enabled;
+  const accessEnabled = metadataEnabled === false ? false : staff.workflowos_access_enabled === true;
+  const workflowPermissions = metadataEnabled === true && metadataPermissions.length ? metadataPermissions : handoffPermissions;
+  if (!accessEnabled || workflowPermissions.length === 0) {
+    return loginError(request, 'The GadgetPoint owner has not granted this staff member WorkflowOS access.');
   }
 
   const role = String(connectedStaff.role ?? staff.role ?? 'staff').trim().toLowerCase();
@@ -153,6 +173,7 @@ export async function GET(request: Request) {
     connectedStaff.full_name ?? staff.full_name ?? staff.username ?? externalStaffId
   ).trim();
   const department = connectedStaff.department ?? staff.department ?? null;
+  const now = new Date().toISOString();
 
   const { error: profileError } = await admin
     .from('profiles')
@@ -165,7 +186,7 @@ export async function GET(request: Request) {
         role,
         department,
         active: true,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       },
       { onConflict: 'id' }
     );
@@ -174,12 +195,32 @@ export async function GET(request: Request) {
     return loginError(request, 'WorkflowOS could not provision this GadgetPoint staff profile.');
   }
 
+  const currentAppMetadata = (linkData.user.app_metadata ?? {}) as Record<string, unknown>;
+  const { error: authMetadataError } = await admin.auth.admin.updateUserById(linkData.user.id, {
+    app_metadata: {
+      ...currentAppMetadata,
+      workflowos_identity_source: 'gadgetpoint-staff-authorization-code',
+      workflowos_access_enabled: true,
+      workflowos_permissions: workflowPermissions,
+      gadgetpoint_external_staff_id: externalStaffId,
+    },
+  });
+  if (authMetadataError) {
+    return loginError(request, 'WorkflowOS could not apply the staff access policy.');
+  }
+
   await admin
     .from('connected_staff')
     .update({
       profile_id: linkData.user.id,
-      last_synced_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      metadata: {
+        ...(connectedStaff.metadata ?? {}),
+        workflowos_access_enabled: true,
+        workflowos_permissions: workflowPermissions,
+        workflowos_access_source: 'gadgetpoint-owner-control',
+      },
+      last_synced_at: now,
+      updated_at: now,
     })
     .eq('id', connectedStaff.id);
 
@@ -192,15 +233,17 @@ export async function GET(request: Request) {
         integration_id: event.integration_id,
         external_staff_id: externalStaffId,
         external_email: staff.external_email ?? null,
-        verified_at: new Date().toISOString(),
+        verified_at: now,
         metadata: {
           username: staff.username ?? null,
           identity_source: 'gadgetpoint-staff-login',
           password_owner: 'gadgetpoint',
           workflowos_session_identity: email,
           workflowos_identity_kind: staff.workflowos_identity_kind ?? connectedStaff.metadata?.workflowos_identity_kind ?? null,
+          workflowos_access_enabled: true,
+          workflowos_permissions: workflowPermissions,
         },
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       },
       { onConflict: 'integration_id,external_staff_id' }
     );
@@ -215,7 +258,20 @@ export async function GET(request: Request) {
     return loginError(request, 'WorkflowOS could not finish the GadgetPoint staff sign-in.');
   }
 
-  const response = NextResponse.redirect(new URL('/dashboard', request.url));
+  await admin.from('activity_logs').insert({
+    organization_id: event.organization_id,
+    actor_id: linkData.user.id,
+    action: 'auth.gadgetpoint.staff_session.scoped',
+    entity_type: 'profile',
+    entity_id: linkData.user.id,
+    metadata: {
+      external_staff_id: externalStaffId,
+      workflowos_permissions: workflowPermissions,
+      identity_source: 'gadgetpoint-staff-authorization-code',
+    },
+  });
+
+  const response = NextResponse.redirect(new URL(landingPath(workflowPermissions), request.url));
   response.headers.set('Referrer-Policy', 'no-referrer');
   response.headers.set('Cache-Control', 'no-store');
   return response;
