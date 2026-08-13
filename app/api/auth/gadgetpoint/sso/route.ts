@@ -36,6 +36,8 @@ type JwtClaims = {
   aud?: string | string[];
   exp?: number;
   nbf?: number;
+  iat?: number;
+  jti?: string;
   app_metadata?: Record<string, unknown>;
   user_metadata?: Record<string, unknown>;
 };
@@ -650,7 +652,92 @@ export async function GET(request: Request) {
   );
 }
 
+async function acceptSignedOwnerHandoff(request: Request, token: string) {
+  const parsed = parseExternalJwt(token);
+  const candidateIssuer = normalizeIssuer(parsed?.claims.iss);
+  const tokenFingerprint = crypto.createHash('sha256').update(token).digest('hex').slice(0, 12);
+  if (!parsed || !candidateIssuer) {
+    return NextResponse.json({ error: 'Unsupported GadgetPoint identity token' }, { status: 401 });
+  }
+
+  const admin = createAdminClient();
+  const { data: integration } = await admin
+    .from('external_integrations')
+    .select('id,organization_id,settings,status')
+    .eq('slug', 'gadgetpoint')
+    .eq('base_url', 'https://gadgetpoint.ng')
+    .maybeSingle();
+  if (!integration || !['active', 'connected'].includes(String(integration.status ?? '').toLowerCase())) {
+    return NextResponse.json({ error: 'The GadgetPoint integration is not active' }, { status: 403 });
+  }
+
+  const settings = (integration.settings ?? {}) as Record<string, unknown>;
+  const trustedIssuer = normalizeIssuer(settings.trusted_auth_issuer);
+  if (trustedIssuer && trustedIssuer !== candidateIssuer) {
+    console.warn('Rejected GadgetPoint owner SSO issuer', { tokenFingerprint, candidateIssuer });
+    return NextResponse.json({ error: 'Untrusted GadgetPoint identity issuer' }, { status: 401 });
+  }
+
+  const claims = await verifyExternalJwt(token, candidateIssuer);
+  const now = Math.floor(Date.now() / 1000);
+  const jti = String(claims?.jti ?? '').trim();
+  const email = String(claims?.email ?? '').trim().toLowerCase();
+  const role = String(claims?.app_metadata?.role ?? '').trim().toLowerCase();
+  if (!claims || !jti || !claims.iat || claims.iat > now + 30 || now - claims.iat > 120 ||
+      claims.sub !== OWNER_EMAIL || email !== OWNER_EMAIL || role !== 'owner' ||
+      claims.app_metadata?.active === false || String(claims.app_metadata?.status ?? '').toLowerCase() === 'inactive') {
+    console.warn('Rejected GadgetPoint owner SSO claims', { tokenFingerprint, candidateIssuer });
+    return NextResponse.json({ error: 'Invalid GadgetPoint owner identity' }, { status: 403 });
+  }
+
+  const replayKey = `gadgetpoint-sso:${jti}`;
+  const { data: existingReplay } = await admin.from('integration_events')
+    .select('id').eq('integration_id', integration.id).eq('external_id', replayKey).maybeSingle();
+  if (existingReplay) return NextResponse.json({ error: 'This sign-in handoff has already been used' }, { status: 409 });
+
+  const code = crypto.randomBytes(32).toString('base64url');
+  const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+  const expiresAt = new Date(Date.now() + 2 * 60 * 1000);
+  const fullName = String(claims.user_metadata?.full_name ?? 'GadgetPoint Owner').trim() || 'GadgetPoint Owner';
+  const { error: eventError } = await admin.from('integration_events').insert([
+    {
+      organization_id: integration.organization_id, integration_id: integration.id,
+      source: 'gadgetpoint', event_type: 'auth.sso_jti', external_id: replayKey,
+      entity_type: 'auth_nonce', entity_id: tokenFingerprint,
+      payload: { issuer: candidateIssuer, expires_at: new Date((claims.exp ?? now) * 1000).toISOString() },
+      processed_at: new Date().toISOString(),
+    },
+    {
+      organization_id: integration.organization_id, integration_id: integration.id,
+      source: 'gadgetpoint', event_type: 'owner.sso', entity_type: 'owner_sso', entity_id: codeHash,
+      payload: { version: 2, expires_at: expiresAt.toISOString(), owner: {
+        external_owner_id: claims.sub, email: OWNER_EMAIL, full_name: fullName, role: 'owner',
+        identity_source: 'gadgetpoint-owner-signed-jwt',
+      }}, processed_at: new Date().toISOString(),
+    },
+  ]);
+  if (eventError) {
+    console.warn('Failed to claim GadgetPoint owner SSO handoff', { tokenFingerprint });
+    return NextResponse.json({ error: 'Could not create the one-time WorkflowOS session handoff' }, { status: 409 });
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+  return NextResponse.json({
+    ok: true,
+    login_url: `${appUrl}/auth/gadgetpoint/owner?code=${encodeURIComponent(code)}`,
+    expires_at: expiresAt.toISOString(),
+    expires_in_seconds: 120,
+  }, { headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
+}
+
 export async function POST(request: Request) {
+  if ((request.headers.get('content-type') || '').toLowerCase().startsWith('application/jwt')) {
+    const authorization = request.headers.get('authorization') || '';
+    const token = authorization.replace(/^Bearer\s+/i, '').trim();
+    if (!token) return NextResponse.json({ error: 'Missing signed GadgetPoint identity token' }, { status: 401 });
+    return acceptSignedOwnerHandoff(request, token);
+  }
+
   const auth = await authenticateBridge(request, 'gadgetpoint');
 
   if (!auth.ok) {
