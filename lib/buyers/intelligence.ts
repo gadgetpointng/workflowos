@@ -23,13 +23,13 @@ export function scoreBuyerIntent(input: BuyerIntentInput) {
   if (input.city || input.state) score += 8;
   if (input.urgency === 'high') score += 10;
   if (input.urgency === 'immediate') score += 18;
-  if (input.consent_status === 'opted_in') score += 8;
+  if (input.consent_status === 'opted_in' || input.consent_status === 'requested_contact') score += 8;
   if (input.consent_status === 'do_not_contact') score = 0;
   return Math.max(0, Math.min(100, score));
 }
 
 export function canContactBuyer(consent?: string | null) {
-  return consent === 'opted_in';
+  return consent === 'opted_in' || consent === 'requested_contact';
 }
 
 export function matchProducts(intent: BuyerIntentInput, products: any[], limit = 6) {
