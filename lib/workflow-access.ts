@@ -18,7 +18,7 @@ export function normalizeWorkflowOSPermissions(value: unknown): WorkflowOSStaffS
 }
 
 const routeScopes: Array<[string, WorkflowOSRouteScope]> = [
-  ['/dashboard', null],
+  ['/dashboard', 'work'],
   ['/today', 'work'],
   ['/my-work', 'work'],
   ['/tasks', 'work'],
