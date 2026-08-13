@@ -59,6 +59,7 @@ const routeScopes: Array<[string, WorkflowOSRouteScope]> = [
   ['/ai-proposals', 'intelligence'],
   ['/ai', 'intelligence'],
 
+  ['/owner', 'owner'],
   ['/approvals', 'owner'],
   ['/team', 'owner'],
   ['/activity', 'owner'],
