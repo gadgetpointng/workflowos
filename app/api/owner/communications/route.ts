@@ -31,6 +31,30 @@ async function getOwnerControls(supabase: any, organizationId: string): Promise<
   };
 }
 
+export async function GET() {
+  const { supabase, user, profile } = await requireUser();
+  if (!user || !profile || !isOwner(profile, user)) {
+    return NextResponse.json({ error: 'Owner access required' }, { status: 403 });
+  }
+
+  const [controls, staffResult] = await Promise.all([
+    getOwnerControls(supabase, profile.organization_id),
+    supabase
+      .from('profiles')
+      .select('id,full_name,email,role')
+      .eq('organization_id', profile.organization_id)
+      .eq('active', true)
+      .neq('id', user.id)
+      .order('full_name', { ascending: true }),
+  ]);
+
+  if (staffResult.error) {
+    return NextResponse.json({ error: staffResult.error.message }, { status: 400 });
+  }
+
+  return NextResponse.json({ ok: true, staff: staffResult.data ?? [], controls });
+}
+
 export async function POST(request: Request) {
   const { supabase, user, profile } = await requireUser();
   if (!user || !profile || !isOwner(profile, user)) {
