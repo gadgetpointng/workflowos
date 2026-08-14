@@ -19,7 +19,7 @@ const navGroups:Group[]=[
 const mobile:Item[]=[{label:'Home',href:'/dashboard',icon:'⌂'},{label:'Today',href:'/today',icon:'☀'},{label:'Buyers',href:'/buyers',icon:'⌕'},{label:'Tasks',href:'/tasks',icon:'✓'}];
 
 export default function WorkspaceShell({children,title,subtitle,profile}:{children:ReactNode;title?:string;subtitle?:string;profile?:{full_name?:string|null;role?:string|null;workflowos_identity_source?:string|null;workflowos_access_enabled?:boolean|null;workflowos_permissions?:string[]|null}}){
- const pathname=usePathname(); const [open,setOpen]=useState(false);
+ const pathname=usePathname(); const [open,setOpen]=useState(false); const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
  const staff=profile?.workflowos_identity_source==='gadgetpoint-staff-authorization-code';
  const permissions=useMemo(()=>normalizeWorkflowOSPermissions(profile?.workflowos_permissions),[profile?.workflowos_permissions]);
  const canOpen=(href:string)=>{if(!staff)return true;if(profile?.workflowos_access_enabled!==true)return false;const needed=scopeForNavigationHref(href);return needed===null?true:needed==='owner'?false:permissions.includes(needed)};
@@ -28,10 +28,11 @@ export default function WorkspaceShell({children,title,subtitle,profile}:{childr
  const all=groups.flatMap(g=>g.items); const active=all.filter(i=>pathname===i.href||pathname.startsWith(`${i.href}/`)).sort((a,b)=>b.href.length-a.href.length)[0];
  useEffect(()=>setOpen(false),[pathname]); useEffect(()=>{if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{})},[]);
  return <div className="min-h-screen bg-[#f7f7f7] text-[#171717]" style={{colorScheme:'light'}}>
-  <NotificationSoundController/>{open&&<button aria-label="Close navigation" className="fixed inset-0 z-40 bg-black/35 lg:hidden" onClick={()=>setOpen(false)}/>}<SmartSidebar pathname={pathname} open={open} onClose={()=>setOpen(false)} navGroups={groups} profile={profile}/>
-  <div className="min-h-screen lg:pl-[292px]">
+  <NotificationSoundController/>{open&&<button aria-label="Close navigation" className="fixed inset-0 z-40 bg-black/35 lg:hidden" onClick={()=>setOpen(false)}/>} {(!sidebarCollapsed||open)&&<SmartSidebar pathname={pathname} open={open} onClose={()=>setOpen(false)} navGroups={groups} profile={profile}/>} 
+  <div className={`min-h-screen transition-[padding] duration-200 ${sidebarCollapsed?'lg:pl-0':'lg:pl-[292px]'}`}>
    <header className="sticky top-0 z-30 border-b border-[#e5e5e5] bg-[#fbfbfb]/95 backdrop-blur-xl"><div className="flex min-h-[56px] items-center gap-3 px-4 sm:px-6 lg:px-7">
     <button aria-label="Open navigation" onClick={()=>setOpen(true)} className="flex h-8 w-8 items-center justify-center rounded-md border bg-white lg:hidden">☰</button>
+    <button aria-label={sidebarCollapsed?'Show sidebar':'Hide sidebar'} title={sidebarCollapsed?'Show sidebar':'Hide sidebar'} onClick={()=>setSidebarCollapsed(value=>!value)} className="hidden h-8 w-8 items-center justify-center rounded-md border bg-white text-sm text-[#425466] transition hover:bg-[#f3f5f7] lg:flex">{sidebarCollapsed?'☰':'←'}</button>
     <div className="min-w-0 flex-1"><div className="flex items-center gap-1.5 text-[11px] text-[#8a8a8a]"><span>WorkflowOS</span><span>/</span><span className="truncate font-medium text-[#404040]">{title||active?.label||'Workspace'}</span></div>{subtitle&&<div className="mt-0.5 truncate text-[10px] text-[#a3a3a3]">{subtitle}</div>}</div>
     <div className="hidden items-center gap-2 sm:flex"><span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-medium text-emerald-700">● Live</span>{canOpen('/notifications')&&<Link href="/notifications" className="rounded-md border bg-white px-2.5 py-1.5 text-xs font-medium">Alerts</Link>}{canOpen('/acquisition')&&<Link href="/acquisition" className="rounded-md border bg-white px-2.5 py-1.5 text-xs font-medium">Get Buyers</Link>}{canOpen('/ai')&&<Link href="/ai" className="rounded-md bg-[#2e8b67] px-3 py-1.5 text-xs font-medium text-white">AI</Link>}</div>
    </div></header><main className="w-full px-4 pb-32 pt-5 sm:px-6 lg:px-7 lg:pb-10 lg:pt-6">{children}</main>
