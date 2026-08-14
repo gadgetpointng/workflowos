@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
 const STAFF_LOGIN_URL = 'https://gadgetpoint.ng/staff-login';
-const OWNER_CHATGPT_URL = 'https://gadgetpoint.ng/owner-login?return_to=%2Fapi%2Fworkflowos%2Fowner-login';
+const OWNER_CHATGPT_URL = 'https://gadgetpoint.ng/api/workflowos/owner-login';
 
 export default async function LoginPage({
   searchParams,
@@ -38,8 +38,8 @@ export default async function LoginPage({
               <section className="rounded-2xl border border-blue-200 bg-blue-50/50 p-4 sm:p-5">
                 <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#52718e]">Authorized owner identity</div>
                 <div className="mt-1 break-all text-sm font-black text-[#102a43]">{OWNER_EMAIL}</div>
-                <p className="mt-2 text-xs leading-5 text-slate-600">Authenticate through the owner-only ChatGPT identity on GadgetPoint. After verification, you will return directly into WorkflowOS.</p>
-                <Link href={OWNER_CHATGPT_URL} className="ios-action primary-button mt-4 flex min-h-[46px] w-full items-center justify-center gap-2 rounded-[14px] px-4 text-center text-sm font-black">Owner: Continue with ChatGPT <span aria-hidden="true">→</span></Link>
+                <p className="mt-2 text-xs leading-5 text-slate-600">Authenticate through the secure GadgetPoint owner handoff. This path bypasses the GadgetPoint Admin page and returns directly into WorkflowOS.</p>
+                <Link href={OWNER_CHATGPT_URL} className="ios-action primary-button mt-4 flex min-h-[46px] w-full items-center justify-center gap-2 rounded-[14px] px-4 text-center text-sm font-black">Owner: Continue to WorkflowOS <span aria-hidden="true">→</span></Link>
                 <div className="mt-3 text-center text-[11px] leading-5 text-slate-500">Only {OWNER_EMAIL} is accepted for owner access. No owner password or email-link fallback is exposed here.</div>
               </section>
             </div>
