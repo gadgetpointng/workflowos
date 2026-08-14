@@ -1,6 +1,7 @@
 import './tailwind-v4.css';
 import './globals.css';
 import './workflow-theme.css';
+import './admin-visual-system.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 
@@ -23,7 +24,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#102a43'
+  themeColor: '#08111f'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
