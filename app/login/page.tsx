@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
 const STAFF_LOGIN_URL = 'https://gadgetpoint.ng/staff-login';
-const OWNER_GADGETPOINT_URL = 'https://gadgetpoint.ng/admin?workflowos=1';
+const OWNER_CHATGPT_URL = 'https://gadgetpoint.ng/owner-login?return_to=%2Fapi%2Fworkflowos%2Fowner-login';
 
 export default async function LoginPage({
   searchParams,
@@ -22,7 +22,7 @@ export default async function LoginPage({
           <div className="max-w-2xl py-10">
             <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-bold text-emerald-100"><span className="h-2 w-2 rounded-full bg-emerald-400" />Secure owner access available</div>
             <h1 className="mt-6 max-w-xl text-5xl font-black leading-[1.04] tracking-[-0.04em] xl:text-6xl">One business identity. One secure owner workspace.</h1>
-            <p className="mt-6 max-w-xl text-base leading-7 text-slate-300 xl:text-lg">WorkflowOS protects owner access using the authorized GadgetPoint owner email while the external ChatGPT identity handoff is completed.</p>
+            <p className="mt-6 max-w-xl text-base leading-7 text-slate-300 xl:text-lg">WorkflowOS protects owner access using the authorized GadgetPoint owner identity while keeping staff access separate.</p>
           </div>
           <div className="grid gap-2 text-xs text-slate-400 sm:grid-cols-2"><div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-400" /> Owner identity locked to GadgetPoint</div><div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-blue-300" /> No public account creation</div></div>
         </section>
@@ -38,12 +38,9 @@ export default async function LoginPage({
               <section className="rounded-2xl border border-blue-200 bg-blue-50/50 p-4 sm:p-5">
                 <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#52718e]">Authorized owner identity</div>
                 <div className="mt-1 break-all text-sm font-black text-[#102a43]">{OWNER_EMAIL}</div>
-                <p className="mt-2 text-xs leading-5 text-slate-600">Use a secure one-time email link to enter WorkflowOS without needing the GadgetPoint admin password.</p>
-                <form action="/api/auth/owner-link" method="post" className="mt-4">
-                  <button type="submit" className="ios-action primary-button flex min-h-[46px] w-full items-center justify-center rounded-[14px] px-4 text-center text-sm font-black">Email me a secure WorkflowOS sign-in link</button>
-                </form>
-                <div className="mt-3 text-center text-[11px] leading-5 text-slate-500">ChatGPT identity sign-in will be enabled only when the external identity handoff is actually available. The broken storefront redirect has been removed.</div>
-                <Link href={OWNER_GADGETPOINT_URL} className="ios-action secondary-button mt-3 flex min-h-[44px] w-full items-center justify-center rounded-[14px] border border-[#b9cce0] px-4 text-center text-xs font-black text-[#214e78]">Open GadgetPoint Admin instead</Link>
+                <p className="mt-2 text-xs leading-5 text-slate-600">Authenticate through the owner-only ChatGPT identity on GadgetPoint. After verification, you will return directly into WorkflowOS.</p>
+                <Link href={OWNER_CHATGPT_URL} className="ios-action primary-button mt-4 flex min-h-[46px] w-full items-center justify-center gap-2 rounded-[14px] px-4 text-center text-sm font-black">Owner: Continue with ChatGPT <span aria-hidden="true">→</span></Link>
+                <div className="mt-3 text-center text-[11px] leading-5 text-slate-500">Only {OWNER_EMAIL} is accepted for owner access. No owner password or email-link fallback is exposed here.</div>
               </section>
             </div>
           </div>
