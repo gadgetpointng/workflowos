@@ -1,0 +1,175 @@
+:root {
+  --gp-admin-ink: #111827;
+  --gp-admin-muted: #6f7b8c;
+  --gp-admin-line: #e4e7ec;
+  --gp-admin-paper: #f5f6f8;
+  --gp-admin-blue: #2377ff;
+  --gp-admin-navy: #08111f;
+  --gp-admin-panel: #ffffff;
+}
+
+html, body { background: var(--gp-admin-paper) !important; color: var(--gp-admin-ink); }
+body { font-family: var(--font-workflow), Arial, sans-serif; }
+
+.workflow-admin-shell {
+  min-height: 100dvh;
+  background: var(--gp-admin-paper) !important;
+  color: var(--gp-admin-ink) !important;
+}
+
+/* Admin-sized navigation rail */
+.workflow-admin-shell > aside {
+  width: 248px !important;
+  background: var(--gp-admin-navy) !important;
+  border-right: 1px solid rgba(255,255,255,.09) !important;
+  box-shadow: none !important;
+}
+.workflow-admin-shell > aside > div:first-child { height: 0 !important; background: transparent !important; }
+.workflow-admin-shell > aside [class*="rounded-lg"] { border-radius: 6px !important; }
+.workflow-admin-shell > aside [class*="bg-[#0b2238]"] { background: rgba(255,255,255,.04) !important; }
+.workflow-admin-shell > aside [class*="bg-[#0d263e]"] { background: rgba(255,255,255,.04) !important; }
+.workflow-admin-shell > aside [class*="bg-[#214e78]"] {
+  background: rgba(255,255,255,.065) !important;
+  box-shadow: none !important;
+  position: relative;
+}
+.workflow-admin-shell > aside [class*="bg-[#214e78]"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 2px;
+  height: 17px;
+  border-radius: 4px;
+  background: #4b95ff;
+}
+.workflow-admin-shell > aside a,
+.workflow-admin-shell > aside button { font-size: 11px; }
+
+/* Admin top bar + content proportions */
+.workflow-admin-workspace { min-height: 100dvh; transition: padding-left .18s ease; }
+.workflow-admin-topbar {
+  min-height: 64px !important;
+  border-bottom: 1px solid var(--gp-admin-line) !important;
+  background: rgba(255,255,255,.92) !important;
+  backdrop-filter: blur(15px);
+}
+.workflow-admin-topbar button,
+.workflow-admin-topbar a {
+  min-height: 34px;
+  border-radius: 6px !important;
+  border-color: var(--gp-admin-line) !important;
+  font-size: 10px !important;
+}
+.workflow-admin-topbar .workflow-primary-action {
+  background: var(--gp-admin-blue) !important;
+  border-color: var(--gp-admin-blue) !important;
+  color: white !important;
+}
+.workflow-admin-content {
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 24px 28px 50px !important;
+}
+
+/* Make reusable WorkflowOS surfaces read like Admin surfaces */
+.workflow-admin-shell .app-card,
+.workflow-admin-shell .metric-card,
+.workflow-admin-shell .kanban-column,
+.workflow-admin-shell .task-card,
+.workflow-admin-shell .lead-card,
+.workflow-admin-shell .stack-item,
+.workflow-admin-shell .proposal-card,
+.workflow-admin-shell section[class*="rounded-"],
+.workflow-admin-shell article[class*="rounded-"] {
+  border-color: var(--gp-admin-line) !important;
+  border-radius: 7px !important;
+  box-shadow: none !important;
+}
+.workflow-admin-shell .app-card,
+.workflow-admin-shell .metric-card,
+.workflow-admin-shell .task-card,
+.workflow-admin-shell .lead-card,
+.workflow-admin-shell .stack-item,
+.workflow-admin-shell section[class*="bg-white"],
+.workflow-admin-shell article[class*="bg-white"] { background: var(--gp-admin-panel) !important; }
+.workflow-admin-shell .kanban-column,
+.workflow-admin-shell [class*="bg-slate-50"],
+.workflow-admin-shell [class*="bg-[#f7f7f7]"] { background: var(--gp-admin-paper) !important; }
+
+.workflow-admin-shell .page-heading h1,
+.workflow-admin-shell h1 { letter-spacing: -.04em; color: var(--gp-admin-ink); }
+.workflow-admin-shell .page-heading p,
+.workflow-admin-shell .eyebrow,
+.workflow-admin-shell [class*="text-slate-500"],
+.workflow-admin-shell [class*="text-slate-400"] { color: var(--gp-admin-muted) !important; }
+.workflow-admin-shell .eyebrow { font-size: 8px; letter-spacing: .08em; }
+
+/* Inputs and controls */
+.workflow-admin-shell .app-input,
+.workflow-admin-shell input:not([type="checkbox"]):not([type="radio"]),
+.workflow-admin-shell select,
+.workflow-admin-shell textarea {
+  border-color: #dce2e9 !important;
+  border-radius: 6px !important;
+  background: white;
+  box-shadow: none !important;
+}
+.workflow-admin-shell .app-input:focus,
+.workflow-admin-shell input:focus,
+.workflow-admin-shell select:focus,
+.workflow-admin-shell textarea:focus {
+  border-color: #8db4eb !important;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(35,119,255,.09) !important;
+}
+.workflow-admin-shell .primary-button,
+.workflow-admin-shell button[class*="bg-slate-950"],
+.workflow-admin-shell a[class*="bg-slate-950"] {
+  border-radius: 6px !important;
+  background: var(--gp-admin-blue) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+.workflow-admin-shell .mini-button,
+.workflow-admin-shell button[class*="border"],
+.workflow-admin-shell a[class*="border"] { border-radius: 6px !important; }
+
+/* Tables */
+.workflow-admin-shell table { width: 100%; border-collapse: collapse; background: white; }
+.workflow-admin-shell thead { background: #f8f9fb; }
+.workflow-admin-shell th {
+  color: #7c8796;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.workflow-admin-shell td { color: #384457; font-size: 10px; }
+.workflow-admin-shell th,
+.workflow-admin-shell td { border-bottom: 1px solid #edf0f3; padding: 11px 12px; }
+.workflow-admin-shell .table-head,
+.workflow-admin-shell .table-row { border-color: #edf0f3; }
+
+/* Status / pills should be compact like Admin */
+.workflow-admin-shell .priority,
+.workflow-admin-shell .source-pill,
+.workflow-admin-shell .status-pill,
+.workflow-admin-shell [class*="rounded-full"] { border-radius: 999px; }
+
+/* Floating messenger matches Admin action blue */
+.workflow-admin-shell .workflow-floating-message {
+  background: var(--gp-admin-blue) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 10px 28px rgba(35,119,255,.24) !important;
+}
+
+@media (min-width: 1024px) {
+  .workflow-admin-workspace { padding-left: 248px; }
+  .workflow-admin-shell[data-sidebar-collapsed="true"] > aside { transform: translateX(-105%) !important; }
+  .workflow-admin-shell[data-sidebar-collapsed="true"] .workflow-admin-workspace { padding-left: 0 !important; }
+}
+
+@media (max-width: 1023px) {
+  .workflow-admin-content { padding: 20px 16px 96px !important; }
+}
