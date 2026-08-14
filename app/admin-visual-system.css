@@ -42,6 +42,9 @@ body { font-family: var(--font-workflow), Arial, sans-serif; }
   border-radius: 4px;
   background: #4b95ff;
 }
+.workflow-admin-shell > aside [class*="bg-[#79c79b]"] { background: #4b95ff !important; }
+.workflow-admin-shell > aside [class*="bg-[#6fa1c8]"] { background: #4b95ff !important; }
+.workflow-admin-shell > aside [class*="text-[#9fc0d8]"] { color: #7eb1ff !important; }
 .workflow-admin-shell > aside a,
 .workflow-admin-shell > aside button { font-size: 11px; }
 
@@ -95,7 +98,8 @@ body { font-family: var(--font-workflow), Arial, sans-serif; }
 .workflow-admin-shell article[class*="bg-white"] { background: var(--gp-admin-panel) !important; }
 .workflow-admin-shell .kanban-column,
 .workflow-admin-shell [class*="bg-slate-50"],
-.workflow-admin-shell [class*="bg-[#f7f7f7]"] { background: var(--gp-admin-paper) !important; }
+.workflow-admin-shell [class*="bg-[#f7f7f7]"],
+.workflow-admin-shell [class*="bg-[#f8fafc]"] { background: var(--gp-admin-paper) !important; }
 
 .workflow-admin-shell .page-heading h1,
 .workflow-admin-shell h1 { letter-spacing: -.04em; color: var(--gp-admin-ink); }
@@ -104,6 +108,24 @@ body { font-family: var(--font-workflow), Arial, sans-serif; }
 .workflow-admin-shell [class*="text-slate-500"],
 .workflow-admin-shell [class*="text-slate-400"] { color: var(--gp-admin-muted) !important; }
 .workflow-admin-shell .eyebrow { font-size: 8px; letter-spacing: .08em; }
+
+/* Convert legacy WorkflowOS green accents to Admin blue */
+.workflow-admin-shell [class*="text-[#2e8b67]"],
+.workflow-admin-shell [class*="text-[#1f6f52]"],
+.workflow-admin-shell [class*="text-[#1f7a57]"],
+.workflow-admin-shell [class*="hover:text-[#1f7a57]"] { color: var(--gp-admin-blue) !important; }
+.workflow-admin-shell [class*="bg-[#2e8b67]"],
+.workflow-admin-shell [class*="bg-[#3ecf8e]"],
+.workflow-admin-shell [class*="bg-[#79c79b]"] { background: var(--gp-admin-blue) !important; }
+.workflow-admin-shell [class*="border-[#ccebdc]"] { border-color: #cfe0fa !important; }
+.workflow-admin-shell [class*="bg-[#f1fbf6]"] { background: #edf5ff !important; }
+.workflow-admin-shell [class*="emerald-"] { --tw-text-opacity: 1; }
+.workflow-admin-shell .text-emerald-700,
+.workflow-admin-shell .text-emerald-800 { color: #2367c9 !important; }
+.workflow-admin-shell .bg-emerald-50,
+.workflow-admin-shell .bg-emerald-100 { background: #edf5ff !important; }
+.workflow-admin-shell .border-emerald-100,
+.workflow-admin-shell .border-emerald-200 { border-color: #cfe0fa !important; }
 
 /* Inputs and controls */
 .workflow-admin-shell .app-input,
@@ -128,12 +150,15 @@ body { font-family: var(--font-workflow), Arial, sans-serif; }
 .workflow-admin-shell a[class*="bg-slate-950"] {
   border-radius: 6px !important;
   background: var(--gp-admin-blue) !important;
+  border-color: var(--gp-admin-blue) !important;
   color: #fff !important;
   box-shadow: none !important;
 }
 .workflow-admin-shell .mini-button,
 .workflow-admin-shell button[class*="border"],
 .workflow-admin-shell a[class*="border"] { border-radius: 6px !important; }
+.workflow-admin-shell button,
+.workflow-admin-shell a { transition-duration: 120ms; }
 
 /* Tables */
 .workflow-admin-shell table { width: 100%; border-collapse: collapse; background: white; }
@@ -156,6 +181,21 @@ body { font-family: var(--font-workflow), Arial, sans-serif; }
 .workflow-admin-shell .source-pill,
 .workflow-admin-shell .status-pill,
 .workflow-admin-shell [class*="rounded-full"] { border-radius: 999px; }
+
+/* Dashboard-specific cleanup so Overview matches Admin immediately */
+.workflow-admin-shell [class*="max-w-[1380px]"] { max-width: 1500px !important; }
+.workflow-admin-shell [class*="border-[#e5e5e5]"] { border-color: var(--gp-admin-line) !important; }
+.workflow-admin-shell [class*="border-[#ededed]"] { border-color: #edf0f3 !important; }
+.workflow-admin-shell [class*="text-[#171717]"],
+.workflow-admin-shell [class*="text-[#262626]"],
+.workflow-admin-shell [class*="text-[#404040]"] { color: var(--gp-admin-ink) !important; }
+.workflow-admin-shell [class*="text-[#737373]"],
+.workflow-admin-shell [class*="text-[#8a8a8a]"],
+.workflow-admin-shell [class*="text-[#9a9a9a]"],
+.workflow-admin-shell [class*="text-[#a3a3a3]"] { color: var(--gp-admin-muted) !important; }
+.workflow-admin-shell [class*="hover:bg-[#fafafa]"]:hover { background: #f8f9fb !important; }
+.workflow-admin-shell [class*="bg-[#202020]"] { background: var(--gp-admin-blue) !important; border-color: var(--gp-admin-blue) !important; }
+.workflow-admin-shell [class*="hover:bg-[#2a2a2a]"]:hover { background: #1e68e8 !important; }
 
 /* Floating messenger matches Admin action blue */
 .workflow-admin-shell .workflow-floating-message {
