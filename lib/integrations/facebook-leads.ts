@@ -78,8 +78,10 @@ async function fetchMetaLead(leadId: string): Promise<MetaLead> {
   if (!token || !version) throw new Error('Meta Graph credentials are not configured');
   const url = new URL(`https://graph.facebook.com/${version}/${encodeURIComponent(leadId)}`);
   url.searchParams.set('fields', 'id,created_time,ad_id,form_id,field_data');
-  url.searchParams.set('access_token', token);
-  const response = await fetch(url, { cache: 'no-store' });
+  const response = await fetch(url, {
+    cache: 'no-store',
+    headers: { authorization: `Bearer ${token}` },
+  });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body?.error?.message || `Meta Graph returned ${response.status}`);
   return body as MetaLead;
@@ -98,7 +100,9 @@ export async function ingestFacebookLead(value: LeadgenValue, rawPayload: unknow
     .eq('external_account_ref', pageId)
     .maybeSingle();
   if (integrationError) throw integrationError;
-  if (!integration || integration.status !== 'connected') return { ok: false, skipped: true, reason: 'page is not connected' };
+  if (!integration || ['disabled', 'disconnected'].includes(integration.status)) {
+    return { ok: false, skipped: true, reason: 'page is not active' };
+  }
 
   const { data: existing } = await admin
     .from('facebook_lead_events')
