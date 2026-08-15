@@ -23,10 +23,11 @@ export async function GET(request: Request) {
     acc[event.status] = (acc[event.status] ?? 0) + 1;
     return acc;
   }, {});
+  const integrationActive = Boolean(integration && !['disabled', 'disconnected'].includes(integration.status));
   return NextResponse.json({
     ok: true,
     canManage: isOwner(profile, user),
-    ready: facebookLeadEnvReady() && integration?.status === 'connected',
+    ready: facebookLeadEnvReady() && integrationActive,
     env,
     webhookUrl: `${new URL(request.url).origin}/api/integrations/facebook-leads/webhook`,
     integration: integration ? {
