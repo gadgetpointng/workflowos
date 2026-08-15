@@ -1,20 +1,32 @@
 name: Messenger Verify
+
 on:
   pull_request:
+    branches:
+      - main
     paths:
       - 'components/FloatingMessenger.tsx'
       - 'components/WorkspaceShell.tsx'
       - 'app/api/owner/communications/route.ts'
       - '.github/workflows/messenger-verify.yml'
+
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npx eslint components/FloatingMessenger.tsx components/WorkspaceShell.tsx app/api/owner/communications/route.ts
-      - run: npm run build
+          node-version: '24'
+      - name: Install dependencies
+        run: npm install --no-package-lock
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+      - name: Boundary checks
+        run: npm run check:boundaries
+      - name: Notification preference gates
+        run: npm run check:notifications
