@@ -1,3 +1,7 @@
+create unique index if not exists facebook_leads_page_ref_unique
+  on public.external_integrations (external_account_ref)
+  where slug = 'facebook-leads' and external_account_ref is not null;
+
 create table if not exists public.facebook_lead_events (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
