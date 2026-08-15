@@ -12,19 +12,63 @@ async function findAssignee(supabase: ReturnType<typeof createAdminClient>, orga
   return fallback?.id ?? null;
 }
 
+async function findRoleRecipient(supabase: ReturnType<typeof createAdminClient>, organizationId: string, role: string) {
+  const allowed = new Set(['owner','admin','manager','marketing','sales','staff']);
+  if (!allowed.has(role)) return null;
+  const { data } = await supabase.from('profiles').select('id').eq('organization_id',organizationId).eq('active',true).eq('role',role).limit(1).maybeSingle();
+  return data?.id ?? null;
+}
+
+function inventoryQuantity(event: BridgeEvent) {
+  const value = event.data?.stock_quantity ?? event.data?.quantity;
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function matchesConditions(conditions: any, source: string, event: BridgeEvent) {
   if (!conditions || typeof conditions !== 'object') return true;
   if (conditions.source && conditions.source !== source) return false;
   if (conditions.channel && event.data?.channel !== conditions.channel) return false;
+
+  const stock = inventoryQuantity(event);
+  if (conditions.stock_quantity_lte !== undefined) {
+    const limit = Number(conditions.stock_quantity_lte);
+    if (stock === null || !Number.isFinite(limit) || stock > limit) return false;
+  }
+  if (conditions.stock_quantity_lt !== undefined) {
+    const limit = Number(conditions.stock_quantity_lt);
+    if (stock === null || !Number.isFinite(limit) || stock >= limit) return false;
+  }
+  if (conditions.stock_quantity_gte !== undefined) {
+    const limit = Number(conditions.stock_quantity_gte);
+    if (stock === null || !Number.isFinite(limit) || stock < limit) return false;
+  }
+  if (conditions.stock_quantity_gt !== undefined) {
+    const limit = Number(conditions.stock_quantity_gt);
+    if (stock === null || !Number.isFinite(limit) || stock <= limit) return false;
+  }
   return true;
+}
+
+function applyTemplate(template: string, event: BridgeEvent) {
+  return String(template)
+    .replaceAll('{{event}}', event.type)
+    .replaceAll('{{name}}', String(event.data?.name ?? event.data?.title ?? event.data?.customer_name ?? event.data?.product_interest ?? ''))
+    .replaceAll('{{stock_quantity}}', String(event.data?.stock_quantity ?? event.data?.quantity ?? ''))
+    .replaceAll('{{sku}}', String(event.data?.sku ?? ''));
 }
 
 function titleFrom(rule:any, event:BridgeEvent) {
   const custom = rule.action_config?.title_template;
-  if (custom) return String(custom)
-    .replaceAll('{{event}}', event.type)
-    .replaceAll('{{name}}', String(event.data?.name ?? event.data?.customer_name ?? event.data?.product_interest ?? ''));
+  if (custom) return applyTemplate(custom, event);
   return `WorkflowOS: ${event.type.replaceAll('.',' ')}`;
+}
+
+function descriptionFrom(rule:any, event:BridgeEvent) {
+  const custom = rule.action_config?.description_template;
+  if (custom) return applyTemplate(custom, event);
+  return event.data?.message ?? event.data?.description ?? `Automatically created from ${event.type}.`;
 }
 
 export async function runAutomationsForBridgeEvent(opts:{
@@ -50,12 +94,14 @@ export async function runAutomationsForBridgeEvent(opts:{
       if(rule.action_type==='create_task'){
         const {data,error}=await opts.supabase.from('tasks').insert({
           organization_id:opts.organizationId,title:titleFrom(rule,opts.event),
-          description:opts.event.data?.message ?? opts.event.data?.description ?? `Automatically created from ${opts.event.type}.`,
+          description:descriptionFrom(rule,opts.event),
           assignee_id:assignee,department:rule.capability||'operations',priority:rule.priority||'medium',
           status:assignee?'assigned':'draft'
         }).select('id,title,assignee_id,status').single(); if(error) throw error; output={task:data};
       } else if(rule.action_type==='create_notification'){
-        const {data,error}=await opts.supabase.from('notifications').insert({organization_id:opts.organizationId,recipient_id:assignee,title:titleFrom(rule,opts.event),body:opts.event.data?.message??`Triggered by ${opts.event.type}`,type:'automation'}).select('id').single(); if(error) throw error; output={notification:data};
+        const requestedRole=String(rule.action_config?.recipient_role??'').trim().toLowerCase();
+        const recipient=requestedRole ? await findRoleRecipient(opts.supabase,opts.organizationId,requestedRole) : assignee;
+        const {data,error}=await opts.supabase.from('notifications').insert({organization_id:opts.organizationId,recipient_id:recipient,title:titleFrom(rule,opts.event),body:descriptionFrom(rule,opts.event),type:'automation'}).select('id').single(); if(error) throw error; output={notification:data,recipient_id:recipient};
       } else if(rule.action_type==='create_marketplace_job'){
         const {data,error}=await opts.supabase.from('marketplace_jobs').insert({organization_id:opts.organizationId,job_type:rule.action_config?.job_type??'review_signal',status:'queued',product_ref:opts.event.data?.product_id?.toString()??opts.event.data?.id?.toString()??null,input:opts.event,assigned_to:assignee}).select('id,status').single(); if(error) throw error; output={marketplace_job:data};
       } else if(rule.action_type==='create_lead'){
