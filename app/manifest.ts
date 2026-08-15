@@ -4,12 +4,13 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'WorkflowOS',
     short_name: 'WorkflowOS',
-    description: 'Business execution, growth, marketplace and integration operating system.',
-    start_url: '/dashboard',
+    description: 'GadgetPoint business execution and operating workspace.',
+    start_url: '/today',
+    scope: '/',
     display: 'standalone',
-    background_color: '#f8fafc',
-    theme_color: '#0f172a',
+    background_color: '#08111f',
+    theme_color: '#08111f',
     orientation: 'portrait-primary',
-    icons: [{ src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }]
+    icons: [{ src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }]
   };
 }
