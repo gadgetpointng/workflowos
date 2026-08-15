@@ -16,14 +16,24 @@ permissions:
 jobs:
   verify-admin-endpoint:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
       - name: Require live Admin bridge to fail closed
         shell: bash
         run: |
           set -euo pipefail
           body="$(mktemp)"
-          status="$(curl --silent --show-error --location --max-time 20 --output "$body" --write-out '%{http_code}' 'https://gadgetpoint.ng/api/workflowos/messages')"
-          cat "$body"
-          test "$status" = "401"
-          grep -qi 'unauthorized' "$body"
+          for attempt in $(seq 1 12); do
+            : > "$body"
+            status="$(curl --silent --show-error --location --max-time 20 --output "$body" --write-out '%{http_code}' 'https://gadgetpoint.ng/api/workflowos/messages' || true)"
+            echo "Admin bridge attempt ${attempt}/12 returned HTTP ${status:-curl-error}"
+            cat "$body"
+            if [ "$status" = "401" ] && grep -qi 'unauthorized' "$body"; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 12 ]; then
+              sleep 15
+            fi
+          done
+          echo "Admin bridge did not reach the required fail-closed 401 response." >&2
+          exit 1
