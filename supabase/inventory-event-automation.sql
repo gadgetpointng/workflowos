@@ -20,6 +20,7 @@ select
   jsonb_build_object('source', 'gadgetpoint', 'stock_quantity_lte', 3),
   jsonb_build_object(
     'cooldown_minutes', 720,
+    'dedupe_open_task', true,
     'title_template', 'Restock {{name}}',
     'description_template', '{{name}} ({{sku}}) has {{stock_quantity}} units remaining in GadgetPoint Admin. Review stock and arrange replenishment or a branch transfer.'
   ),
