@@ -51,18 +51,18 @@ export default async function OwnerPage() {
   const integrationRows = integrations.data ?? [];
   const overdueTasks = taskRows.filter((item:any) => item.due_at && new Date(item.due_at) < now);
   const overdueLeads = leadRows.filter((item:any) => item.next_followup_at && new Date(item.next_followup_at) <= now);
-  const lowStock = productRows.filter((item:any) => Number(item.stock_quantity) <= 3);
+  const lowStock = productRows.filter((item:any) => item.stock_quantity !== null && item.stock_quantity !== undefined && Number.isFinite(Number(item.stock_quantity)) && Number(item.stock_quantity) <= 3);
   const unhealthyIntegrations = integrationRows.filter((item:any) => !['connected','active'].includes(String(item.status).toLowerCase()));
   const failedAutomationCount = failedRuns.data?.length ?? 0;
 
   const attention = [
-    overdueTasks.length ? { label: `${overdueTasks.length} overdue task${overdueTasks.length === 1 ? '' : 's'}`, detail: 'Work has passed its due time and needs reassignment, escalation or completion.', href: '/tasks', tone: 'rose' } : null,
-    overdueLeads.length ? { label: `${overdueLeads.length} buyer follow-up${overdueLeads.length === 1 ? '' : 's'} due`, detail: 'Customers are waiting for contact. Protect these conversations before they go cold.', href: '/follow-up-sla', tone: 'amber' } : null,
-    (approvals.data?.length ?? 0) ? { label: `${approvals.data?.length ?? 0} approval${approvals.data?.length === 1 ? '' : 's'} waiting`, detail: 'Management decisions are blocking downstream work.', href: '/approvals', tone: 'violet' } : null,
-    lowStock.length ? { label: `${lowStock.length} low-stock product${lowStock.length === 1 ? '' : 's'}`, detail: 'Review replenishment or branch availability using Admin-backed inventory.', href: '/inventory', tone: 'orange' } : null,
-    failedAutomationCount ? { label: `${failedAutomationCount} automation failure${failedAutomationCount === 1 ? '' : 's'} in 24h`, detail: 'An automated workflow could not finish and needs operational review.', href: '/automations', tone: 'rose' } : null,
-    unhealthyIntegrations.length ? { label: `${unhealthyIntegrations.length} integration${unhealthyIntegrations.length === 1 ? '' : 's'} needs attention`, detail: 'A connected system is not reporting a healthy active state.', href: '/integrations', tone: 'amber' } : null,
-  ].filter(Boolean) as {label:string;detail:string;href:string;tone:string}[];
+    overdueTasks.length ? { label: `${overdueTasks.length} overdue task${overdueTasks.length === 1 ? '' : 's'}`, detail: 'Work has passed its due time and needs reassignment, escalation or completion.', href: '/tasks' } : null,
+    overdueLeads.length ? { label: `${overdueLeads.length} buyer follow-up${overdueLeads.length === 1 ? '' : 's'} due`, detail: 'Customers are waiting for contact. Protect these conversations before they go cold.', href: '/follow-up-sla' } : null,
+    (approvals.data?.length ?? 0) ? { label: `${approvals.data?.length ?? 0} approval${approvals.data?.length === 1 ? '' : 's'} waiting`, detail: 'Management decisions are blocking downstream work.', href: '/approvals' } : null,
+    lowStock.length ? { label: `${lowStock.length} low-stock product${lowStock.length === 1 ? '' : 's'}`, detail: 'Review replenishment or branch availability using Admin-backed inventory.', href: '/inventory' } : null,
+    failedAutomationCount ? { label: `${failedAutomationCount} automation failure${failedAutomationCount === 1 ? '' : 's'} in 24h`, detail: 'An automated workflow could not finish and needs operational review.', href: '/automations' } : null,
+    unhealthyIntegrations.length ? { label: `${unhealthyIntegrations.length} integration${unhealthyIntegrations.length === 1 ? '' : 's'} needs attention`, detail: 'A connected system is not reporting a healthy active state.', href: '/integrations' } : null,
+  ].filter(Boolean) as {label:string;detail:string;href:string}[];
 
   const metrics = [
     ['Needs attention', attention.length, '/today'],
