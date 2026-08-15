@@ -18,11 +18,45 @@ function authorized(req: Request) {
   return req.headers.get('authorization') === `Bearer ${secret}`;
 }
 
+async function notifyOwnerOnce(
+  admin: ReturnType<typeof createAdminClient>,
+  opts: { organizationId: string; ownerId?: string | null; title: string; body: string; now: Date }
+) {
+  if (!opts.ownerId) return false;
+  const since = new Date(opts.now.getTime() - 24 * 60 * 60_000).toISOString();
+  const { data: recent } = await admin
+    .from('notifications')
+    .select('id')
+    .eq('organization_id', opts.organizationId)
+    .eq('recipient_id', opts.ownerId)
+    .eq('title', opts.title)
+    .gte('created_at', since)
+    .limit(1)
+    .maybeSingle();
+  if (recent) return false;
+  const { error } = await admin.from('notifications').insert({
+    organization_id: opts.organizationId,
+    recipient_id: opts.ownerId,
+    title: opts.title,
+    body: opts.body,
+    type: 'automation',
+  });
+  return !error;
+}
+
 export async function GET(req: Request) {
   if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const admin = createAdminClient();
   const now = new Date();
-  const result = { recurringGenerated: 0, recurringFailed: 0, slaTasksCreated: 0, organizationsProcessed: 0 };
+  const result = {
+    recurringGenerated: 0,
+    recurringFailed: 0,
+    slaTasksCreated: 0,
+    slaOwnerEscalations: 0,
+    overdueTaskEscalations: 0,
+    automationFailureEscalations: 0,
+    organizationsProcessed: 0,
+  };
 
   const { data: orgs, error: orgError } = await admin.from('organizations').select('id').limit(500);
   if (orgError) return NextResponse.json({ error: orgError.message }, { status: 500 });
@@ -76,8 +110,62 @@ export async function GET(req: Request) {
         const { data: staff } = await admin.from('staff_capabilities').select('profile_id').eq('organization_id', org.id).eq('capability', rule.capability).eq('active', true).order('proficiency', { ascending: false }).limit(1).maybeSingle();
         const assignee = staff?.profile_id ?? lead.assigned_to ?? null;
         const { error } = await admin.from('tasks').insert({ organization_id: org.id, title: `SLA follow-up: ${lead.name || lead.phone || 'lead'}`, description: `Lead from ${lead.source || 'unknown source'} exceeded the ${rule.response_minutes}-minute response target.`, creator_id: owner?.id ?? null, assignee_id: assignee, priority: rule.priority, status: assignee ? 'assigned' : 'draft', due_at: new Date(Date.now() + 60 * 60_000).toISOString(), completion_notes: fingerprint });
-        if (!error) result.slaTasksCreated++;
+        if (!error) {
+          result.slaTasksCreated++;
+          const notified = await notifyOwnerOnce(admin, {
+            organizationId: org.id,
+            ownerId: owner?.id,
+            title: `Lead SLA breached: ${lead.name || lead.phone || 'lead'}`,
+            body: `A ${lead.source || 'new'} lead exceeded the ${rule.response_minutes}-minute response target. WorkflowOS created a follow-up task${assignee ? ' and assigned it' : ''}.`,
+            now,
+          });
+          if (notified) result.slaOwnerEscalations++;
+        }
       }
+    }
+
+    const { data: overdueTasks } = await admin
+      .from('tasks')
+      .select('id,title,priority,due_at,assignee_id')
+      .eq('organization_id', org.id)
+      .in('priority', ['high','urgent'])
+      .not('status', 'in', '("completed","approved","cancelled")')
+      .lt('due_at', now.toISOString())
+      .order('due_at', { ascending: true })
+      .limit(50);
+
+    if (overdueTasks?.length) {
+      const oldest = overdueTasks[0];
+      const notified = await notifyOwnerOnce(admin, {
+        organizationId: org.id,
+        ownerId: owner?.id,
+        title: `${overdueTasks.length} high-priority task${overdueTasks.length === 1 ? '' : 's'} overdue`,
+        body: `Owner attention needed. Oldest overdue item: ${oldest.title}. Open WorkflowOS Today or Tasks to reassign, resolve, or escalate the work.`,
+        now,
+      });
+      if (notified) result.overdueTaskEscalations++;
+    }
+
+    const failureSince = new Date(now.getTime() - 24 * 60 * 60_000).toISOString();
+    const { data: failedRuns } = await admin
+      .from('automation_runs')
+      .select('id,trigger_event,error_message,finished_at')
+      .eq('organization_id', org.id)
+      .eq('status', 'failed')
+      .gte('finished_at', failureSince)
+      .order('finished_at', { ascending: false })
+      .limit(25);
+
+    if (failedRuns?.length) {
+      const latest = failedRuns[0];
+      const notified = await notifyOwnerOnce(admin, {
+        organizationId: org.id,
+        ownerId: owner?.id,
+        title: `${failedRuns.length} automation failure${failedRuns.length === 1 ? '' : 's'} need attention`,
+        body: `Latest failure: ${latest.trigger_event || 'automation'}${latest.error_message ? ` — ${latest.error_message}` : ''}. Review Automations before relying on the affected workflow.`,
+        now,
+      });
+      if (notified) result.automationFailureEscalations++;
     }
   }
 
