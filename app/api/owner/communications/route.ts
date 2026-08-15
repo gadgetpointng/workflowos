@@ -31,6 +31,25 @@ async function getOwnerControls(supabase: any, organizationId: string): Promise<
   };
 }
 
+export async function GET() {
+  const { supabase, user, profile } = await requireUser();
+  if (!user || !profile || !isOwner(profile, user)) {
+    return NextResponse.json({ error: 'Owner access required' }, { status: 403 });
+  }
+
+  const controls = await getOwnerControls(supabase, profile.organization_id);
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id,full_name,email,role')
+    .eq('organization_id', profile.organization_id)
+    .eq('active', true)
+    .neq('id', user.id)
+    .order('full_name', { ascending: true });
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json({ ok: true, controls, staff: data ?? [] });
+}
+
 export async function POST(request: Request) {
   const { supabase, user, profile } = await requireUser();
   if (!user || !profile || !isOwner(profile, user)) {
@@ -50,17 +69,13 @@ export async function POST(request: Request) {
   if (mode === 'private' && !controls.privateMessages) {
     return NextResponse.json({ error: 'Private staff messages are switched Off in Owner Control' }, { status: 403 });
   }
-
   if (!title || !message) {
     return NextResponse.json({ error: 'Title and message are required' }, { status: 400 });
   }
 
   let recipients: { id: string; full_name?: string | null }[] = [];
-
   if (mode === 'private') {
-    if (!recipientId) {
-      return NextResponse.json({ error: 'Choose a staff member' }, { status: 400 });
-    }
+    if (!recipientId) return NextResponse.json({ error: 'Choose a staff member' }, { status: 400 });
     const { data, error } = await supabase
       .from('profiles')
       .select('id,full_name')
@@ -69,9 +84,7 @@ export async function POST(request: Request) {
       .eq('active', true)
       .neq('id', user.id)
       .maybeSingle();
-    if (error || !data) {
-      return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
-    }
+    if (error || !data) return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
     recipients = [data];
   } else {
     const { data, error } = await supabase
@@ -80,15 +93,11 @@ export async function POST(request: Request) {
       .eq('organization_id', profile.organization_id)
       .eq('active', true)
       .neq('id', user.id);
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     recipients = data ?? [];
   }
 
-  if (!recipients.length) {
-    return NextResponse.json({ error: 'No active staff recipients found' }, { status: 400 });
-  }
+  if (!recipients.length) return NextResponse.json({ error: 'No active staff recipients found' }, { status: 400 });
 
   const notificationRows = recipients.map((recipient) => ({
     organization_id: profile.organization_id,
@@ -147,9 +156,7 @@ export async function DELETE(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const actionId = String(body.actionId ?? '').trim();
-  if (!actionId) {
-    return NextResponse.json({ error: 'Missing action id' }, { status: 400 });
-  }
+  if (!actionId) return NextResponse.json({ error: 'Missing action id' }, { status: 400 });
 
   const { data: action, error } = await supabase
     .from('activity_logs')
@@ -173,9 +180,7 @@ export async function DELETE(request: Request) {
     .contains('metadata', { original_action_id: action.id })
     .maybeSingle();
 
-  if (existingRetraction) {
-    return NextResponse.json({ error: 'This message has already been retracted' }, { status: 409 });
-  }
+  if (existingRetraction) return NextResponse.json({ error: 'This message has already been retracted' }, { status: 409 });
 
   const ids = Array.isArray(action.metadata?.notification_ids)
     ? action.metadata.notification_ids.map((value: unknown) => String(value)).filter(Boolean)
@@ -187,9 +192,7 @@ export async function DELETE(request: Request) {
       .delete()
       .eq('organization_id', profile.organization_id)
       .in('id', ids);
-    if (deleteError) {
-      return NextResponse.json({ error: deleteError.message }, { status: 400 });
-    }
+    if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 400 });
   }
 
   const { error: retractLogError } = await supabase.from('activity_logs').insert({
@@ -197,16 +200,9 @@ export async function DELETE(request: Request) {
     actor_id: user.id,
     action: 'owner.communication.retracted',
     entity_type: 'notification_batch',
-    metadata: {
-      original_action_id: action.id,
-      notification_ids: ids,
-      original: action.metadata ?? {},
-    },
+    metadata: { original_action_id: action.id, notification_ids: ids, original: action.metadata ?? {} },
   });
 
-  if (retractLogError) {
-    return NextResponse.json({ error: retractLogError.message }, { status: 400 });
-  }
-
+  if (retractLogError) return NextResponse.json({ error: retractLogError.message }, { status: 400 });
   return NextResponse.json({ ok: true, retracted: ids.length });
 }
