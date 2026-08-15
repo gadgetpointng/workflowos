@@ -19,6 +19,7 @@ select
   'create_task',
   jsonb_build_object('source', 'gadgetpoint', 'stock_quantity_lte', 3),
   jsonb_build_object(
+    'cooldown_minutes', 720,
     'title_template', 'Restock {{name}}',
     'description_template', '{{name}} ({{sku}}) has {{stock_quantity}} units remaining in GadgetPoint Admin. Review stock and arrange replenishment or a branch transfer.'
   ),
@@ -50,6 +51,7 @@ select
   'create_notification',
   jsonb_build_object('source', 'gadgetpoint', 'stock_quantity_lte', 0),
   jsonb_build_object(
+    'cooldown_minutes', 720,
     'recipient_role', 'owner',
     'title_template', 'Out of stock: {{name}}',
     'description_template', '{{name}} ({{sku}}) is now out of stock in GadgetPoint Admin. Review replenishment or move stock from another branch.'
