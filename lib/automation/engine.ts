@@ -71,6 +71,30 @@ function descriptionFrom(rule:any, event:BridgeEvent) {
   return event.data?.message ?? event.data?.description ?? `Automatically created from ${event.type}.`;
 }
 
+async function hasOpenTaskForRuleEntity(
+  supabase: ReturnType<typeof createAdminClient>,
+  organizationId: string,
+  ruleId: string,
+  sourceEntityId: string
+) {
+  const { data: runs } = await supabase.from('automation_runs').select('output')
+    .eq('organization_id', organizationId)
+    .eq('automation_rule_id', ruleId)
+    .eq('source_entity_id', sourceEntityId)
+    .eq('status', 'completed')
+    .order('created_at', { ascending: false })
+    .limit(20);
+  const taskIds = (runs ?? []).map((item:any) => item.output?.task?.id).filter(Boolean);
+  if (!taskIds.length) return null;
+  const { data: task } = await supabase.from('tasks').select('id,title,status')
+    .eq('organization_id', organizationId)
+    .in('id', taskIds)
+    .not('status','in','("completed","approved","cancelled")')
+    .limit(1)
+    .maybeSingle();
+  return task ?? null;
+}
+
 export async function runAutomationsForBridgeEvent(opts:{
   supabase: ReturnType<typeof createAdminClient>;
   organizationId: string;
@@ -84,22 +108,36 @@ export async function runAutomationsForBridgeEvent(opts:{
   for(const rule of rules ?? []){
     if(!matchesConditions(rule.conditions,opts.source,opts.event)) continue;
     const sourceEntityId=opts.sourceEntityId??opts.event.data?.id?.toString()??null;
-    const {data:run}=await opts.supabase.from('automation_runs').insert({
+    const {data:run,error:runError}=await opts.supabase.from('automation_runs').insert({
       organization_id:opts.organizationId,automation_rule_id:rule.id,trigger_event:opts.event.type,
       source_entity_type:opts.event.type.split('.')[0],source_entity_id:sourceEntityId,
       status:'started',input:opts.event
     }).select('id').single();
+    if(runError || !run){
+      outcomes.push({rule_id:rule.id,ok:false,error:runError?.message??'Could not start automation run'});
+      continue;
+    }
     try{
+      if(sourceEntityId && rule.action_config?.dedupe_open_task === true && rule.action_type === 'create_task'){
+        const openTask=await hasOpenTaskForRuleEntity(opts.supabase,opts.organizationId,rule.id,sourceEntityId);
+        if(openTask){
+          const output={skipped:true,reason:'An open task already exists for this automation and record',task:openTask};
+          await opts.supabase.from('automation_runs').update({status:'skipped',output,finished_at:new Date().toISOString()}).eq('id',run.id);
+          outcomes.push({rule_id:rule.id,ok:true,output});
+          continue;
+        }
+      }
+
       const cooldownMinutes=Number(rule.action_config?.cooldown_minutes??0);
       if(sourceEntityId&&Number.isFinite(cooldownMinutes)&&cooldownMinutes>0){
         const cutoff=new Date(Date.now()-cooldownMinutes*60_000).toISOString();
         const {data:recentRun}=await opts.supabase.from('automation_runs').select('id')
           .eq('organization_id',opts.organizationId).eq('automation_rule_id',rule.id)
           .eq('source_entity_id',sourceEntityId).eq('status','completed').gte('created_at',cutoff)
-          .neq('id',run?.id??'').limit(1).maybeSingle();
+          .neq('id',run.id).limit(1).maybeSingle();
         if(recentRun){
           const output={skipped:true,reason:`Automation cooldown active for ${cooldownMinutes} minutes`,previous_run_id:recentRun.id};
-          if(run?.id) await opts.supabase.from('automation_runs').update({status:'skipped',output,finished_at:new Date().toISOString()}).eq('id',run.id);
+          await opts.supabase.from('automation_runs').update({status:'skipped',output,finished_at:new Date().toISOString()}).eq('id',run.id);
           outcomes.push({rule_id:rule.id,ok:true,output});
           continue;
         }
@@ -126,11 +164,11 @@ export async function runAutomationsForBridgeEvent(opts:{
       } else {
         output={skipped:true,reason:'Unknown action type'};
       }
-      if(run?.id) await opts.supabase.from('automation_runs').update({status:output.skipped?'skipped':'completed',output,finished_at:new Date().toISOString()}).eq('id',run.id);
-      await opts.supabase.from('activity_logs').insert({organization_id:opts.organizationId,actor_id:null,action:`automation.${rule.action_type}`,entity_type:'automation_rule',entity_id:rule.id,metadata:{trigger_event:opts.event.type,run_id:run?.id,output}});
+      await opts.supabase.from('automation_runs').update({status:output.skipped?'skipped':'completed',output,finished_at:new Date().toISOString()}).eq('id',run.id);
+      await opts.supabase.from('activity_logs').insert({organization_id:opts.organizationId,actor_id:null,action:`automation.${rule.action_type}`,entity_type:'automation_rule',entity_id:rule.id,metadata:{trigger_event:opts.event.type,run_id:run.id,output}});
       outcomes.push({rule_id:rule.id,ok:true,output});
     }catch(error:any){
-      if(run?.id) await opts.supabase.from('automation_runs').update({status:'failed',error_message:error?.message??'Automation failed',finished_at:new Date().toISOString()}).eq('id',run.id);
+      await opts.supabase.from('automation_runs').update({status:'failed',error_message:error?.message??'Automation failed',finished_at:new Date().toISOString()}).eq('id',run.id);
       outcomes.push({rule_id:rule.id,ok:false,error:error?.message??'Automation failed'});
     }
   }
