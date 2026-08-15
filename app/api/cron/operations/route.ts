@@ -20,7 +20,7 @@ function authorized(req: Request) {
 
 async function notifyOwnerOnce(
   admin: ReturnType<typeof createAdminClient>,
-  opts: { organizationId: string; ownerId?: string | null; title: string; body: string; type: string; now: Date }
+  opts: { organizationId: string; ownerId?: string | null; title: string; body: string; now: Date }
 ) {
   if (!opts.ownerId) return false;
   const since = new Date(opts.now.getTime() - 24 * 60 * 60_000).toISOString();
@@ -39,7 +39,7 @@ async function notifyOwnerOnce(
     recipient_id: opts.ownerId,
     title: opts.title,
     body: opts.body,
-    type: opts.type,
+    type: 'automation',
   });
   return !error;
 }
@@ -117,7 +117,6 @@ export async function GET(req: Request) {
             ownerId: owner?.id,
             title: `Lead SLA breached: ${lead.name || lead.phone || 'lead'}`,
             body: `A ${lead.source || 'new'} lead exceeded the ${rule.response_minutes}-minute response target. WorkflowOS created a follow-up task${assignee ? ' and assigned it' : ''}.`,
-            type: 'sla',
             now,
           });
           if (notified) result.slaOwnerEscalations++;
@@ -142,7 +141,6 @@ export async function GET(req: Request) {
         ownerId: owner?.id,
         title: `${overdueTasks.length} high-priority task${overdueTasks.length === 1 ? '' : 's'} overdue`,
         body: `Owner attention needed. Oldest overdue item: ${oldest.title}. Open WorkflowOS Today or Tasks to reassign, resolve, or escalate the work.`,
-        type: 'task_escalation',
         now,
       });
       if (notified) result.overdueTaskEscalations++;
@@ -165,7 +163,6 @@ export async function GET(req: Request) {
         ownerId: owner?.id,
         title: `${failedRuns.length} automation failure${failedRuns.length === 1 ? '' : 's'} need attention`,
         body: `Latest failure: ${latest.trigger_event || 'automation'}${latest.error_message ? ` — ${latest.error_message}` : ''}. Review Automations before relying on the affected workflow.`,
-        type: 'automation_failure',
         now,
       });
       if (notified) result.automationFailureEscalations++;
