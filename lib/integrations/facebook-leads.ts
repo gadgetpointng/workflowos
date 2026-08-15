@@ -203,7 +203,7 @@ export async function ingestFacebookLead(value: LeadgenValue, rawPayload: unknow
         recipient_id: recipientId,
         title: 'New Facebook lead',
         body: `${normalized.name || normalized.phone || normalized.email || 'New buyer'}${productInterest ? ` · ${productInterest}` : ''}`,
-        type: 'facebook_lead',
+        type: 'buyer_request',
       });
     }
 
