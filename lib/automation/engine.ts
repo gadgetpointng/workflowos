@@ -83,12 +83,28 @@ export async function runAutomationsForBridgeEvent(opts:{
   const outcomes:any[]=[];
   for(const rule of rules ?? []){
     if(!matchesConditions(rule.conditions,opts.source,opts.event)) continue;
+    const sourceEntityId=opts.sourceEntityId??opts.event.data?.id?.toString()??null;
     const {data:run}=await opts.supabase.from('automation_runs').insert({
       organization_id:opts.organizationId,automation_rule_id:rule.id,trigger_event:opts.event.type,
-      source_entity_type:opts.event.type.split('.')[0],source_entity_id:opts.sourceEntityId??opts.event.data?.id?.toString()??null,
+      source_entity_type:opts.event.type.split('.')[0],source_entity_id:sourceEntityId,
       status:'started',input:opts.event
     }).select('id').single();
     try{
+      const cooldownMinutes=Number(rule.action_config?.cooldown_minutes??0);
+      if(sourceEntityId&&Number.isFinite(cooldownMinutes)&&cooldownMinutes>0){
+        const cutoff=new Date(Date.now()-cooldownMinutes*60_000).toISOString();
+        const {data:recentRun}=await opts.supabase.from('automation_runs').select('id')
+          .eq('organization_id',opts.organizationId).eq('automation_rule_id',rule.id)
+          .eq('source_entity_id',sourceEntityId).eq('status','completed').gte('created_at',cutoff)
+          .neq('id',run?.id??'').limit(1).maybeSingle();
+        if(recentRun){
+          const output={skipped:true,reason:`Automation cooldown active for ${cooldownMinutes} minutes`,previous_run_id:recentRun.id};
+          if(run?.id) await opts.supabase.from('automation_runs').update({status:'skipped',output,finished_at:new Date().toISOString()}).eq('id',run.id);
+          outcomes.push({rule_id:rule.id,ok:true,output});
+          continue;
+        }
+      }
+
       const assignee=await findAssignee(opts.supabase,opts.organizationId,rule.capability||'operations');
       let output:any={};
       if(rule.action_type==='create_task'){
