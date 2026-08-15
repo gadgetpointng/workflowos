@@ -1,0 +1,20 @@
+name: Messenger Verify
+on:
+  pull_request:
+    paths:
+      - 'components/FloatingMessenger.tsx'
+      - 'components/WorkspaceShell.tsx'
+      - 'app/api/owner/communications/route.ts'
+      - '.github/workflows/messenger-verify.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx eslint components/FloatingMessenger.tsx components/WorkspaceShell.tsx app/api/owner/communications/route.ts
+      - run: npm run build
