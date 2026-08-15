@@ -55,7 +55,8 @@ function normalizeFieldData(fieldData: MetaLead['field_data']) {
     if (!name) continue;
     map[name] = (field.values ?? []).map(value => String(value ?? '').trim()).filter(Boolean).join(', ');
   }
-  const fullName = textValue(map, ['full_name', 'name']) ?? [map.first_name, map.last_name].filter(Boolean).join(' ').trim() || null;
+  const fallbackName = [map.first_name, map.last_name].filter(Boolean).join(' ').trim();
+  const fullName = textValue(map, ['full_name', 'name']) ?? (fallbackName || null);
   return {
     map,
     name: fullName,
