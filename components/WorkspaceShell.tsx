@@ -5,6 +5,7 @@ import { useEffect,useMemo,useState } from 'react';
 import type { ReactNode } from 'react';
 import SmartSidebar from '@/components/SmartSidebar';
 import NotificationSoundController from '@/components/NotificationSoundController';
+import FloatingMessenger from '@/components/FloatingMessenger';
 import { normalizeWorkflowOSPermissions,scopeForNavigationHref } from '@/lib/workflow-access';
 
 type Item={label:string;href:string;icon:string}; type Group={label:string;items:Item[]};
@@ -37,6 +38,7 @@ export default function WorkspaceShell({children,title,subtitle,profile}:{childr
     <div className="hidden items-center gap-2 sm:flex"><span className="rounded-md border border-[#dbe9df] bg-[#f4fbf6] px-2.5 py-1.5 text-[9px] font-bold text-[#3f7951]">● Live</span>{canOpen('/notifications')&&<Link href="/notifications" className="border bg-white px-2.5 py-1.5 font-semibold text-[#697586]">Alerts</Link>}{canOpen('/acquisition')&&<Link href="/acquisition" className="border bg-white px-2.5 py-1.5 font-semibold text-[#697586]">Get Buyers</Link>}{canOpen('/ai')&&<Link href="/ai" className="workflow-primary-action border px-3 py-1.5 font-semibold">AI</Link>}</div>
    </div></header><main className="workflow-admin-content pb-32 lg:pb-12">{children}</main>
   </div>
+  <FloatingMessenger owner={profile?.role==='owner'}/>
   <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-2 lg:hidden"><nav className="mx-auto grid max-w-xl grid-cols-5 gap-1 rounded-[10px] border border-[#dfe4ea] bg-white/96 p-1.5 shadow-lg">{mobileItems.map(i=>{const on=pathname===i.href||pathname.startsWith(`${i.href}/`);return <Link key={i.href} href={i.href} className={`flex min-w-0 flex-col items-center gap-1 rounded-md px-1 py-2 ${on?'bg-[#edf5ff]':''}`}><span className={`flex h-7 w-7 items-center justify-center rounded-md text-[13px] ${on?'bg-[#2377ff] text-white':'bg-[#f0f2f5] text-[#697586]'}`}>{i.icon}</span><span className="max-w-full truncate text-[10px]">{i.label}</span></Link>})}<button onClick={()=>setOpen(true)} className="flex flex-col items-center gap-1 rounded-md px-1 py-2"><span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#f0f2f5] text-[#697586]">☰</span><span className="text-[10px]">More</span></button></nav></div>
  </div>
 }
