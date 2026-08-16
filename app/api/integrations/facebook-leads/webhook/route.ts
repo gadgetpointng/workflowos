@@ -2,18 +2,57 @@ import { NextResponse } from 'next/server';
 import { ingestFacebookLead, verifyMetaSignature } from '@/lib/integrations/facebook-leads';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+function verifyToken() {
+  return process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.FACEBOOK_WEBHOOK_VERIFY_TOKEN || '';
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const mode = url.searchParams.get('hub.mode');
   const token = url.searchParams.get('hub.verify_token');
   const challenge = url.searchParams.get('hub.challenge');
-  const expected = process.env.META_WEBHOOK_VERIFY_TOKEN;
+  const expected = verifyToken();
 
-  if (mode === 'subscribe' && expected && token === expected && challenge) {
-    return new Response(challenge, { status: 200, headers: { 'content-type': 'text/plain' } });
+  // A normal browser visit is a health/readiness check, not a Meta verification request.
+  if (!mode && token === null && challenge === null) {
+    return NextResponse.json({
+      ok: true,
+      webhook: 'facebook-leads',
+      verificationConfigured: Boolean(expected),
+      message: expected
+        ? 'Webhook endpoint is online and ready for Meta verification.'
+        : 'Webhook endpoint is online, but the production verify token is not configured.',
+    }, {
+      status: expected ? 200 : 503,
+      headers: { 'cache-control': 'no-store' },
+    });
   }
-  return NextResponse.json({ error: 'Webhook verification failed' }, { status: 403 });
+
+  if (!expected) {
+    console.error('Facebook webhook verification attempted without a configured verify token');
+    return NextResponse.json({ error: 'Webhook verify token is not configured in production' }, { status: 503 });
+  }
+
+  if (mode !== 'subscribe') {
+    return NextResponse.json({ error: 'Invalid webhook verification mode' }, { status: 400 });
+  }
+  if (!challenge) {
+    return NextResponse.json({ error: 'Missing webhook challenge' }, { status: 400 });
+  }
+  if (token !== expected) {
+    console.warn('Facebook webhook verification token mismatch');
+    return NextResponse.json({ error: 'Webhook verify token does not match production configuration' }, { status: 403 });
+  }
+
+  return new Response(challenge, {
+    status: 200,
+    headers: {
+      'content-type': 'text/plain; charset=utf-8',
+      'cache-control': 'no-store',
+    },
+  });
 }
 
 export async function POST(request: Request) {
