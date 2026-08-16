@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 
+// Keep install metadata aligned with the Today-first production experience.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'WorkflowOS',
