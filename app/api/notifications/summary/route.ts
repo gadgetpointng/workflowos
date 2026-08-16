@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/auth';
 function storedNotificationPrefix(type: unknown) {
   const normalized = String(type || '').toLowerCase();
   if (normalized === 'owner_feed' || normalized === 'owner_private_message') return 'message';
-  if (normalized === 'buyer_request') return 'buyer';
+  if (normalized === 'buyer_request' || normalized === 'buyer_quote_accepted') return 'buyer';
   if (normalized === 'task' || normalized === 'task_assigned') return 'assignment';
   if (normalized === 'task_submitted') return 'approval';
   if (normalized === 'automation') return 'automation';
