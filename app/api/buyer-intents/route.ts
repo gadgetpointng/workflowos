@@ -1,5 +1,5 @@
 import {NextResponse} from 'next/server';
-import {requireUser} from '@/lib/auth';
+import {requireUser,canManage} from '@/lib/auth';
 import {matchProducts,scoreBuyerIntent,canContactBuyer} from '@/lib/buyers/intelligence';
 
 async function productsFor(supabase:any,org:string){const {data}=await supabase.from('connected_products').select('id,external_product_id,name,category,price,stock_quantity,active,sku,metadata').eq('organization_id',org).eq('active',true).limit(500);return data??[];}
@@ -11,6 +11,30 @@ export async function POST(req:Request){const {supabase,user,profile}=await requ
 
 export async function PATCH(req:Request){const {supabase,user,profile}=await requireUser();if(!user||!profile)return NextResponse.json({error:'Unauthorized'},{status:401});const b=await req.json();if(!b.id||!b.action)return NextResponse.json({error:'id and action are required'},{status:400});const {data:intent,error:e}=await supabase.from('buyer_intents').select('*').eq('id',b.id).eq('organization_id',profile.organization_id).single();if(e||!intent)return NextResponse.json({error:'Buyer intent not found'},{status:404});
  if(b.action==='refresh_match'){const products=await productsFor(supabase,profile.organization_id);const matches=matchProducts(intent,products);const score=scoreBuyerIntent(intent);const {data,error}=await supabase.from('buyer_intents').update({matched_products:matches,intent_score:score,status:matches.length?'matched':intent.status,updated_at:new Date().toISOString()}).eq('id',intent.id).select().single();return error?NextResponse.json({error:error.message},{status:400}):NextResponse.json({data});}
+ if(b.action==='create_task'||b.action==='mark_sourcing'){
+   if(!canManage(profile.role))return NextResponse.json({error:'Only the owner or a manager can create buyer work tasks'},{status:403});
+   const evidence=(intent.evidence&&typeof intent.evidence==='object'&&!Array.isArray(intent.evidence))?intent.evidence:{};
+   const existingTaskId=evidence.workflow_task_id as string|undefined;
+   if(existingTaskId){
+     const stage=b.action==='mark_sourcing'?'sourcing_required':(evidence.workflow_stage||'product_search');
+     await supabase.from('buyer_intents').update({evidence:{...evidence,workflow_stage:stage},updated_at:new Date().toISOString()}).eq('id',intent.id);
+     return NextResponse.json({data:{task_id:existingTaskId,stage,existing:true}});
+   }
+   const source=String(intent.source||'buyer channel');
+   const location=[intent.city,intent.state].filter(Boolean).join(', ');
+   const stage=b.action==='mark_sourcing'?'sourcing_required':'product_search';
+   const taskTitle=b.action==='mark_sourcing'?`Source for buyer: ${intent.product_query}`:`Find for buyer: ${intent.product_query}`;
+   const taskDescription=[`Buyer request from ${source}.`,intent.buyer_name?`Buyer: ${intent.buyer_name}.`:null,location?`Location: ${location}.`:null,intent.budget_max?`Budget up to ₦${Number(intent.budget_max).toLocaleString()}.`:null,`Request: ${intent.product_query}.`,b.action==='mark_sourcing'?'Requested item is not currently available. Check approved suppliers and record sourcing options.':'Check GadgetPoint inventory first. If unavailable, move the request into sourcing.'].filter(Boolean).join(' ');
+   const assigneeId=intent.assigned_to||null;
+   const priority=String(intent.urgency||'').toLowerCase()==='high'||Number(intent.intent_score||0)>=70?'high':'medium';
+   const {data:task,error:taskError}=await supabase.from('tasks').insert({organization_id:profile.organization_id,title:taskTitle,description:taskDescription,creator_id:user.id,assignee_id:assigneeId,department:'Sales',priority,status:assigneeId?'assigned':'draft'}).select('id').single();
+   if(taskError)return NextResponse.json({error:taskError.message},{status:400});
+   const nextEvidence={...evidence,workflow_task_id:task.id,workflow_stage:stage,workflow_task_created_at:new Date().toISOString()};
+   await supabase.from('buyer_intents').update({evidence:nextEvidence,updated_at:new Date().toISOString()}).eq('id',intent.id);
+   if(assigneeId)await supabase.from('notifications').insert({organization_id:profile.organization_id,recipient_id:assigneeId,title:'Buyer request assigned',body:taskTitle,type:'task_assigned'});
+   await supabase.from('activity_logs').insert({organization_id:profile.organization_id,actor_id:user.id,action:'buyer_intent.task_created',entity_type:'buyer_intent',entity_id:intent.id,metadata:{task_id:task.id,stage,source:intent.source}});
+   return NextResponse.json({data:{task_id:task.id,stage}});
+ }
  if(b.action==='convert_to_lead'){if(!canContactBuyer(intent.consent_status))return NextResponse.json({error:'Buyer has not opted in to direct contact'},{status:409});if(intent.lead_id)return NextResponse.json({data:{lead_id:intent.lead_id}});const {data:lead,error}=await supabase.from('leads').insert({organization_id:profile.organization_id,name:intent.buyer_name||intent.phone||'Buyer opportunity',phone:intent.phone,email:intent.email,source:intent.source,product_interest:intent.product_query,status:'new',assigned_to:intent.assigned_to,estimated_value:intent.budget_max,notes:`Buyer intelligence score ${intent.intent_score}. ${intent.city||''} ${intent.state||''}`.trim()}).select('id').single();if(error)return NextResponse.json({error:error.message},{status:400});await supabase.from('buyer_intents').update({lead_id:lead.id,status:'converted',updated_at:new Date().toISOString()}).eq('id',intent.id);await supabase.from('lead_activities').insert({lead_id:lead.id,actor_id:user.id,activity_type:'created_from_buyer_intent',notes:`Converted from buyer intent ${intent.id}`});return NextResponse.json({data:{lead_id:lead.id}});}
  if(b.action==='close'){const {error}=await supabase.from('buyer_intents').update({status:'closed',updated_at:new Date().toISOString()}).eq('id',intent.id);return error?NextResponse.json({error:error.message},{status:400}):NextResponse.json({ok:true});}
  return NextResponse.json({error:'Unsupported action'},{status:400});}
