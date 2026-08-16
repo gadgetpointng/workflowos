@@ -5,111 +5,36 @@ import WorkspaceShell from '@/components/WorkspaceShell';
 import BuyerIntentQuickCreate from '@/components/BuyerIntentQuickCreate';
 import BuyerIntentActions from '@/components/BuyerIntentActions';
 
-function money(value: unknown) {
-  if (value === null || value === undefined || value === '') return '—';
-  const number = Number(value);
-  return Number.isFinite(number) ? `₦${number.toLocaleString()}` : '—';
-}
-
+function money(value: unknown) { if (value === null || value === undefined || value === '') return '—'; const number = Number(value); return Number.isFinite(number) ? `₦${number.toLocaleString()}` : '—'; }
 function normalizeSource(value: unknown) {
   const source = String(value || '').trim().toLowerCase();
-  if (source.includes('facebook') || source === 'fb' || source.includes('meta lead')) return 'facebook';
+  if (source.includes('facebook') || source === 'fb' || source.includes('meta lead') || source.includes('marketplace')) return 'facebook';
   if (source.includes('instagram') || source === 'ig') return 'instagram';
   if (source.includes('tiktok') || source.includes('tik tok')) return 'tiktok';
   if (source.includes('whatsapp') || source === 'wa') return 'whatsapp';
+  if (source.includes('jiji')) return 'jiji';
+  if (source.includes('jumia')) return 'jumia';
+  if (source.includes('google') || source.includes('maps') || source.includes('business profile')) return 'google';
   if (source.includes('website') || source.includes('web') || source.includes('gadgetpoint.ng')) return 'website';
+  if (source.includes('phone') || source.includes('call')) return 'phone';
   if (source.includes('referr')) return 'referral';
   if (source.includes('walk') || source.includes('store') || source.includes('shop')) return 'walk-in';
   return 'other';
 }
-
-const sourceTabs = [
-  ['all', 'All'],
-  ['facebook', 'Facebook'],
-  ['instagram', 'Instagram'],
-  ['tiktok', 'TikTok'],
-  ['whatsapp', 'WhatsApp'],
-  ['website', 'Website'],
-  ['referral', 'Referral'],
-  ['walk-in', 'Walk-in'],
-  ['other', 'Other'],
-] as const;
-
-function matchAvailability(match: any) {
-  if (match?.available === true) return { label: 'Available on GadgetPoint', tone: 'bg-emerald-50 text-emerald-700' };
-  if (match?.available === false) return { label: 'Unavailable on storefront', tone: 'bg-amber-50 text-amber-700' };
-  if (match?.stock_quantity !== null && match?.stock_quantity !== undefined) {
-    const stock = Number(match.stock_quantity);
-    if (Number.isFinite(stock)) return { label: stock > 0 ? `${stock.toLocaleString()} in stock` : 'No exact stock available', tone: stock > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600' };
-  }
-  return { label: 'Availability unknown', tone: 'bg-slate-100 text-slate-600' };
-}
+const sourceTabs = [['all','All'],['facebook','Facebook'],['instagram','Instagram'],['tiktok','TikTok'],['whatsapp','WhatsApp'],['jiji','Jiji'],['jumia','Jumia'],['google','Google'],['website','Website'],['phone','Phone'],['referral','Referral'],['walk-in','Walk-in'],['other','Other']] as const;
+function matchAvailability(match: any) { if (match?.available === true) return { label:'Available on GadgetPoint', tone:'bg-emerald-50 text-emerald-700' }; if (match?.available === false) return { label:'Unavailable on storefront', tone:'bg-amber-50 text-amber-700' }; if (match?.stock_quantity !== null && match?.stock_quantity !== undefined) { const stock=Number(match.stock_quantity); if(Number.isFinite(stock)) return { label:stock>0?`${stock.toLocaleString()} in stock`:'No exact stock available', tone:stock>0?'bg-emerald-50 text-emerald-700':'bg-slate-100 text-slate-600' }; } return { label:'Availability unknown', tone:'bg-slate-100 text-slate-600' }; }
 
 export default async function Buyers({ searchParams }: { searchParams: Promise<{ source?: string }> }) {
-  const { source = 'all' } = await searchParams;
-  const activeSource = sourceTabs.some(([key]) => key === source) ? source : 'all';
-  const { supabase, user, profile } = await requireUser();
-  if (!user || !profile) redirect('/login');
-
-  const { data: intents } = await supabase
-    .from('buyer_intents')
-    .select('*,assignee:profiles!buyer_intents_assigned_to_fkey(full_name)')
-    .eq('organization_id', profile.organization_id)
-    .neq('status', 'ignored')
-    .order('intent_score', { ascending: false })
-    .order('observed_at', { ascending: false })
-    .limit(500);
-
-  const allRows = intents ?? [];
-  const rows = activeSource === 'all' ? allRows : allRows.filter((item: any) => normalizeSource(item.source) === activeSource);
-  const counts = Object.fromEntries(sourceTabs.map(([key]) => [key, key === 'all' ? allRows.length : allRows.filter((item: any) => normalizeSource(item.source) === key).length])) as Record<string, number>;
-  const enugu = rows.filter((item: any) => `${item.city || ''} ${item.state || ''}`.toLowerCase().includes('enugu')).length;
-  const hot = rows.filter((item: any) => Number(item.intent_score) >= 70 && ['new', 'qualified', 'matched', 'contacting'].includes(item.status)).length;
-  const opted = rows.filter((item: any) => item.consent_status === 'opted_in').length;
-
-  const metrics = [
-    { label: 'High intent', value: hot, note: 'active intent score 70+' },
-    { label: 'Enugu demand', value: enugu, note: 'captured local opportunities' },
-    { label: 'Contactable', value: opted, note: 'explicitly opted in' },
-  ];
-
-  return (
-    <WorkspaceShell title="Buyer Intelligence" subtitle="Demand capture and product matching" profile={profile}>
-      <div className="space-y-6">
-        <section>
-          <div className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Demand capture</div>
-          <h1 className="mt-1 text-3xl font-black tracking-tight text-[#102a43]">Buyer Intelligence</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">See what buyers need, where they came from, and move each genuine request into product matching and assigned work.</p>
-        </section>
-
-        <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="flex flex-wrap gap-2">
-            {sourceTabs.map(([key, label]) => {
-              const selected = activeSource === key;
-              return <Link key={key} href={key === 'all' ? '/buyers' : `/buyers?source=${key}`} className={`rounded-lg border px-3 py-2 text-xs font-bold ${selected ? 'border-[#2377ff] bg-[#2377ff] text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>{label} <span className={selected ? 'text-white/75' : 'text-slate-400'}>{counts[key] || 0}</span></Link>;
-            })}
-          </div>
-        </section>
-
-        <section className="grid gap-4 md:grid-cols-3">
-          {metrics.map((metric) => <div key={metric.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="text-sm font-semibold text-slate-500">{metric.label}</div><div className="mt-2 text-3xl font-black tabular-nums text-[#102a43]">{metric.value}</div><div className="mt-2 text-xs text-slate-500">{metric.note}</div></div>)}
-        </section>
-
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="mb-4"><div className="text-lg font-black text-[#102a43]">Capture buyer demand</div><div className="mt-1 text-sm text-slate-500">Add only a real buyer signal or consented enquiry.</div></div>
-          <BuyerIntentQuickCreate />
-        </section>
-
-        <section className="space-y-4">
-          {rows.map((item: any) => {
-            const matches = Array.isArray(item.matched_products) ? item.matched_products : [];
-            const score = Math.round(Number(item.intent_score || 0));
-            const sourceLabel = sourceTabs.find(([key]) => key === normalizeSource(item.source))?.[1] || item.source || 'Other';
-            return <article key={item.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="grid gap-5 p-5 sm:p-6 xl:grid-cols-[1fr_360px]"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><div className={`flex h-10 w-10 items-center justify-center rounded-xl text-xs font-black ${score >= 70 ? 'bg-amber-50 text-amber-700' : score >= 50 ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>{score}</div><h2 className="text-lg font-black text-slate-950">{item.product_query}</h2><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">{sourceLabel}</span><span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold capitalize text-blue-700">{item.status}</span></div><div className="mt-3 text-sm text-slate-500">{[item.buyer_name, item.city, item.state].filter(Boolean).join(' · ') || 'Location not supplied'} · Budget {money(item.budget_max)}</div><div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">{item.urgency} urgency</span><span className={`rounded-full px-2.5 py-1 ${item.consent_status === 'opted_in' ? 'bg-emerald-50 text-emerald-700' : item.consent_status === 'do_not_contact' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600'}`}>{String(item.consent_status || 'unknown').replaceAll('_', ' ')}</span>{item.assignee?.full_name && <span className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-700">{item.assignee.full_name}</span>}</div><div className="mt-5"><BuyerIntentActions id={item.id} leadId={item.lead_id} canContact={item.consent_status === 'opted_in'} /></div></div><div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Best live matches</div><div className="mt-3 space-y-2">{matches.slice(0, 3).map((match: any) => { const availability = matchAvailability(match); return <div key={match.id || match.external_product_id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3"><div className="truncate font-bold text-slate-900">{match.name}</div><div className="mt-1 text-xs text-slate-500">{money(match.price)} · {match.category || 'Product match'}</div><span className={`mt-2 inline-block rounded-full px-2.5 py-1 text-[10px] font-bold ${availability.tone}`}>{availability.label}</span></div>; })}{!matches.length && <div className="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">No product match yet. Use Refresh Match after the live catalog syncs or the buyer request becomes more specific.</div>}</div></div></div></article>;
-          })}
-          {!rows.length && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center"><div className="text-base font-bold text-[#102a43]">No buyer requests from this source yet</div><div className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">When this channel is connected and genuine buyer enquiries arrive, they will appear here automatically.</div></div>}
-        </section>
-      </div>
-    </WorkspaceShell>
-  );
+  const { source='all' }=await searchParams; const activeSource=sourceTabs.some(([key])=>key===source)?source:'all'; const {supabase,user,profile}=await requireUser(); if(!user||!profile) redirect('/login');
+  const {data:intents}=await supabase.from('buyer_intents').select('*,assignee:profiles!buyer_intents_assigned_to_fkey(full_name)').eq('organization_id',profile.organization_id).neq('status','ignored').order('intent_score',{ascending:false}).order('observed_at',{ascending:false}).limit(500);
+  const allRows=intents??[]; const rows=activeSource==='all'?allRows:allRows.filter((item:any)=>normalizeSource(item.source)===activeSource); const counts=Object.fromEntries(sourceTabs.map(([key])=>[key,key==='all'?allRows.length:allRows.filter((item:any)=>normalizeSource(item.source)===key).length])) as Record<string,number>;
+  const enugu=rows.filter((item:any)=>`${item.city||''} ${item.state||''}`.toLowerCase().includes('enugu')).length; const hot=rows.filter((item:any)=>Number(item.intent_score)>=70&&['new','qualified','matched','contacting'].includes(item.status)).length; const opted=rows.filter((item:any)=>item.consent_status==='opted_in').length;
+  const metrics=[{label:'High intent',value:hot,note:'active intent score 70+'},{label:'Enugu demand',value:enugu,note:'captured local opportunities'},{label:'Contactable',value:opted,note:'explicitly opted in'}];
+  return <WorkspaceShell title="Buyer Intelligence" subtitle="Demand capture and product matching" profile={profile}><div className="space-y-6">
+    <section><div className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Demand capture</div><h1 className="mt-1 text-3xl font-black tracking-tight text-[#102a43]">Buyer Intelligence</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">See what buyers need, where they came from, and move each genuine request into product matching and assigned work.</p></section>
+    <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"><div className="flex flex-wrap gap-2">{sourceTabs.map(([key,label])=>{const selected=activeSource===key;return <Link key={key} href={key==='all'?'/buyers':`/buyers?source=${key}`} className={`rounded-lg border px-3 py-2 text-xs font-bold ${selected?'border-[#2377ff] bg-[#2377ff] text-white':'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>{label} <span className={selected?'text-white/75':'text-slate-400'}>{counts[key]||0}</span></Link>})}</div></section>
+    <section className="grid gap-4 md:grid-cols-3">{metrics.map(metric=><div key={metric.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="text-sm font-semibold text-slate-500">{metric.label}</div><div className="mt-2 text-3xl font-black tabular-nums text-[#102a43]">{metric.value}</div><div className="mt-2 text-xs text-slate-500">{metric.note}</div></div>)}</section>
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><div className="mb-4"><div className="text-lg font-black text-[#102a43]">Capture buyer demand</div><div className="mt-1 text-sm text-slate-500">Add a genuine enquiry from any approved channel. Use the source name such as Jiji, Jumia, Facebook, Instagram, WhatsApp, Google, Website or Walk-in.</div></div><BuyerIntentQuickCreate /></section>
+    <section className="space-y-4">{rows.map((item:any)=>{const matches=Array.isArray(item.matched_products)?item.matched_products:[]; const score=Math.round(Number(item.intent_score||0)); const sourceLabel=sourceTabs.find(([key])=>key===normalizeSource(item.source))?.[1]||item.source||'Other'; return <article key={item.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="grid gap-5 p-5 sm:p-6 xl:grid-cols-[1fr_360px]"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><div className={`flex h-10 w-10 items-center justify-center rounded-xl text-xs font-black ${score>=70?'bg-amber-50 text-amber-700':score>=50?'bg-blue-50 text-blue-700':'bg-slate-100 text-slate-700'}`}>{score}</div><h2 className="text-lg font-black text-slate-950">{item.product_query}</h2><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600">{sourceLabel}</span><span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold capitalize text-blue-700">{item.status}</span></div><div className="mt-3 text-sm text-slate-500">{[item.buyer_name,item.city,item.state].filter(Boolean).join(' · ')||'Location not supplied'} · Budget {money(item.budget_max)}</div><div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">{item.urgency} urgency</span><span className={`rounded-full px-2.5 py-1 ${item.consent_status==='opted_in'?'bg-emerald-50 text-emerald-700':item.consent_status==='do_not_contact'?'bg-red-50 text-red-700':'bg-slate-100 text-slate-600'}`}>{String(item.consent_status||'unknown').replaceAll('_',' ')}</span>{item.assignee?.full_name&&<span className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-700">{item.assignee.full_name}</span>}</div><div className="mt-5"><BuyerIntentActions id={item.id} leadId={item.lead_id} canContact={item.consent_status==='opted_in'} /></div></div><div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Best live matches</div><div className="mt-3 space-y-2">{matches.slice(0,3).map((match:any)=>{const availability=matchAvailability(match);return <div key={match.id||match.external_product_id} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3"><div className="truncate font-bold text-slate-900">{match.name}</div><div className="mt-1 text-xs text-slate-500">{money(match.price)} · {match.category||'Product match'}</div><span className={`mt-2 inline-block rounded-full px-2.5 py-1 text-[10px] font-bold ${availability.tone}`}>{availability.label}</span></div>})}{!matches.length&&<div className="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">No product match yet. Search inventory or move the request into sourcing when the requested item is unavailable.</div>}</div></div></div></article>})}{!rows.length&&<div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center"><div className="text-base font-bold text-[#102a43]">No buyer requests from this source yet</div><div className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">When genuine enquiries from this channel are captured or arrive through an approved integration, they will appear here.</div></div>}</section>
+  </div></WorkspaceShell>;
 }
