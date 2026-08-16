@@ -20,6 +20,7 @@ const supportedTypes = new Map([
   ['owner_feed', { prefix: 'message:', preference: 'messageAlerts' }],
   ['owner_private_message', { prefix: 'message:', preference: 'messageAlerts' }],
   ['buyer_request', { prefix: 'buyer:', preference: 'buyerAlerts' }],
+  ['buyer_quote_accepted', { prefix: 'buyer:', preference: 'buyerAlerts' }],
   ['task', { prefix: 'assignment:', preference: 'assignmentAlerts' }],
   ['task_assigned', { prefix: 'assignment:', preference: 'assignmentAlerts' }],
   ['task_submitted', { prefix: 'approval:', preference: 'approvalAlerts' }],
