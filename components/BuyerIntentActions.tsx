@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
 type Props = {
@@ -53,7 +53,7 @@ export default function BuyerIntentActions({ id, leadId, canContact, workflowTas
   const stage = String(workflowStage || '').toLowerCase();
   const sourcing = stage === 'sourcing_required' || stage === 'sourcing';
 
-  let primary: React.ReactNode;
+  let primary: ReactNode;
   let nextLabel = 'Create work task';
 
   if (!workflowTaskId) {
