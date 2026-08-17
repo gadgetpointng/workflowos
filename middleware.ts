@@ -7,6 +7,8 @@ import {
   requiredWorkflowOSScope,
 } from '@/lib/workflow-access';
 
+const CANONICAL_SUPABASE_URL = 'https://hasnhivdrpeqytgdnkzo.supabase.co';
+
 function validHttpUrl(value: string | undefined) {
   if (!value) return false;
   try {
@@ -19,15 +21,15 @@ function validHttpUrl(value: string | undefined) {
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const configuredUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = validHttpUrl(configuredUrl) ? configuredUrl! : CANONICAL_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const path = request.nextUrl.pathname;
   const protectedPath = protectedWorkspacePrefixes.some(prefix => path === prefix || path.startsWith(prefix + '/'));
 
-  // Never let malformed deployment configuration crash Routing Middleware.
-  // Public routes remain reachable so health/setup pages can diagnose the issue.
-  // Protected routes fail closed to login until authentication configuration is valid.
-  if (!validHttpUrl(url) || !anon) {
+  // Keep authentication available even if a malformed public Supabase URL is injected in deployment config.
+  // The project URL is not secret; the canonical WorkflowOS Supabase URL is used as a safe fallback.
+  if (!anon) {
     if (protectedPath) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = '/login';
@@ -39,7 +41,7 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  const supabase = createServerClient(url!, anon, {
+  const supabase = createServerClient(url, anon, {
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll(cookiesToSet) {
