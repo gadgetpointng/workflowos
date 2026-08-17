@@ -1,9 +1,21 @@
 import crypto from 'crypto';
-import { NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
 
 const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
+const CANONICAL_SUPABASE_URL = 'https://hasnhivdrpeqytgdnkzo.supabase.co';
+
+function configuredSupabaseUrl() {
+  const value = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (value) {
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return value;
+    } catch {}
+  }
+  return CANONICAL_SUPABASE_URL;
+}
 
 function loginError(request: Request, message: string) {
   const url = new URL('/login', request.url);
@@ -11,12 +23,17 @@ function loginError(request: Request, message: string) {
   return NextResponse.redirect(url);
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = String(requestUrl.searchParams.get('code') ?? '').trim();
 
   if (!code) {
     return loginError(request, 'Missing GadgetPoint owner sign-in code.');
+  }
+
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!anon) {
+    return loginError(request, 'WorkflowOS authentication is not configured.');
   }
 
   const codeHash = crypto.createHash('sha256').update(code).digest('hex');
@@ -106,7 +123,6 @@ export async function GET(request: Request) {
     return loginError(request, 'WorkflowOS could not provision the GadgetPoint owner profile.');
   }
 
-  // Only after the authorized owner identity exists do we retire any mistaken older owner profile.
   await admin
     .from('profiles')
     .update({
@@ -130,7 +146,16 @@ export async function GET(request: Request) {
     },
   });
 
-  const supabase = await createClient();
+  const pendingCookies: Array<{ name: string; value: string; options?: Parameters<NextResponse['cookies']['set']>[2] }> = [];
+  const supabase = createServerClient(configuredSupabaseUrl(), anon, {
+    cookies: {
+      getAll: () => request.cookies.getAll(),
+      setAll(cookiesToSet) {
+        pendingCookies.splice(0, pendingCookies.length, ...cookiesToSet);
+      },
+    },
+  });
+
   const { error: verifyError } = await supabase.auth.verifyOtp({
     token_hash: linkData.properties.hashed_token,
     type: 'email',
@@ -141,6 +166,9 @@ export async function GET(request: Request) {
   }
 
   const response = NextResponse.redirect(new URL('/dashboard', request.url));
+  for (const cookie of pendingCookies) {
+    response.cookies.set(cookie.name, cookie.value, cookie.options as any);
+  }
   response.headers.set('Referrer-Policy', 'no-referrer');
   response.headers.set('Cache-Control', 'no-store');
   return response;
