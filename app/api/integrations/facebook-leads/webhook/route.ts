@@ -9,18 +9,28 @@ async function verifyToken(url: URL) {
   const envToken = process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.FACEBOOK_WEBHOOK_VERIFY_TOKEN || '';
   if (envToken) return envToken;
 
-  const workspace = String(url.searchParams.get('workspace') ?? '').trim();
-  if (!workspace) return '';
-
   const admin = createAdminClient();
-  const { data: integration } = await admin
-    .from('external_integrations')
-    .select('settings')
-    .eq('organization_id', workspace)
-    .eq('slug', 'facebook-leads')
-    .maybeSingle();
+  const workspace = String(url.searchParams.get('workspace') ?? '').trim();
+  if (workspace) {
+    const { data: integration } = await admin
+      .from('external_integrations')
+      .select('settings')
+      .eq('organization_id', workspace)
+      .eq('slug', 'facebook-leads')
+      .maybeSingle();
+    return String(integration?.settings?.webhook_verify_token ?? '').trim();
+  }
 
-  return String(integration?.settings?.webhook_verify_token ?? '').trim();
+  // The production project currently serves a single GadgetPoint workspace.
+  // Let Meta use the canonical callback URL without requiring a workspace query string.
+  const { data: integrations } = await admin
+    .from('external_integrations')
+    .select('settings,status')
+    .eq('slug', 'facebook-leads')
+    .neq('status', 'disabled')
+    .limit(2);
+  if ((integrations ?? []).length !== 1) return '';
+  return String(integrations?.[0]?.settings?.webhook_verify_token ?? '').trim();
 }
 
 export async function GET(request: Request) {
@@ -30,7 +40,6 @@ export async function GET(request: Request) {
   const challenge = url.searchParams.get('hub.challenge');
   const expected = await verifyToken(url);
 
-  // A normal browser visit is a health/readiness check, not a Meta verification request.
   if (!mode && token === null && challenge === null) {
     return NextResponse.json({
       ok: true,
