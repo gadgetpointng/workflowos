@@ -1,6 +1,10 @@
 name: WorkflowOS MVP production smoke
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/mvp-production-smoke.yml'
   push:
     branches: [main]
   workflow_dispatch:
@@ -11,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: workflowos-mvp-production-smoke
+  group: workflowos-mvp-production-smoke-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
