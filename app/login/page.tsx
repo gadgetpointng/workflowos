@@ -5,9 +5,12 @@ const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
 const STAFF_LOGIN_URL = 'https://gadgetpoint.ng/staff-login';
 const OWNER_GADGETPOINT_URL = 'https://gadgetpoint.ng/admin?workflowos=1';
 const OWNER_CHATGPT_URL = 'https://gadgetpoint.ng/api/workflowos/owner-login';
+const TEMP_AUTH_ERROR = 'Authentication is temporarily unavailable.';
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; message?: string }> }) {
   const { error, message } = await searchParams;
+  const authConfigured = Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  const visibleError = error === TEMP_AUTH_ERROR && authConfigured ? undefined : error;
 
   return (
     <main className="min-h-screen bg-[#f4f6f8] text-[#172b3a]">
@@ -21,7 +24,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </div>
         </section>
         <section className="flex min-h-screen items-center justify-center px-4 py-6 sm:px-7 sm:py-9 lg:px-10"><div className="w-full max-w-lg"><div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7"><div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Secure access</div><h2 className="mt-2 text-3xl font-black tracking-[-0.03em] text-[#102a43]">Continue to WorkflowOS</h2></div><p className="mt-3 text-sm leading-6 text-slate-600">Choose the access path that matches who you are. WorkflowOS does not create a second password for staff.</p>
-          {error && <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-700">{error}</div>}{message && <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold leading-6 text-emerald-700">{message}</div>}
+          {visibleError && <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-700">{visibleError}</div>}{message && <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold leading-6 text-emerald-700">{message}</div>}
           <section className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5"><h3 className="text-lg font-black text-slate-950">Use your GadgetPoint staff login</h3><p className="mt-2 text-xs leading-5 text-slate-600">Use the normal GadgetPoint username and password created by the owner. Username-only staff do not need a WorkflowOS email or WorkflowOS password.</p><Link href={STAFF_LOGIN_URL} className="ios-action primary-button mt-4 flex min-h-[46px] w-full items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-black">Staff: Sign in with GadgetPoint <span aria-hidden="true">→</span></Link></section>
           <div className="my-6 flex items-center gap-3"><div className="h-px flex-1 bg-slate-200" /><span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Owner only</span><div className="h-px flex-1 bg-slate-200" /></div>
           <section className="rounded-2xl border border-blue-200 bg-blue-50/50 p-4 sm:p-5">
