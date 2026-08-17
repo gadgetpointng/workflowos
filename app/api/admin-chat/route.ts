@@ -6,7 +6,6 @@ export const dynamic = 'force-dynamic';
 
 const ADMIN_MESSAGES_URL = process.env.GADGETPOINT_ADMIN_MESSAGES_URL?.trim() || 'https://gadgetpoint.ng/api/workflowos/messages';
 const NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store, max-age=0' };
-const NON_DELIVERY_SUFFIX = '@staff.workflowos.invalid';
 
 function bridgeCredentials() {
   const bridgeId = process.env.GADGETPOINT_ADMIN_BRIDGE_ID?.trim() || process.env.WORKFLOWOS_GADGETPOINT_BRIDGE_ID?.trim();
