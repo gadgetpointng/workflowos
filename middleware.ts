@@ -2,12 +2,12 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import {
   canGadgetPointStaffAccessPath,
-  isGadgetPointStaffAppMetadata,
   protectedWorkspacePrefixes,
   requiredWorkflowOSScope,
 } from '@/lib/workflow-access';
 
 const CANONICAL_SUPABASE_URL = 'https://hasnhivdrpeqytgdnkzo.supabase.co';
+const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
 
 function validHttpUrl(value: string | undefined) {
   if (!value) return false;
@@ -17,6 +17,17 @@ function validHttpUrl(value: string | undefined) {
   } catch {
     return false;
   }
+}
+
+function accessDenied(request: NextRequest, path: string, reason: 'disabled' | 'permission' | 'identity') {
+  const redirectUrl = request.nextUrl.clone();
+  redirectUrl.pathname = '/access-denied';
+  redirectUrl.search = '';
+  redirectUrl.searchParams.set('from', path);
+  redirectUrl.searchParams.set('reason', reason);
+  const required = requiredWorkflowOSScope(path);
+  if (required && required !== 'owner') redirectUrl.searchParams.set('area', required);
+  return NextResponse.redirect(redirectUrl);
 }
 
 export async function middleware(request: NextRequest) {
@@ -61,16 +72,33 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (protectedPath && user && isGadgetPointStaffAppMetadata(user.app_metadata as Record<string, unknown>)) {
-    if (!canGadgetPointStaffAccessPath(path, user.app_metadata as Record<string, unknown>)) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = '/access-denied';
-      redirectUrl.search = '';
-      const required = requiredWorkflowOSScope(path);
-      redirectUrl.searchParams.set('from', path);
-      redirectUrl.searchParams.set('reason', user.app_metadata?.workflowos_access_enabled === true ? 'permission' : 'disabled');
-      if (required && required !== 'owner') redirectUrl.searchParams.set('area', required);
-      return NextResponse.redirect(redirectUrl);
+  if (protectedPath && user) {
+    // Every authenticated workspace session must resolve to an active profile.
+    // This also makes legacy/compatibility GadgetPoint staff handoffs fail closed:
+    // non-owner sessions cannot bypass the owner's WorkflowOS access flag/scopes
+    // simply because their identity source predates the current one-time-code flow.
+    const { data: accessProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role,email,active')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profileError || !accessProfile || accessProfile.active === false) {
+      return accessDenied(request, path, 'identity');
+    }
+
+    const role = String(accessProfile.role ?? '').trim().toLowerCase();
+    const profileEmail = String(accessProfile.email ?? user.email ?? '').trim().toLowerCase();
+    const exactOwner = role === 'owner' && profileEmail === OWNER_EMAIL;
+
+    // No non-exact owner profile is ever allowed to inherit owner privileges.
+    if (role === 'owner' && !exactOwner) {
+      return accessDenied(request, path, 'identity');
+    }
+
+    if (!exactOwner && !canGadgetPointStaffAccessPath(path, user.app_metadata as Record<string, unknown>)) {
+      const enabled = user.app_metadata?.workflowos_access_enabled === true;
+      return accessDenied(request, path, enabled ? 'permission' : 'disabled');
     }
   }
 
