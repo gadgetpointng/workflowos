@@ -11,7 +11,7 @@ export default async function GadgetPointStaffAccessStatusSection() {
     .eq('organization_id', profile.organization_id)
     .order('updated_at', { ascending: false });
 
-  const ownerEmail = String(profile.email ?? user.email ?? '').trim().toLowerCase();
+  const ownerEmail = String(profile.email ?? user?.email ?? '').trim().toLowerCase();
   const owner = profile.role === 'owner' && ownerEmail === OWNER_EMAIL;
 
   return <GadgetPointStaffAccessStatus staff={data ?? []} owner={owner} />;
