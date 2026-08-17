@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'app/api/health/**'
       - 'app/login/**'
       - 'app/signup/**'
       - 'app/request/**'
@@ -44,13 +45,19 @@ jobs:
           fi
           grep -Rqi 'WorkflowOS accounts are managed by GadgetPoint' app/signup
           grep -Rqi 'GadgetPoint remains the store' app/request
+          grep -q 'VERCEL_GIT_COMMIT_SHA' app/api/health/route.ts
           echo 'Pull-request MVP identity contract is healthy.'
 
   smoke:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
+      - name: Checkout release history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Verify canonical production contract
         shell: bash
         env:
@@ -62,9 +69,9 @@ jobs:
             path="$1"
             output="$2"
             expected="$3"
-            for attempt in $(seq 1 18); do
+            for attempt in $(seq 1 24); do
               code="$(curl --silent --show-error --max-time 20 --output "$output" --write-out '%{http_code}' "${BASE_URL}${path}" || true)"
-              echo "${path} attempt ${attempt}/18 -> HTTP ${code:-curl-error}"
+              echo "${path} attempt ${attempt}/24 -> HTTP ${code:-curl-error}"
               if [ "$code" = "$expected" ]; then
                 return 0
               fi
@@ -75,17 +82,30 @@ jobs:
             return 1
           }
 
-          fetch_until '/api/health' /tmp/health.json 200
+          release_ready=false
+          for attempt in $(seq 1 24); do
+            code="$(curl --silent --show-error --max-time 20 --output /tmp/health.json --write-out '%{http_code}' "${BASE_URL}/api/health" || true)"
+            live_commit="$(jq -r '.release.commit // empty' /tmp/health.json 2>/dev/null || true)"
+            echo "/api/health release attempt ${attempt}/24 -> HTTP ${code:-curl-error} live=${live_commit:-unknown} expected=${GITHUB_SHA}"
+            if [ "$code" = '200' ] && [ -n "$live_commit" ]; then
+              git fetch --quiet origin "$live_commit" || true
+              if git merge-base --is-ancestor "$GITHUB_SHA" "$live_commit" 2>/dev/null; then
+                release_ready=true
+                break
+              fi
+            fi
+            sleep 10
+          done
+          if [ "$release_ready" != 'true' ]; then
+            echo 'Canonical production did not reach this main commit or a newer descendant in time.' >&2
+            cat /tmp/health.json || true
+            exit 1
+          fi
+
           grep -q '"ok":true' /tmp/health.json
           grep -q '"database":true' /tmp/health.json
 
           fetch_until '/login' /tmp/login.html 200
-          for attempt in $(seq 1 18); do
-            if grep -q 'Owner: Continue with ChatGPT' /tmp/login.html; then break; fi
-            echo "Waiting for newest login release (${attempt}/18)"
-            sleep 10
-            curl --silent --show-error --max-time 20 --output /tmp/login.html "${BASE_URL}/login" || true
-          done
           grep -q 'Staff: Sign in with GadgetPoint' /tmp/login.html
           grep -q 'Owner: GadgetPoint sign-in' /tmp/login.html
           grep -q 'Owner: Continue with ChatGPT' /tmp/login.html
@@ -127,4 +147,4 @@ jobs:
           fetch_until '/manifest.webmanifest' /tmp/manifest.json 200
           grep -q 'WorkflowOS' /tmp/manifest.json
 
-          echo 'WorkflowOS canonical MVP production contract is healthy.'
+          echo 'WorkflowOS canonical MVP production contract is healthy on the expected release.'
