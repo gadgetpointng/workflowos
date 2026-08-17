@@ -5,6 +5,7 @@ import { normalizeWorkflowOSPermissions } from '@/lib/workflow-access';
 const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com';
 const GADGETPOINT_REDEEM_ENDPOINT = 'https://gadgetpoint.ng/api/workflowos/access-redeem';
 const CODE_RE = /^[0-9a-f]{64}$/i;
+const EXTERNAL_STAFF_ID_RE = /^[a-z0-9][a-z0-9._@:+-]{0,254}$/i;
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as { code?: unknown } | null;
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
   const externalStaffId = String(redeemed?.staff?.external_staff_id ?? '').trim().toLowerCase();
   const enabled = redeemed?.staff?.enabled === true;
   const permissions = normalizeWorkflowOSPermissions(redeemed?.staff?.workflow_permissions);
-  if (!externalStaffId.includes('@') || externalStaffId === OWNER_EMAIL || (enabled && permissions.length === 0)) {
+  if (!EXTERNAL_STAFF_ID_RE.test(externalStaffId) || externalStaffId === OWNER_EMAIL || (enabled && permissions.length === 0)) {
     return NextResponse.json({ error: 'Invalid GadgetPoint staff access payload' }, { status: 400 });
   }
 
