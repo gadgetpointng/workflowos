@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
 const ADMIN_MESSAGES_URL = process.env.GADGETPOINT_ADMIN_MESSAGES_URL?.trim() || 'https://gadgetpoint.ng/api/workflowos/messages';
 const NO_STORE_HEADERS = { 'Cache-Control': 'private, no-store, max-age=0' };
+const NON_DELIVERY_SUFFIX = '@staff.workflowos.invalid';
 
 function bridgeCredentials() {
   const bridgeId = process.env.GADGETPOINT_ADMIN_BRIDGE_ID?.trim() || process.env.WORKFLOWOS_GADGETPOINT_BRIDGE_ID?.trim();
@@ -12,12 +14,49 @@ function bridgeCredentials() {
   return bridgeId && bridgeSecret ? { bridgeId, bridgeSecret } : null;
 }
 
-function staffEmail(profile: Record<string, unknown>) {
-  return String(profile.email ?? '').trim().toLowerCase();
+function clean(value: unknown) {
+  return String(value ?? '').trim();
+}
+
+function email(value: unknown) {
+  return clean(value).toLowerCase();
 }
 
 function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status, headers: NO_STORE_HEADERS });
+}
+
+type StaffIdentity = {
+  staffEmail: string;
+  externalStaffId: string;
+  staffUsername: string;
+};
+
+async function resolveStaffIdentity(userId: string, profile: Record<string, unknown>): Promise<StaffIdentity | null> {
+  if (String(profile.role ?? '').toLowerCase() === 'owner') return null;
+
+  const sessionEmail = email(profile.email);
+  const admin = createAdminClient();
+  const { data: link } = await admin
+    .from('shared_identity_links')
+    .select('external_staff_id,external_email,metadata,verified_at')
+    .eq('profile_id', userId)
+    .order('verified_at', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+
+  const externalStaffId = clean(link?.external_staff_id);
+  const staffUsername = clean(link?.metadata?.username);
+  const externalEmail = email(link?.external_email);
+  const preferredEmail = externalEmail.includes('@') ? externalEmail : sessionEmail;
+
+  if (!preferredEmail && !externalStaffId && !staffUsername) return null;
+
+  return {
+    staffEmail: preferredEmail,
+    externalStaffId,
+    staffUsername,
+  };
 }
 
 async function callAdmin(path: string, init?: RequestInit) {
@@ -47,13 +86,22 @@ async function callAdmin(path: string, init?: RequestInit) {
   }
 }
 
+function identityQuery(identity: StaffIdentity) {
+  const params = new URLSearchParams();
+  if (identity.staffEmail) params.set('staffEmail', identity.staffEmail);
+  if (identity.externalStaffId) params.set('externalStaffId', identity.externalStaffId);
+  if (identity.staffUsername) params.set('staffUsername', identity.staffUsername);
+  return params.toString();
+}
+
 export async function GET() {
   const { user, profile } = await requireUser();
   if (!user || !profile) return json({ error: 'Unauthorized' }, 401);
-  const email = staffEmail(profile as Record<string, unknown>);
-  if (!email) return json({ error: 'This WorkflowOS profile is not linked to a GadgetPoint staff email.' }, 409);
 
-  const { response, error } = await callAdmin(`?staffEmail=${encodeURIComponent(email)}`);
+  const identity = await resolveStaffIdentity(user.id, profile as Record<string, unknown>);
+  if (!identity) return json({ error: 'This WorkflowOS session is not linked to an active GadgetPoint staff identity.' }, 409);
+
+  const { response, error } = await callAdmin(`?${identityQuery(identity)}`);
   if (error || !response) return error!;
   const data = await response.json().catch(() => ({ error: 'Invalid Admin response' }));
   return json(data, response.status);
@@ -62,8 +110,9 @@ export async function GET() {
 export async function POST(request: Request) {
   const { user, profile } = await requireUser();
   if (!user || !profile) return json({ error: 'Unauthorized' }, 401);
-  const email = staffEmail(profile as Record<string, unknown>);
-  if (!email) return json({ error: 'This WorkflowOS profile is not linked to a GadgetPoint staff email.' }, 409);
+
+  const identity = await resolveStaffIdentity(user.id, profile as Record<string, unknown>);
+  if (!identity) return json({ error: 'This WorkflowOS session is not linked to an active GadgetPoint staff identity.' }, 409);
 
   const payload = await request.json().catch(() => ({})) as Record<string, unknown>;
   const action = String(payload.action ?? 'send');
@@ -74,7 +123,13 @@ export async function POST(request: Request) {
   const { response, error } = await callAdmin('', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ staffEmail: email, action, body }),
+    body: JSON.stringify({
+      staffEmail: identity.staffEmail,
+      externalStaffId: identity.externalStaffId,
+      staffUsername: identity.staffUsername,
+      action,
+      body,
+    }),
   });
   if (error || !response) return error!;
   const data = await response.json().catch(() => ({ error: 'Invalid Admin response' }));
