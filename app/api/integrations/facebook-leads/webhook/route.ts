@@ -1,11 +1,26 @@
 import { NextResponse } from 'next/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { ingestFacebookLead, verifyMetaSignature } from '@/lib/integrations/facebook-leads';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function verifyToken() {
-  return process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.FACEBOOK_WEBHOOK_VERIFY_TOKEN || '';
+async function verifyToken(url: URL) {
+  const envToken = process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.FACEBOOK_WEBHOOK_VERIFY_TOKEN || '';
+  if (envToken) return envToken;
+
+  const workspace = String(url.searchParams.get('workspace') ?? '').trim();
+  if (!workspace) return '';
+
+  const admin = createAdminClient();
+  const { data: integration } = await admin
+    .from('external_integrations')
+    .select('settings')
+    .eq('organization_id', workspace)
+    .eq('slug', 'facebook-leads')
+    .maybeSingle();
+
+  return String(integration?.settings?.webhook_verify_token ?? '').trim();
 }
 
 export async function GET(request: Request) {
@@ -13,7 +28,7 @@ export async function GET(request: Request) {
   const mode = url.searchParams.get('hub.mode');
   const token = url.searchParams.get('hub.verify_token');
   const challenge = url.searchParams.get('hub.challenge');
-  const expected = verifyToken();
+  const expected = await verifyToken(url);
 
   // A normal browser visit is a health/readiness check, not a Meta verification request.
   if (!mode && token === null && challenge === null) {
@@ -23,7 +38,7 @@ export async function GET(request: Request) {
       verificationConfigured: Boolean(expected),
       message: expected
         ? 'Webhook endpoint is online and ready for Meta verification.'
-        : 'Webhook endpoint is online, but the production verify token is not configured.',
+        : 'Webhook endpoint is online, but the workspace verify token is not configured yet.',
     }, {
       status: expected ? 200 : 503,
       headers: { 'cache-control': 'no-store' },
@@ -32,7 +47,7 @@ export async function GET(request: Request) {
 
   if (!expected) {
     console.error('Facebook webhook verification attempted without a configured verify token');
-    return NextResponse.json({ error: 'Webhook verify token is not configured in production' }, { status: 503 });
+    return NextResponse.json({ error: 'Webhook verify token is not configured for this workspace' }, { status: 503 });
   }
 
   if (mode !== 'subscribe') {
@@ -43,7 +58,7 @@ export async function GET(request: Request) {
   }
   if (token !== expected) {
     console.warn('Facebook webhook verification token mismatch');
-    return NextResponse.json({ error: 'Webhook verify token does not match production configuration' }, { status: 403 });
+    return NextResponse.json({ error: 'Webhook verify token does not match workspace configuration' }, { status: 403 });
   }
 
   return new Response(challenge, {
