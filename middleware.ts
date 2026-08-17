@@ -7,15 +7,39 @@ import {
   requiredWorkflowOSScope,
 } from '@/lib/workflow-access';
 
+function validHttpUrl(value: string | undefined) {
+  if (!value) return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const path = request.nextUrl.pathname;
+  const protectedPath = protectedWorkspacePrefixes.some(prefix => path === prefix || path.startsWith(prefix + '/'));
 
-  // Let the app render a useful configuration error instead of crashing middleware.
-  if (!url || !anon) return response;
+  // Never let malformed deployment configuration crash Routing Middleware.
+  // Public routes remain reachable so health/setup pages can diagnose the issue.
+  // Protected routes fail closed to login until authentication configuration is valid.
+  if (!validHttpUrl(url) || !anon) {
+    if (protectedPath) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/login';
+      redirectUrl.search = '';
+      redirectUrl.searchParams.set('next', path);
+      redirectUrl.searchParams.set('error', 'Authentication is temporarily unavailable.');
+      return NextResponse.redirect(redirectUrl);
+    }
+    return response;
+  }
 
-  const supabase = createServerClient(url, anon, {
+  const supabase = createServerClient(url!, anon, {
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll(cookiesToSet) {
@@ -27,8 +51,6 @@ export async function middleware(request: NextRequest) {
   });
 
   const { data: { user } } = await supabase.auth.getUser();
-  const path = request.nextUrl.pathname;
-  const protectedPath = protectedWorkspacePrefixes.some(prefix => path === prefix || path.startsWith(prefix + '/'));
 
   if (protectedPath && !user) {
     const redirectUrl = request.nextUrl.clone();
