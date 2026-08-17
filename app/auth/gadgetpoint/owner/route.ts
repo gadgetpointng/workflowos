@@ -23,6 +23,10 @@ function loginError(request: Request, message: string) {
   return NextResponse.redirect(url);
 }
 
+function isWorkflowAuthCookie(name: string) {
+  return name.startsWith('sb-') && name.includes('-auth-token');
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = String(requestUrl.searchParams.get('code') ?? '').trim();
@@ -166,6 +170,22 @@ export async function GET(request: NextRequest) {
   }
 
   const response = NextResponse.redirect(new URL('/dashboard', request.url));
+  const freshNames = new Set(pendingCookies.map(cookie => cookie.name));
+
+  // Supabase may split auth sessions across multiple cookie chunks. Remove any old chunks
+  // that are not part of this fresh session so a previous login cannot corrupt the new one.
+  for (const cookie of request.cookies.getAll()) {
+    if (isWorkflowAuthCookie(cookie.name) && !freshNames.has(cookie.name)) {
+      response.cookies.set(cookie.name, '', {
+        path: '/',
+        expires: new Date(0),
+        maxAge: 0,
+        sameSite: 'lax',
+        secure: true,
+      });
+    }
+  }
+
   for (const cookie of pendingCookies) {
     response.cookies.set(cookie.name, cookie.value, cookie.options as any);
   }
