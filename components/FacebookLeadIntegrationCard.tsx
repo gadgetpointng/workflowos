@@ -7,6 +7,8 @@ type State = {
   canManage: boolean;
   ready: boolean;
   webhookUrl: string;
+  verifyToken?: string;
+  verifyTokenSource?: 'workspace' | 'environment' | 'missing';
   env: { verifyToken: boolean; appSecret: boolean; pageAccessToken: boolean; graphVersion: boolean };
   integration: null | { pageId?: string; pageName?: string; defaultAssigneeId?: string; followupMinutes?: number; status?: string; lastSyncedAt?: string | null };
   staff: Staff[];
@@ -44,8 +46,38 @@ export default function FacebookLeadIntegrationCard() {
     const body = await response.json();
     setBusy(false);
     if (!response.ok) { setMessage(body.error || 'Could not save Facebook lead integration'); return; }
-    setMessage(body.ready ? 'Facebook lead capture is ready.' : 'Page saved. Add the required Meta secrets in Vercel to activate capture.');
+    setMessage(body.ready ? 'Facebook lead capture is ready.' : 'Page saved. WorkflowOS generated the webhook verify token; complete the remaining Meta server credentials to activate lead capture.');
     await load();
+  }
+
+  async function rotateVerifyToken() {
+    if (!state?.integration?.pageId || busy) return;
+    setBusy(true); setMessage('');
+    const response = await fetch('/api/integrations/facebook-leads', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        pageId: state.integration.pageId,
+        pageName: state.integration.pageName || '',
+        defaultAssigneeId: state.integration.defaultAssigneeId || '',
+        followupMinutes: state.integration.followupMinutes || 15,
+        rotateVerifyToken: true,
+      }),
+    });
+    const body = await response.json();
+    setBusy(false);
+    if (!response.ok) { setMessage(body.error || 'Could not rotate the webhook verify token'); return; }
+    setMessage('New Facebook webhook verify token generated. Update the token in Meta before verifying the callback again.');
+    await load();
+  }
+
+  async function copy(value: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setMessage(`${label} copied.`);
+    } catch {
+      setMessage(`Could not copy ${label.toLowerCase()} automatically. Select the value and copy it manually.`);
+    }
   }
 
   if (!state) return <section className="rounded-[8px] border border-[#e4e7ec] bg-white p-5 text-sm text-[#697586]">Loading Facebook lead connection…</section>;
@@ -83,9 +115,21 @@ export default function FacebookLeadIntegrationCard() {
       </form>
 
       <div className="space-y-3">
-        <div className="rounded-md border border-[#e4e7ec] bg-[#f5f6f8] p-4"><div className="text-[9px] font-bold uppercase tracking-wide text-[#697586]">Webhook URL</div><code className="mt-2 block break-all text-[11px] font-semibold text-[#08111f]">{state.webhookUrl}</code><div className="mt-2 text-[11px] leading-5 text-[#697586]">Use this URL for the Meta Page leadgen webhook. Verification and event signatures are checked server-side.</div></div>
+        <div className="rounded-md border border-[#e4e7ec] bg-[#f5f6f8] p-4">
+          <div className="flex items-center justify-between gap-3"><div className="text-[9px] font-bold uppercase tracking-wide text-[#697586]">Webhook URL</div>{state.canManage && <button type="button" onClick={() => copy(state.webhookUrl, 'Webhook URL')} className="text-[10px] font-bold text-[#2377ff]">Copy</button>}</div>
+          <code className="mt-2 block break-all text-[11px] font-semibold text-[#08111f]">{state.webhookUrl}</code>
+          <div className="mt-2 text-[11px] leading-5 text-[#697586]">Use this exact URL for the Meta Page <code>leadgen</code> webhook. The workspace identifier keeps verification isolated to GadgetPoint.</div>
+        </div>
+
+        <div className="rounded-md border border-[#e4e7ec] bg-white p-4">
+          <div className="flex items-center justify-between gap-3"><div className="text-[9px] font-bold uppercase tracking-wide text-[#697586]">Webhook verify token</div>{state.verifyToken && state.canManage && <button type="button" onClick={() => copy(state.verifyToken || '', 'Verify token')} className="text-[10px] font-bold text-[#2377ff]">Copy</button>}</div>
+          {state.verifyToken ? <code className="mt-2 block break-all rounded-md bg-[#f5f6f8] px-3 py-2 text-[11px] font-semibold text-[#08111f]">{state.verifyToken}</code> : <div className="mt-2 text-xs font-semibold text-[#697586]">{state.verifyTokenSource === 'environment' ? 'Managed by the production environment.' : 'Save the Facebook Page connection to generate a token.'}</div>}
+          {state.canManage && state.integration?.pageId && state.verifyTokenSource !== 'environment' && <button type="button" disabled={busy} onClick={rotateVerifyToken} className="ios-action secondary-button mt-3 rounded-[13px] px-3 py-2 text-xs font-bold">Generate new token</button>}
+          <div className="mt-2 text-[11px] leading-5 text-[#697586]">Paste this token into Meta when verifying the callback. It is generated and stored server-side for this workspace rather than exposed as a browser secret.</div>
+        </div>
+
         <div className="grid grid-cols-3 gap-2">{[['Processed', state.eventCounts.processed || 0], ['Pending', state.eventCounts.pending || 0], ['Failed', state.eventCounts.failed || 0]].map(([label, count]) => <div key={String(label)} className="rounded-md border border-[#e4e7ec] p-3"><div className="text-[9px] font-bold uppercase text-[#8b95a3]">{label}</div><div className="mt-1 text-lg font-black text-[#08111f]">{count}</div></div>)}</div>
-        <div className="text-[11px] leading-5 text-[#697586]">Required Vercel secrets: <code>META_WEBHOOK_VERIFY_TOKEN</code>, <code>META_APP_SECRET</code>, <code>META_PAGE_ACCESS_TOKEN</code>, and <code>META_GRAPH_VERSION</code>. Secrets are never stored in the browser or integration record.</div>
+        <div className="text-[11px] leading-5 text-[#697586]">Remaining server credentials: <code>META_APP_SECRET</code>, <code>META_PAGE_ACCESS_TOKEN</code>, and <code>META_GRAPH_VERSION</code>. The webhook verify token is now managed inside WorkflowOS.</div>
       </div>
     </div>
   </section>;
