@@ -1,5 +1,6 @@
 import WorkspaceShell from '@/components/WorkspaceShell';
 import IntegrationQuickCreate from '@/components/IntegrationQuickCreate';
+import GadgetPointStaffAccessStatusSection from '@/components/GadgetPointStaffAccessStatusSection';
 import { requireUser } from '@/lib/auth';
 
 const eventTypes = [
@@ -134,6 +135,8 @@ export default async function IntegrationsPage() {
             </div>
           </div>
         </section>
+
+        <GadgetPointStaffAccessStatusSection />
 
         <section className="grid gap-6 xl:grid-cols-[1.2fr_.8fr]">
           <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
