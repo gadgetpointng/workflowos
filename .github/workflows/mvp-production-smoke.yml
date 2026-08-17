@@ -4,6 +4,9 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'app/login/**'
+      - 'app/signup/**'
+      - 'app/request/**'
       - '.github/workflows/mvp-production-smoke.yml'
   push:
     branches: [main]
@@ -19,7 +22,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pr-contract:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify identity and public-route source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com'" app/login/page.tsx
+          grep -q 'Staff: Sign in with GadgetPoint' app/login/page.tsx
+          grep -q 'Owner: GadgetPoint sign-in' app/login/page.tsx
+          grep -q 'Owner: Continue with ChatGPT' app/login/page.tsx
+          grep -q 'https://gadgetpoint.ng/api/workflowos/owner-login' app/login/page.tsx
+          if grep -Eqi 'signInWithPassword|sendOtp|magic link|type=["'"']password["'"']' app/login/page.tsx; then
+            echo 'A local WorkflowOS credential fallback exists in the login source.' >&2
+            exit 1
+          fi
+          grep -Rqi 'WorkflowOS accounts are managed by GadgetPoint' app/signup
+          grep -Rqi 'GadgetPoint remains the store' app/request
+          echo 'Pull-request MVP identity contract is healthy.'
+
   smoke:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -34,9 +62,9 @@ jobs:
             path="$1"
             output="$2"
             expected="$3"
-            for attempt in $(seq 1 12); do
+            for attempt in $(seq 1 18); do
               code="$(curl --silent --show-error --max-time 20 --output "$output" --write-out '%{http_code}' "${BASE_URL}${path}" || true)"
-              echo "${path} attempt ${attempt}/12 -> HTTP ${code:-curl-error}"
+              echo "${path} attempt ${attempt}/18 -> HTTP ${code:-curl-error}"
               if [ "$code" = "$expected" ]; then
                 return 0
               fi
@@ -52,7 +80,14 @@ jobs:
           grep -q '"database":true' /tmp/health.json
 
           fetch_until '/login' /tmp/login.html 200
+          for attempt in $(seq 1 18); do
+            if grep -q 'Owner: Continue with ChatGPT' /tmp/login.html; then break; fi
+            echo "Waiting for newest login release (${attempt}/18)"
+            sleep 10
+            curl --silent --show-error --max-time 20 --output /tmp/login.html "${BASE_URL}/login" || true
+          done
           grep -q 'Staff: Sign in with GadgetPoint' /tmp/login.html
+          grep -q 'Owner: GadgetPoint sign-in' /tmp/login.html
           grep -q 'Owner: Continue with ChatGPT' /tmp/login.html
           grep -q 'gadgetpoint.ng@gmail.com' /tmp/login.html
           grep -q 'WorkflowOS has no public account creation' /tmp/login.html
