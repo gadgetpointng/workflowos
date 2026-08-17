@@ -38,7 +38,7 @@ jobs:
           grep -q 'Owner: GadgetPoint sign-in' app/login/page.tsx
           grep -q 'Owner: Continue with ChatGPT' app/login/page.tsx
           grep -q 'https://gadgetpoint.ng/api/workflowos/owner-login' app/login/page.tsx
-          if grep -Eqi 'signInWithPassword|sendOtp|magic link|type=["'"']password["'"']' app/login/page.tsx; then
+          if grep -Eqi 'signInWithPassword|sendOtp|magic link' app/login/page.tsx || grep -Fqi 'type="password"' app/login/page.tsx || grep -Fqi "type='password'" app/login/page.tsx; then
             echo 'A local WorkflowOS credential fallback exists in the login source.' >&2
             exit 1
           fi
@@ -91,7 +91,7 @@ jobs:
           grep -q 'Owner: Continue with ChatGPT' /tmp/login.html
           grep -q 'gadgetpoint.ng@gmail.com' /tmp/login.html
           grep -q 'WorkflowOS has no public account creation' /tmp/login.html
-          if grep -Eqi 'type=["'"']password["'"']|signInWithPassword|sendOtp|magic link' /tmp/login.html; then
+          if grep -Eqi 'signInWithPassword|sendOtp|magic link' /tmp/login.html || grep -Fqi 'type="password"' /tmp/login.html || grep -Fqi "type='password'" /tmp/login.html; then
             echo 'Local WorkflowOS credential fallback appeared on the production login.' >&2
             exit 1
           fi
