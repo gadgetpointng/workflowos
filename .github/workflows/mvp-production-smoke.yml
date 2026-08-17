@@ -101,7 +101,8 @@ jobs:
           grep -q 'GadgetPoint remains the store' /tmp/request.html
 
           fetch_until '/signup' /tmp/signup.html 200
-          grep -q 'WorkflowOS accounts are managed by GadgetPoint' /tmp/signup.html
+          grep -q 'WorkflowOS%20accounts%20are%20managed%20by%20GadgetPoint' /tmp/signup.html
+          grep -q 'url=/login' /tmp/signup.html
           if grep -Eqi '<form([[:space:]>])|create account|sign up with email' /tmp/signup.html; then
             echo 'Public account creation appeared on /signup.' >&2
             exit 1
