@@ -1,0 +1,43 @@
+name: Verify Admin message bridge
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/api/admin-chat/**'
+      - 'components/StaffAdminChat.tsx'
+      - 'components/FloatingMessenger.tsx'
+      - '.github/workflows/verify-admin-message-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-admin-endpoint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require live Admin bridge to fail closed distinctly
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(mktemp)"
+          for attempt in $(seq 1 12); do
+            : > "$body"
+            status="$(curl --silent --show-error --location --max-time 20 \
+              --header 'x-gadgetpoint-bridge-id: workflowos-release-probe' \
+              --header 'authorization: Bearer workflowos-release-probe' \
+              --output "$body" --write-out '%{http_code}' \
+              'https://gadgetpoint.ng/api/admin/messages' || true)"
+            echo "Admin bridge attempt ${attempt}/12 returned HTTP ${status:-curl-error}"
+            cat "$body"
+            if [ "$status" = "401" ] && grep -qi 'unauthorized' "$body"; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 12 ]; then
+              sleep 15
+            fi
+          done
+          echo "Admin messages route did not expose the required fail-closed WorkflowOS service-auth hook." >&2
+          exit 1
