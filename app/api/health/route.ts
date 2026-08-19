@@ -16,8 +16,8 @@ function validHttpUrl(value: string | undefined) {
 
 export async function GET() {
   const aiAuth = Boolean(process.env.OPENAI_API_KEY || process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN);
+  const supabaseUrlEnvironmentConfigured = validHttpUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const checks: Record<string, boolean> = {
-    supabaseUrlConfigured: validHttpUrl(process.env.NEXT_PUBLIC_SUPABASE_URL),
     supabaseAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
     serviceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
     openaiKey: Boolean(process.env.OPENAI_API_KEY),
@@ -52,7 +52,13 @@ export async function GET() {
       deployment,
       branch: process.env.VERCEL_GIT_COMMIT_REF || null,
     },
-    checks: { supabaseUrl: supabaseUrlReady, ...checks, database },
+    checks: {
+      supabaseUrl: supabaseUrlReady,
+      supabaseUrlConfigured: supabaseUrlReady,
+      supabaseUrlEnvironmentConfigured,
+      ...checks,
+      database,
+    },
     launch: launchChecks,
     optional: { ai: aiAuth },
   }, {
