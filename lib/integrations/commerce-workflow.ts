@@ -89,7 +89,7 @@ async function notifyStage(supabase: SupabaseLike, organizationId: string, inten
     recipient_id: intent.assigned_to,
     title: message[0],
     body: message[1],
-    type: 'buyer_commerce_update',
+    type: 'buyer_request',
   });
 }
 
@@ -101,7 +101,7 @@ export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, orga
   for (const intent of intents) {
     const evidence = evidenceFor(intent);
     const previousStage = String(evidence.workflow_stage ?? '');
-    await supabase.from('buyer_intents').update({
+    const update:any = {
       evidence: {
         ...evidence,
         workflow_stage: stage,
@@ -109,9 +109,10 @@ export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, orga
         ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
         commerce_order_updated_at: new Date().toISOString(),
       },
-      status: stage === 'completed' ? 'closed' : undefined,
       updated_at: new Date().toISOString(),
-    }).eq('id', intent.id);
+    };
+    if (stage === 'completed') update.status = 'closed';
+    await supabase.from('buyer_intents').update(update).eq('id', intent.id);
     if (stage !== previousStage) await notifyStage(supabase, organizationId, intent, stage);
   }
   return { updated: intents.length, stage, externalOrderId };
