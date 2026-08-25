@@ -45,6 +45,7 @@ export const STORE_MUTATION_COMMANDS = new Set([
   'product.archive',
   'inventory.adjust',
   'inventory.reserve',
+  'order.create',
   'order.update_status',
   'order.cancel',
   'order.refund',
