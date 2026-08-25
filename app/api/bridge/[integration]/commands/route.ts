@@ -86,7 +86,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
           body: body.status === 'acknowledged'
             ? `${intent.product_query} is now waiting for payment confirmation.`
             : `${intent.product_query} needs attention before the order can continue.`,
-          type: body.status === 'acknowledged' ? 'buyer_order_created' : 'buyer_order_failed',
+          type: 'buyer_request',
         });
       }
     }
