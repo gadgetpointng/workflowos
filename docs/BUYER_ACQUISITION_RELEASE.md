@@ -23,11 +23,15 @@ WorkflowOS is release-ready only when the buyer journey works end to end without
 - [ ] Duplicate inbound buyer prevention verified per source/external ID
 
 ## Commerce bridge
-- [ ] Accepted quote requests a real GadgetPoint order through the integration command bridge
-- [ ] Payment status returns from GadgetPoint Admin to WorkflowOS
-- [ ] Inventory reservation/deduction remains owned by GadgetPoint Admin
-- [ ] Pickup/delivery status returns to WorkflowOS
-- [ ] Cancellation, failed payment, return and completion states tested
+- [x] Accepted quote creates an idempotent `order.create` request for the GadgetPoint integration command bridge
+- [x] GadgetPoint command acknowledgement advances the same buyer request to payment waiting and stores the external order reference when supplied
+- [x] Authenticated commerce callback accepts correlated `order.created`, `order.updated` and `payment.updated` workflow events without making WorkflowOS the commerce authority
+- [x] Inventory reservation/deduction remains owned by GadgetPoint Admin
+- [x] Buyer workflow mapping exists for payment confirmed/failed/cancelled, preparation, ready, delivery, completion, cancellation and return/refund
+- [ ] Real GadgetPoint Admin order-create command pull/acknowledgement smoke test completed
+- [ ] Real payment event received from GadgetPoint Admin
+- [ ] Real pickup/delivery event received from GadgetPoint Admin
+- [ ] Cancellation, failed payment, return and completion states smoke-tested against the real bridge
 
 ## Owner/staff
 - [x] Owner-only identity route and managed GadgetPoint staff identity model
@@ -36,7 +40,7 @@ WorkflowOS is release-ready only when the buyer journey works end to end without
 - [ ] Role/RLS audit completed
 
 ## Production gate
-- [ ] Development CI green
+- [ ] Development CI green on the final branch head
 - [ ] Supabase migrations/RLS green
 - [ ] One consolidated merge to main
 - [ ] One production deployment after Vercel quota is available
