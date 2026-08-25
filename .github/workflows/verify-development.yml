@@ -16,10 +16,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck --if-present
+          node-version: 24
+      - run: npm install --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: npm run check:release
       - run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://kqqlzcebtbipkkysqcyt.supabase.co
