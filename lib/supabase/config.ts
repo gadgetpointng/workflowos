@@ -13,10 +13,7 @@ function legacyJwtMatchesProject(key: string) {
     if (!payload) return false;
     const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
     const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
-    const decoded = typeof atob === 'function'
-      ? atob(padded)
-      : Buffer.from(padded, 'base64').toString('utf8');
-    const parsed = JSON.parse(decoded) as { ref?: string; role?: string };
+    const parsed = JSON.parse(globalThis.atob(padded)) as { ref?: string; role?: string };
     return parsed.ref === WORKFLOWOS_SUPABASE_PROJECT_REF && parsed.role === 'anon';
   } catch {
     return false;
