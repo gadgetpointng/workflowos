@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/check-internal-links.mjs && next build",
+    "build": "node scripts/check-supabase-auth-config.mjs && node scripts/check-internal-links.mjs && next build",
     "start": "next start",
     "lint": "next lint",
     "check:launch": "node scripts/launch-check.mjs",
