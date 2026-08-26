@@ -49,6 +49,7 @@ jobs:
           grep -Rqi 'WorkflowOS accounts are managed by GadgetPoint' app/signup
           grep -Rqi 'GadgetPoint remains the store' app/request
           grep -q 'VERCEL_GIT_COMMIT_SHA' app/api/health/route.ts
+          grep -q '__workflowos_admin_backend_probe__' .github/workflows/mvp-production-smoke.yml
           echo 'Pull-request MVP identity contract is healthy.'
 
   smoke:
@@ -121,6 +122,26 @@ jobs:
             echo 'A local WorkflowOS credential verifier appeared on the production login.' >&2
             exit 1
           fi
+
+          # Cross-system availability probe. This deliberately uses a username that cannot
+          # match a real Admin account, so it validates the GadgetPoint verifier route without
+          # touching a real credential or incrementing a real account's failed-attempt counter.
+          admin_status="$(curl --silent --show-error --max-time 20 --request POST \
+            --header 'Origin: https://workflow.gadgetpoint.ng' \
+            --header 'Content-Type: application/x-www-form-urlencoded' \
+            --data 'username=__workflowos_admin_backend_probe__&password=invalid-probe-only' \
+            --dump-header /tmp/admin-login.headers \
+            --output /tmp/admin-login.body \
+            --write-out '%{http_code}' \
+            'https://gadgetpoint.ng/api/workflowos/password-login' || true)"
+          admin_location="$(awk 'BEGIN{IGNORECASE=1} /^location:/ {sub(/\r$/,""); print $2}' /tmp/admin-login.headers | tail -n1)"
+          echo "GadgetPoint Admin verifier -> HTTP ${admin_status:-curl-error} location=${admin_location:-none}"
+          if [ "$admin_status" != '303' ]; then
+            echo 'GadgetPoint Admin password verifier is not live or did not fail closed correctly.' >&2
+            cat /tmp/admin-login.body || true
+            exit 1
+          fi
+          echo "$admin_location" | grep -q '^https://workflow.gadgetpoint.ng/login?'
 
           fetch_until '/request' /tmp/request.html 200
           grep -q 'Tell us the gadget you want' /tmp/request.html
