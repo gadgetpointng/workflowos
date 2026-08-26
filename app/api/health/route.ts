@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { hasMismatchedSupabaseEnvironment } from '@/lib/supabase/config';
 import { getLaunchChecks } from '@/lib/launch-readiness';
 
 export const dynamic = 'force-dynamic';
@@ -17,8 +18,10 @@ function validHttpUrl(value: string | undefined) {
 export async function GET() {
   const aiAuth = Boolean(process.env.OPENAI_API_KEY || process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN);
   const supabaseUrlEnvironmentConfigured = validHttpUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const supabaseEnvironmentAligned = !hasMismatchedSupabaseEnvironment();
   const checks: Record<string, boolean> = {
-    supabaseAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+    supabaseAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
+    supabaseEnvironmentAligned,
     serviceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
     openaiKey: Boolean(process.env.OPENAI_API_KEY),
     aiGatewayKey: Boolean(process.env.AI_GATEWAY_API_KEY),
