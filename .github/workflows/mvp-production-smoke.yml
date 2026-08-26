@@ -36,13 +36,16 @@ jobs:
           set -euo pipefail
           grep -q "const OWNER_EMAIL = 'gadgetpoint.ng@gmail.com'" app/login/page.tsx
           grep -q 'Staff: Sign in with GadgetPoint' app/login/page.tsx
-          grep -q 'Owner: GadgetPoint sign-in' app/login/page.tsx
-          grep -q 'Owner: Continue with ChatGPT' app/login/page.tsx
-          grep -q 'https://gadgetpoint.ng/api/workflowos/owner-login' app/login/page.tsx
-          if grep -Eqi 'signInWithPassword|sendOtp|magic link' app/login/page.tsx || grep -Fqi 'type="password"' app/login/page.tsx || grep -Fqi "type='password'" app/login/page.tsx; then
-            echo 'A local WorkflowOS credential fallback exists in the login source.' >&2
+          grep -q 'Sign in with Admin password' app/login/page.tsx
+          grep -q 'https://gadgetpoint.ng/api/workflowos/password-login' app/login/page.tsx
+          grep -q 'Use GadgetPoint session' app/login/page.tsx
+          grep -q 'Continue with ChatGPT' app/login/page.tsx
+          grep -Fq 'type="password"' app/login/page.tsx
+          if grep -Eqi 'signInWithPassword|sendOtp|magic link|/api/auth/password|/api/login/password' app/login/page.tsx; then
+            echo 'A local WorkflowOS credential verifier exists in the login source.' >&2
             exit 1
           fi
+          grep -q 'WorkflowOS does not receive or store the password' app/login/page.tsx
           grep -Rqi 'WorkflowOS accounts are managed by GadgetPoint' app/signup
           grep -Rqi 'GadgetPoint remains the store' app/request
           grep -q 'VERCEL_GIT_COMMIT_SHA' app/api/health/route.ts
@@ -107,12 +110,15 @@ jobs:
 
           fetch_until '/login' /tmp/login.html 200
           grep -q 'Staff: Sign in with GadgetPoint' /tmp/login.html
-          grep -q 'Owner: GadgetPoint sign-in' /tmp/login.html
-          grep -q 'Owner: Continue with ChatGPT' /tmp/login.html
+          grep -q 'Sign in with Admin password' /tmp/login.html
+          grep -q 'https://gadgetpoint.ng/api/workflowos/password-login' /tmp/login.html
+          grep -q 'Use GadgetPoint session' /tmp/login.html
+          grep -q 'Continue with ChatGPT' /tmp/login.html
           grep -q 'gadgetpoint.ng@gmail.com' /tmp/login.html
           grep -q 'WorkflowOS has no public account creation' /tmp/login.html
-          if grep -Eqi 'signInWithPassword|sendOtp|magic link' /tmp/login.html || grep -Fqi 'type="password"' /tmp/login.html || grep -Fqi "type='password'" /tmp/login.html; then
-            echo 'Local WorkflowOS credential fallback appeared on the production login.' >&2
+          grep -Fq 'type="password"' /tmp/login.html
+          if grep -Eqi 'signInWithPassword|sendOtp|magic link|/api/auth/password|/api/login/password' /tmp/login.html; then
+            echo 'A local WorkflowOS credential verifier appeared on the production login.' >&2
             exit 1
           fi
 

@@ -4,6 +4,7 @@ const read = (path) => fs.readFileSync(path, 'utf8');
 const middleware = read('middleware.ts');
 const accessSync = read('app/api/auth/gadgetpoint/access-sync/route.ts');
 const workflowAccess = read('lib/workflow-access.ts');
+const login = read('app/login/page.tsx');
 
 const failures = [];
 const requireText = (source, text, message) => {
@@ -31,6 +32,15 @@ requireText(accessSync, 'workflowos_permissions: permissions', 'Access sync must
 requireText(workflowAccess, "'/integrations', 'owner'", 'Integrations must remain owner-only.');
 requireText(workflowAccess, "if (required === 'owner') return false", 'Staff scopes must never grant owner-only routes.');
 requireText(workflowAccess, 'if (!access.enabled) return false', 'Disabled GadgetPoint staff must fail closed.');
+
+requireText(login, "const OWNER_PASSWORD_ENDPOINT = 'https://gadgetpoint.ng/api/workflowos/password-login'", 'Owner password login must submit only to the GadgetPoint credential authority.');
+requireText(login, 'action={OWNER_PASSWORD_ENDPOINT}', 'WorkflowOS must send the owner credential form directly to GadgetPoint.');
+requireText(login, 'method="post"', 'Owner credentials must be submitted with POST.');
+requireText(login, 'WorkflowOS does not receive or store the password', 'Login UI must state the GadgetPoint password ownership boundary.');
+rejectText(login, 'signInWithPassword', 'WorkflowOS must not authenticate the GadgetPoint owner password through Supabase.');
+rejectText(login, 'sendOtp', 'WorkflowOS must not add an independent owner OTP fallback.');
+rejectText(login, '/api/auth/password', 'WorkflowOS must not expose a local password-verification endpoint.');
+rejectText(login, '/api/login/password', 'WorkflowOS must not expose a local password-verification endpoint.');
 
 if (failures.length) {
   console.error('GadgetPoint authorization boundary check failed:');
