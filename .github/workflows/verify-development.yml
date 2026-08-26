@@ -22,7 +22,7 @@ jobs:
       - run: npm run check:release
       - run: npm run build
         env:
-          NEXT_PUBLIC_SUPABASE_URL: https://kqqlzcebtbipkkysqcyt.supabase.co
+          NEXT_PUBLIC_SUPABASE_URL: https://hasnhivdrpeqytgdnkzo.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           NEXT_PUBLIC_APP_URL: https://workflow.gadgetpoint.ng
