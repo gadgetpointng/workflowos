@@ -4,7 +4,7 @@ const read = (path) => fs.readFileSync(path, 'utf8');
 const credentials = read('docs/INTEGRATION_CREDENTIALS.md');
 const whatsapp = read('app/api/integrations/whatsapp/webhook/route.ts');
 const instagram = read('app/api/integrations/instagram/webhook/route.ts');
-const buyerIntake = read('app/api/integrations/buyer-intake/webhook/route.ts');
+const buyerInbound = read('lib/buyers/inbound.ts');
 
 const requirements = [
   ['META_APP_SECRET', [whatsapp, instagram]],
@@ -12,7 +12,7 @@ const requirements = [
   ['INSTAGRAM_WEBHOOK_VERIFY_TOKEN', [instagram]],
   ['META_WEBHOOK_VERIFY_TOKEN', [instagram]],
   ['GADGETPOINT_WORKSPACE_ID', [whatsapp, instagram]],
-  ['BUYER_INTAKE_WEBHOOK_SECRET', [buyerIntake]],
+  ['BUYER_INTAKE_WEBHOOK_SECRET', [buyerInbound]],
 ];
 
 const failures = [];
