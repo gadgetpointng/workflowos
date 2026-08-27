@@ -3,6 +3,7 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
+  "ignoreCommand": "if [ \"${VERCEL_PROJECT_ID:-}\" = \"prj_HgZVEKJh7Xqsl1xyv4cTgZ92BgIH\" ]; then exit 0; fi; exit 1",
   "git": {
     "deploymentEnabled": {
       "*": false,
