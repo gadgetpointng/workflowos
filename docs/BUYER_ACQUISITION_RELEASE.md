@@ -37,7 +37,8 @@ WorkflowOS is release-ready only when the buyer journey works end to end without
 - [x] Owner-only identity route and managed GadgetPoint staff identity model
 - [x] Public signup disabled
 - [ ] Staff assignment, notification, private owner message and announcement tested end to end
-- [ ] Role/RLS audit completed
+- [x] Role/RLS audit completed
+  - 2026-08-27 production audit: every `public` table has RLS enabled; buyer, task, quote, customer, integration, identity and notification policies are organization-scoped; no `public` `SECURITY DEFINER` function is executable by `anon` or `authenticated`; `facebook_lead_events` remains intentionally server-only with no client policy and direct `anon`/`authenticated` grants revoked.
 
 ## Production gate
 - [ ] Development CI green on the final branch head
