@@ -18,6 +18,7 @@ jobs:
         with:
           node-version: 24
       - run: npm install --no-audit --no-fund
+      - run: node scripts/check-commerce-bridge-contract.mjs
       - run: npx tsc --noEmit
       - run: npm run check:release
       - run: npm run build
