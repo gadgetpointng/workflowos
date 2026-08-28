@@ -4,9 +4,15 @@ const inbound = fs.readFileSync('lib/buyers/inbound.ts', 'utf8');
 const schema = fs.readFileSync('supabase/schema.sql', 'utf8');
 const release = fs.readFileSync('docs/BUYER_ACQUISITION_RELEASE.md', 'utf8');
 
+const evidenceBlock = inbound.match(/const evidence = \{([\s\S]*?)\n  \};/)?.[1] || '';
+const evidenceInputIndex = evidenceBlock.indexOf('...(input.evidence || {})');
+const evidenceCaptureIndex = evidenceBlock.indexOf("capture: 'integration'");
+const evidenceExternalIdIndex = evidenceBlock.indexOf('external_id: externalId');
+const evidenceStageIndex = evidenceBlock.indexOf('workflow_stage: stage');
+
 const checks = [
   [
-    "buyer_intents stores external_ref",
+    'buyer_intents stores external_ref',
     inbound.includes('external_ref: externalId'),
   ],
   [
@@ -20,6 +26,13 @@ const checks = [
     inbound.includes("error?.code === '23505'") &&
       inbound.includes('racedDuplicate') &&
       inbound.includes('duplicate: true'),
+  ],
+  [
+    'system evidence fields override caller-supplied provenance',
+    evidenceInputIndex >= 0 &&
+      evidenceCaptureIndex > evidenceInputIndex &&
+      evidenceExternalIdIndex > evidenceInputIndex &&
+      evidenceStageIndex > evidenceInputIndex,
   ],
   [
     'database enforces source-scoped external reference uniqueness',
