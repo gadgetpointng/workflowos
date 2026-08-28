@@ -9,6 +9,12 @@ function requireText(label, content, expected) {
   }
 }
 
+function forbidText(label, content, forbidden) {
+  for (const value of forbidden) {
+    if (content.includes(value)) failures.push(`${label}: forbidden ${JSON.stringify(value)}`);
+  }
+}
+
 const commands = read('app/api/bridge/[integration]/commands/route.ts');
 const commerce = read('app/api/bridge/[integration]/commerce/route.ts');
 const quotes = read('app/api/quotes/[id]/route.ts');
@@ -23,6 +29,17 @@ requireText('commands route', commands, [
   "command.command_type === 'order.create'",
   "commerce_order_id",
   "order_request_failed",
+  "console.error('Could not load integration commands', error)",
+  "{ error: 'Could not load integration commands' }",
+  "console.error('Could not load integration command', commandError)",
+  "{ error: 'Could not load integration command' }",
+  "console.error('Could not update integration command', error)",
+  "{ error: 'Could not update integration command' }",
+]);
+
+forbidText('commands route error privacy', commands, [
+  '{ error: error.message }',
+  "commandError?.message || 'Command not found'",
 ]);
 
 requireText('commerce route', commerce, [
