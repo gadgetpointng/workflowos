@@ -20,7 +20,8 @@ WorkflowOS is release-ready only when the buyer journey works end to end without
 - [x] Supplier offer/cost/selling-price/margin capture
 - [x] Quotation preparation and quote status reflected back to buyer request
 - [ ] SLA timers and escalation verified with real staff accounts
-- [ ] Duplicate inbound buyer prevention verified per source/external ID
+- [x] Duplicate inbound buyer prevention verified per source/external ID
+  - 2026-08-28 production verification: `buyer_intents` enforces `unique (organization_id, source, external_ref)` and has no duplicate non-null external references. Shared inbound capture now writes `external_ref`, pre-checks the same key, and converts concurrent unique-key races into the existing buyer request instead of creating duplicate tasks/notifications.
 
 ## Commerce bridge
 - [x] Accepted quote creates an idempotent `order.create` request for the GadgetPoint integration command bridge

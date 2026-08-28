@@ -35,16 +35,17 @@ export function verifyInboundSignature(rawBody: string, signature: string | null
 export async function captureInboundBuyer(input: InboundBuyerRequest) {
   const admin = createAdminClient();
   const source = String(input.source || 'other').trim().toLowerCase();
+  const externalId = input.externalId ? String(input.externalId).trim() : null;
   const productQuery = String(input.productQuery || '').trim();
   if (!input.organizationId || !productQuery) throw new Error('organizationId and productQuery are required');
 
-  if (input.externalId) {
+  if (externalId) {
     const { data: duplicate } = await admin
       .from('buyer_intents')
-      .select('id,evidence')
+      .select('id')
       .eq('organization_id', input.organizationId)
       .eq('source', source)
-      .contains('evidence', { external_id: input.externalId })
+      .eq('external_ref', externalId)
       .limit(1)
       .maybeSingle();
     if (duplicate) return { ok: true, duplicate: true, buyerIntentId: duplicate.id };
@@ -74,7 +75,7 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
   const stage = matches.length ? 'product_search' : 'sourcing_required';
   const evidence = {
     capture: 'integration',
-    external_id: input.externalId || null,
+    external_id: externalId,
     workflow_stage: stage,
     ...(input.evidence || {}),
   };
@@ -82,6 +83,7 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
   const { data: intent, error } = await admin.from('buyer_intents').insert({
     organization_id: input.organizationId,
     source,
+    external_ref: externalId,
     buyer_name: input.buyerName || null,
     phone: input.phone || null,
     email: input.email || null,
@@ -100,6 +102,18 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
     status: matches.length ? 'matched' : 'new',
     evidence,
   }).select('id').single();
+
+  if (error?.code === '23505' && externalId) {
+    const { data: racedDuplicate } = await admin
+      .from('buyer_intents')
+      .select('id')
+      .eq('organization_id', input.organizationId)
+      .eq('source', source)
+      .eq('external_ref', externalId)
+      .limit(1)
+      .maybeSingle();
+    if (racedDuplicate) return { ok: true, duplicate: true, buyerIntentId: racedDuplicate.id };
+  }
   if (error || !intent) throw error || new Error('Could not create buyer request');
 
   let taskId: string | null = null;
@@ -140,7 +154,7 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
   const recipientId = input.assignedTo || (await admin.from('profiles').select('id').eq('organization_id', input.organizationId).eq('role', 'owner').eq('active', true).limit(1).maybeSingle()).data?.id || null;
   if (recipientId) await admin.from('notifications').insert({ organization_id: input.organizationId, recipient_id: recipientId, title: `New ${source} buyer request`, body: `${input.buyerName || 'Buyer'} · ${productQuery}`, type: 'buyer_request' });
 
-  await admin.from('activity_logs').insert({ organization_id: input.organizationId, actor_id: creatorIdForLog(input.assignedTo), action: 'buyer_intent.integration_captured', entity_type: 'buyer_intent', entity_id: intent.id, metadata: { source, external_id: input.externalId || null, score, match_count: matches.length, task_id: taskId } });
+  await admin.from('activity_logs').insert({ organization_id: input.organizationId, actor_id: creatorIdForLog(input.assignedTo), action: 'buyer_intent.integration_captured', entity_type: 'buyer_intent', entity_id: intent.id, metadata: { source, external_id: externalId, score, match_count: matches.length, task_id: taskId } });
   return { ok: true, buyerIntentId: intent.id, taskId, score, matchCount: matches.length, stage };
 }
 
