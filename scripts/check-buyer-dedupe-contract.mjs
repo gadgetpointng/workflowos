@@ -45,6 +45,12 @@ const checks = [
       inbound.includes('const recipientId = assignedTo ||'),
   ],
   [
+    'assignee validation fails closed on database errors',
+    inbound.includes('error: assigneeError') &&
+      inbound.includes("if (assigneeError) throw new Error('Could not validate buyer assignee')") &&
+      inbound.indexOf("if (assigneeError) throw new Error('Could not validate buyer assignee')") < inbound.indexOf('assignedTo = assignee?.id || null'),
+  ],
+  [
     'database enforces source-scoped external reference uniqueness',
     schema.includes('unique (organization_id, source, external_ref)'),
   ],
