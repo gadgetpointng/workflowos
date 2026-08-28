@@ -17,6 +17,7 @@ function forbidText(label, content, forbidden) {
 
 const commands = read('app/api/bridge/[integration]/commands/route.ts');
 const commerce = read('app/api/bridge/[integration]/commerce/route.ts');
+const bridge = read('lib/integrations/bridge.ts');
 const quotes = read('app/api/quotes/[id]/route.ts');
 const docs = read('docs/GADGETPOINT_COMMERCE_BRIDGE.md');
 
@@ -53,14 +54,39 @@ requireText('commerce route', commerce, [
   "event.id = eventId",
   "recordIntegrationEvent",
   "tracked.duplicate",
+  "tracked.inProgress",
+  "Commerce event is already processing",
   "advanceBuyerWorkflowFromPayment",
   "advanceBuyerWorkflowFromOrder",
+  "markIntegrationEventProcessed",
+  "console.error('Commerce event processing failed', error)",
+  "{ error: 'Commerce event processing failed', retry: true",
+]);
+
+requireText('bridge event retry contract', bridge, [
+  'EVENT_RETRY_AFTER_MS',
+  ".select('id,processed_at,created_at')",
+  'processed_at: null',
+  "error.code === '23505'",
+  'markIntegrationEventProcessed',
+  '.update({ processed_at: new Date().toISOString() })',
 ]);
 
 const eventIdValidation = commerce.indexOf("const eventId = String(event.id || '').trim()");
-const eventRecording = commerce.indexOf('const tracked = await recordIntegrationEvent');
+const eventRecording = commerce.indexOf('tracked = await recordIntegrationEvent');
+const workflowAdvance = commerce.indexOf("const workflow = event.type === 'payment.updated'");
+const eventFinalize = commerce.indexOf('await markIntegrationEventProcessed');
 if (eventIdValidation === -1 || eventRecording === -1 || eventIdValidation > eventRecording) {
   failures.push('commerce route: stable event id validation must happen before integration event recording');
+}
+if (workflowAdvance === -1 || eventFinalize === -1 || workflowAdvance > eventFinalize) {
+  failures.push('commerce route: event must only be marked processed after workflow advancement');
+}
+
+const pendingInsert = bridge.indexOf('processed_at: null');
+const processedUpdate = bridge.indexOf('.update({ processed_at: new Date().toISOString() })');
+if (pendingInsert === -1 || processedUpdate === -1 || pendingInsert > processedUpdate) {
+  failures.push('bridge event retry contract: integration event must begin pending and be finalized separately');
 }
 
 requireText('quote acceptance', quotes, [
