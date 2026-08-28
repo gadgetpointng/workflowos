@@ -57,8 +57,8 @@ requireText('commerce route', commerce, [
   "tracked.duplicate",
   "tracked.inProgress",
   "Commerce event is already processing",
-  "advanceBuyerWorkflowFromPayment",
-  "advanceBuyerWorkflowFromOrder",
+  "advanceBuyerWorkflowFromPayment(auth.supabase, auth.integration.organization_id, data, tracked.eventId)",
+  "advanceBuyerWorkflowFromOrder(auth.supabase, auth.integration.organization_id, data, tracked.eventId)",
   "markIntegrationEventProcessed",
   "console.error('Commerce event processing failed', error)",
   "{ error: 'Commerce event processing failed', retry: true",
@@ -77,9 +77,21 @@ requireText('commerce workflow fail-closed database handling', commerceWorkflow,
   "const { data: intents, error } = await supabase.from('buyer_intents')",
   "if (error) throw new Error('Could not resolve buyer intents for commerce workflow')",
   "const { error } = await supabase.from('notifications').insert({",
-  "if (error) throw new Error('Could not create commerce workflow notification')",
+  "if (error && error.code !== '23505') throw new Error('Could not create commerce workflow notification')",
   "if (error) throw new Error('Could not update buyer intent from commerce order')",
   "if (error) throw new Error('Could not update buyer intent from commerce payment')",
+]);
+
+requireText('commerce workflow notification idempotency', commerceWorkflow, [
+  "import crypto from 'crypto'",
+  'function notificationId(eventId: string, intentId: string, stage: string)',
+  "crypto.createHash('sha256').update(`${eventId}:${intentId}:${stage}`)",
+  'id: notificationId(eventId, intent.id, stage)',
+  'commerce_stage_event_id: eventId',
+  "const retryingSameStageEvent = previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId",
+  'if (stage !== previousStage || retryingSameStageEvent) await notifyStage(supabase, organizationId, intent, stage, eventId)',
+  'advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, organizationId: string, data: any, eventId: string)',
+  'advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, organizationId: string, data: any, eventId: string)',
 ]);
 
 forbidText('commerce workflow ignored database errors', commerceWorkflow, [
@@ -103,6 +115,13 @@ const pendingInsert = bridge.indexOf('processed_at: null');
 const processedUpdate = bridge.indexOf('.update({ processed_at: new Date().toISOString() })');
 if (pendingInsert === -1 || processedUpdate === -1 || pendingInsert > processedUpdate) {
   failures.push('bridge event retry contract: integration event must begin pending and be finalized separately');
+}
+
+const notificationInsert = commerceWorkflow.indexOf("const { error } = await supabase.from('notifications').insert({");
+const deterministicNotificationId = commerceWorkflow.indexOf('id: notificationId(eventId, intent.id, stage)');
+const duplicateNotificationHandling = commerceWorkflow.indexOf("error.code !== '23505'");
+if (notificationInsert === -1 || deterministicNotificationId === -1 || duplicateNotificationHandling === -1 || deterministicNotificationId < notificationInsert || duplicateNotificationHandling < notificationInsert) {
+  failures.push('commerce workflow: stage notifications must use deterministic event-scoped ids and tolerate duplicate-key retries');
 }
 
 requireText('quote acceptance', quotes, [
