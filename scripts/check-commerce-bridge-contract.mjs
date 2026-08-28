@@ -18,6 +18,7 @@ function forbidText(label, content, forbidden) {
 const commands = read('app/api/bridge/[integration]/commands/route.ts');
 const commerce = read('app/api/bridge/[integration]/commerce/route.ts');
 const bridge = read('lib/integrations/bridge.ts');
+const commerceWorkflow = read('lib/integrations/commerce-workflow.ts');
 const quotes = read('app/api/quotes/[id]/route.ts');
 const docs = read('docs/GADGETPOINT_COMMERCE_BRIDGE.md');
 
@@ -70,6 +71,21 @@ requireText('bridge event retry contract', bridge, [
   "error.code === '23505'",
   'markIntegrationEventProcessed',
   '.update({ processed_at: new Date().toISOString() })',
+]);
+
+requireText('commerce workflow fail-closed database handling', commerceWorkflow, [
+  "const { data: intents, error } = await supabase.from('buyer_intents')",
+  "if (error) throw new Error('Could not resolve buyer intents for commerce workflow')",
+  "const { error } = await supabase.from('notifications').insert({",
+  "if (error) throw new Error('Could not create commerce workflow notification')",
+  "if (error) throw new Error('Could not update buyer intent from commerce order')",
+  "if (error) throw new Error('Could not update buyer intent from commerce payment')",
+]);
+
+forbidText('commerce workflow ignored database errors', commerceWorkflow, [
+  "const { data: intents } = await supabase.from('buyer_intents')",
+  "await supabase.from('notifications').insert({",
+  "await supabase.from('buyer_intents').update(update).eq('id', intent.id);",
 ]);
 
 const eventIdValidation = commerce.indexOf("const eventId = String(event.id || '').trim()");
