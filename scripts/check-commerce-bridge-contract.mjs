@@ -205,6 +205,14 @@ requireText('bridge documentation', docs, [
   'WorkflowOS must never directly insert or mutate GadgetPoint Admin',
 ]);
 
+requireText('bridge redispatch idempotency documentation', docs, [
+  'The WorkflowOS command `id` is the stable execution identity for the lifetime of the command',
+  'A re-dispatched command is therefore a retry of the same requested mutation, never a new order request.',
+  'Adapters must not use `attempt_count`, `dispatched_at`, delivery time, or poll occurrence as an execution identity.',
+  'WorkflowOS intentionally does not impose a hard retry cap on stale dispatch recovery',
+  'persist that command `id` as an idempotency key before or atomically with the authoritative commerce mutation',
+]);
+
 if (failures.length) {
   console.error('Commerce bridge contract gate failed:');
   for (const failure of failures) console.error(`- ${failure}`);
