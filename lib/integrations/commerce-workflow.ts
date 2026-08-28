@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 type SupabaseLike = any;
 
 type IntentRow = {
@@ -73,7 +75,14 @@ function paymentStage(statusValue: unknown) {
   return 'awaiting_payment';
 }
 
-async function notifyStage(supabase: SupabaseLike, organizationId: string, intent: IntentRow, stage: string) {
+function notificationId(eventId: string, intentId: string, stage: string) {
+  const chars = crypto.createHash('sha256').update(`${eventId}:${intentId}:${stage}`).digest('hex').slice(0, 32).split('');
+  chars[12] = '5';
+  chars[16] = ((Number.parseInt(chars[16], 16) & 0x3) | 0x8).toString(16);
+  return `${chars.slice(0, 8).join('')}-${chars.slice(8, 12).join('')}-${chars.slice(12, 16).join('')}-${chars.slice(16, 20).join('')}-${chars.slice(20, 32).join('')}`;
+}
+
+async function notifyStage(supabase: SupabaseLike, organizationId: string, intent: IntentRow, stage: string, eventId: string) {
   if (!intent.assigned_to) return;
   const labels: Record<string, [string, string]> = {
     preparing_order: ['Payment confirmed', `Prepare ${intent.product_query || 'the buyer order'} for fulfillment.`],
@@ -88,16 +97,17 @@ async function notifyStage(supabase: SupabaseLike, organizationId: string, inten
   const message = labels[stage];
   if (!message) return;
   const { error } = await supabase.from('notifications').insert({
+    id: notificationId(eventId, intent.id, stage),
     organization_id: organizationId,
     recipient_id: intent.assigned_to,
     title: message[0],
     body: message[1],
     type: 'buyer_request',
   });
-  if (error) throw new Error('Could not create commerce workflow notification');
+  if (error && error.code !== '23505') throw new Error('Could not create commerce workflow notification');
 }
 
-export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, organizationId: string, data: any) {
+export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, organizationId: string, data: any, eventId: string) {
   const intents = await resolveBuyerIntents(supabase, organizationId, data);
   if (!intents.length) return { updated: 0 };
   const externalOrderId = String(data?.id ?? data?.order_id ?? data?.external_order_id ?? '').trim() || null;
@@ -105,10 +115,12 @@ export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, orga
   for (const intent of intents) {
     const evidence = evidenceFor(intent);
     const previousStage = String(evidence.workflow_stage ?? '');
+    const retryingSameStageEvent = previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId;
     const update:any = {
       evidence: {
         ...evidence,
         workflow_stage: stage,
+        commerce_stage_event_id: eventId,
         commerce_order_status: data?.status ?? null,
         ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
         commerce_order_updated_at: new Date().toISOString(),
@@ -118,12 +130,12 @@ export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, orga
     if (stage === 'completed') update.status = 'closed';
     const { error } = await supabase.from('buyer_intents').update(update).eq('id', intent.id);
     if (error) throw new Error('Could not update buyer intent from commerce order');
-    if (stage !== previousStage) await notifyStage(supabase, organizationId, intent, stage);
+    if (stage !== previousStage || retryingSameStageEvent) await notifyStage(supabase, organizationId, intent, stage, eventId);
   }
   return { updated: intents.length, stage, externalOrderId };
 }
 
-export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, organizationId: string, data: any) {
+export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, organizationId: string, data: any, eventId: string) {
   const intents = await resolveBuyerIntents(supabase, organizationId, data);
   if (!intents.length) return { updated: 0 };
   const externalOrderId = String(data?.order_id ?? data?.external_order_id ?? data?.order?.id ?? '').trim() || null;
@@ -131,10 +143,12 @@ export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, or
   for (const intent of intents) {
     const evidence = evidenceFor(intent);
     const previousStage = String(evidence.workflow_stage ?? '');
+    const retryingSameStageEvent = previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId;
     const { error } = await supabase.from('buyer_intents').update({
       evidence: {
         ...evidence,
         workflow_stage: stage,
+        commerce_stage_event_id: eventId,
         payment_status: data?.status ?? null,
         payment_reference: data?.reference ?? data?.payment_reference ?? data?.id ?? null,
         ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
@@ -143,7 +157,7 @@ export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, or
       updated_at: new Date().toISOString(),
     }).eq('id', intent.id);
     if (error) throw new Error('Could not update buyer intent from commerce payment');
-    if (stage !== previousStage) await notifyStage(supabase, organizationId, intent, stage);
+    if (stage !== previousStage || retryingSameStageEvent) await notifyStage(supabase, organizationId, intent, stage, eventId);
   }
   return { updated: intents.length, stage, externalOrderId };
 }
