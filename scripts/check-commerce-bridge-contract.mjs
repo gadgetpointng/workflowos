@@ -48,11 +48,20 @@ requireText('commerce route', commerce, [
   "'order.created'",
   "'order.updated'",
   "'payment.updated'",
+  "const eventId = String(event.id || '').trim()",
+  "Commerce events require a stable event id for idempotency",
+  "event.id = eventId",
   "recordIntegrationEvent",
   "tracked.duplicate",
   "advanceBuyerWorkflowFromPayment",
   "advanceBuyerWorkflowFromOrder",
 ]);
+
+const eventIdValidation = commerce.indexOf("const eventId = String(event.id || '').trim()");
+const eventRecording = commerce.indexOf('const tracked = await recordIntegrationEvent');
+if (eventIdValidation === -1 || eventRecording === -1 || eventIdValidation > eventRecording) {
+  failures.push('commerce route: stable event id validation must happen before integration event recording');
+}
 
 requireText('quote acceptance', quotes, [
   "b.status==='accepted'",
