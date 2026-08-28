@@ -39,6 +39,19 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
   const productQuery = String(input.productQuery || '').trim();
   if (!input.organizationId || !productQuery) throw new Error('organizationId and productQuery are required');
 
+  let assignedTo = input.assignedTo ? String(input.assignedTo).trim() : null;
+  if (assignedTo) {
+    const { data: assignee } = await admin
+      .from('profiles')
+      .select('id')
+      .eq('id', assignedTo)
+      .eq('organization_id', input.organizationId)
+      .eq('active', true)
+      .limit(1)
+      .maybeSingle();
+    assignedTo = assignee?.id || null;
+  }
+
   if (externalId) {
     const { data: duplicate } = await admin
       .from('buyer_intents')
@@ -98,7 +111,7 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
     consent_status: input.consentStatus || 'unknown',
     intent_score: score,
     matched_products: matches,
-    assigned_to: input.assignedTo || null,
+    assigned_to: assignedTo,
     status: matches.length ? 'matched' : 'new',
     evidence,
   }).select('id').single();
@@ -118,7 +131,7 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
 
   let taskId: string | null = null;
   if (input.autoCreateTask !== false) {
-    let creatorId = input.assignedTo || null;
+    let creatorId = assignedTo;
     if (!creatorId) {
       const { data: owner } = await admin.from('profiles').select('id').eq('organization_id', input.organizationId).eq('role', 'owner').eq('active', true).limit(1).maybeSingle();
       creatorId = owner?.id || null;
@@ -139,10 +152,10 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
         title,
         description,
         creator_id: creatorId,
-        assignee_id: input.assignedTo || null,
+        assignee_id: assignedTo,
         department: 'Sales',
         priority: ['high', 'immediate'].includes(String(input.urgency || '').toLowerCase()) || score >= 70 ? 'high' : 'medium',
-        status: input.assignedTo ? 'assigned' : 'draft',
+        status: assignedTo ? 'assigned' : 'draft',
       }).select('id').single();
       taskId = task?.id || null;
       if (taskId) {
@@ -151,10 +164,10 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
     }
   }
 
-  const recipientId = input.assignedTo || (await admin.from('profiles').select('id').eq('organization_id', input.organizationId).eq('role', 'owner').eq('active', true).limit(1).maybeSingle()).data?.id || null;
+  const recipientId = assignedTo || (await admin.from('profiles').select('id').eq('organization_id', input.organizationId).eq('role', 'owner').eq('active', true).limit(1).maybeSingle()).data?.id || null;
   if (recipientId) await admin.from('notifications').insert({ organization_id: input.organizationId, recipient_id: recipientId, title: `New ${source} buyer request`, body: `${input.buyerName || 'Buyer'} · ${productQuery}`, type: 'buyer_request' });
 
-  await admin.from('activity_logs').insert({ organization_id: input.organizationId, actor_id: creatorIdForLog(input.assignedTo), action: 'buyer_intent.integration_captured', entity_type: 'buyer_intent', entity_id: intent.id, metadata: { source, external_id: externalId, score, match_count: matches.length, task_id: taskId } });
+  await admin.from('activity_logs').insert({ organization_id: input.organizationId, actor_id: creatorIdForLog(assignedTo), action: 'buyer_intent.integration_captured', entity_type: 'buyer_intent', entity_id: intent.id, metadata: { source, external_id: externalId, score, match_count: matches.length, task_id: taskId } });
   return { ok: true, buyerIntentId: intent.id, taskId, score, matchCount: matches.length, stage };
 }
 
