@@ -51,8 +51,8 @@ export async function POST(request: Request, context: { params: Promise<{ integr
 
   try {
     const workflow = event.type === 'payment.updated'
-      ? await advanceBuyerWorkflowFromPayment(auth.supabase, auth.integration.organization_id, data)
-      : await advanceBuyerWorkflowFromOrder(auth.supabase, auth.integration.organization_id, data);
+      ? await advanceBuyerWorkflowFromPayment(auth.supabase, auth.integration.organization_id, data, tracked.eventId)
+      : await advanceBuyerWorkflowFromOrder(auth.supabase, auth.integration.organization_id, data, tracked.eventId);
 
     const { error: activityError } = await auth.supabase.from('activity_logs').insert({
       organization_id: auth.integration.organization_id,
