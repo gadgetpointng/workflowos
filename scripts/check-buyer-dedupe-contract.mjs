@@ -51,6 +51,12 @@ const checks = [
       inbound.indexOf("if (assigneeError) throw new Error('Could not validate buyer assignee')") < inbound.indexOf('assignedTo = assignee?.id || null'),
   ],
   [
+    'inventory matching fails closed on database errors',
+    inbound.includes('error: productsError') &&
+      inbound.includes("if (productsError) throw new Error('Could not load connected inventory for buyer matching')") &&
+      inbound.indexOf("if (productsError) throw new Error('Could not load connected inventory for buyer matching')") < inbound.indexOf('const matches = matchProducts'),
+  ],
+  [
     'database enforces source-scoped external reference uniqueness',
     schema.includes('unique (organization_id, source, external_ref)'),
   ],
