@@ -35,13 +35,40 @@ requireText('commands route', commands, [
   "{ error: 'Could not load integration commands' }",
   "console.error('Could not load integration command', commandError)",
   "{ error: 'Could not load integration command' }",
-  "console.error('Could not update integration command', error)",
-  "{ error: 'Could not update integration command' }",
+  "console.error('Could not finalize integration command acknowledgement', error)",
+  "{ error: 'Could not finalize integration command acknowledgement', retry: true }",
+]);
+
+requireText('commands acknowledgement retry contract', commands, [
+  "select('id,command_type,target_entity_type,target_entity_id,payload,status,updated_at')",
+  "command.status !== 'dispatched' && command.status !== body.status",
+  "Command status conflicts with this acknowledgement",
+  'const processingAt = new Date().toISOString()',
+  'const { data: lease, error: leaseError }',
+  ".eq('updated_at', command.updated_at)",
+  'Command acknowledgement is already processing',
+  'const { data: intents, error: intentsError }',
+  "if (intentsError) throw new Error('Could not resolve buyer intents for commerce command')",
+  'const { error: intentUpdateError }',
+  "if (intentUpdateError) throw new Error('Could not update buyer intent from commerce command')",
+  'id: deterministicUuid(`commerce-command-notification:${command.id}:${intent.id}:${body.status}`)',
+  "notificationError && notificationError.code !== '23505'",
+  'id: deterministicUuid(`commerce-command-activity:${command.id}:${body.status}`)',
+  "activityError && activityError.code !== '23505'",
+  ".eq('updated_at', processingAt)",
+  'replayed: command.status === body.status',
 ]);
 
 forbidText('commands route error privacy', commands, [
   '{ error: error.message }',
   "commandError?.message || 'Command not found'",
+]);
+
+forbidText('commands route ignored side-effect errors', commands, [
+  "const { data: intents } = await auth.supabase.from('buyer_intents')",
+  "\n      await auth.supabase.from('buyer_intents').update({",
+  "\n        await auth.supabase.from('notifications').insert({",
+  "\n    await auth.supabase.from('activity_logs').insert({",
 ]);
 
 requireText('commerce route', commerce, [
@@ -99,6 +126,13 @@ forbidText('commerce workflow ignored database errors', commerceWorkflow, [
   "\n  await supabase.from('notifications').insert({",
   "\n    await supabase.from('buyer_intents').update(update).eq('id', intent.id);",
 ]);
+
+const commandLease = commands.indexOf('const { data: lease, error: leaseError }');
+const commandEffects = commands.indexOf("if (command.command_type === 'order.create')");
+const commandFinalize = commands.indexOf("const patch = body.status === 'acknowledged'");
+if (commandLease === -1 || commandEffects === -1 || commandFinalize === -1 || commandLease > commandEffects || commandEffects > commandFinalize) {
+  failures.push('commands route: acknowledgement must lease first, run retry-safe side effects second, and finalize command status last');
+}
 
 const eventIdValidation = commerce.indexOf("const eventId = String(event.id || '').trim()");
 const eventRecording = commerce.indexOf('tracked = await recordIntegrationEvent');
