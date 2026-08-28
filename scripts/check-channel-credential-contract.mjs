@@ -30,6 +30,7 @@ const workspaceBoundaryChecks = [
   ['buyer intake requires configured workspace', buyerWebhook.includes('Buyer intake workspace is not configured') && buyerWebhook.includes('status: 503')],
   ['buyer intake rejects cross-workspace payloads', buyerWebhook.includes('organizationId !== configuredWorkspaceId') && buyerWebhook.includes('Buyer intake workspace mismatch') && buyerWebhook.includes('status: 403')],
   ['buyer intake writes only to configured workspace', buyerWebhook.includes('organizationId: configuredWorkspaceId')],
+  ['buyer intake requires external idempotency key', buyerWebhook.includes('external_id is required for idempotent buyer intake') && buyerWebhook.includes('externalId,')],
 ];
 for (const [name, ok] of workspaceBoundaryChecks) {
   if (!ok) failures.push(name);
@@ -39,6 +40,7 @@ const safetyPhrases = [
   'never in source control',
   'Do not store passwords in WorkflowOS',
   'official business app/account',
+  'stable `external_id`',
 ];
 for (const phrase of safetyPhrases) {
   if (!credentials.includes(phrase)) failures.push(`credential safety contract is missing: ${phrase}`);
