@@ -19,6 +19,7 @@ jobs:
           node-version: 24
       - run: npm install --no-audit --no-fund
       - run: node scripts/check-commerce-bridge-contract.mjs
+      - run: node scripts/check-commerce-observability-contract.mjs
       - run: node scripts/check-channel-credential-contract.mjs
       - run: node scripts/check-buyer-dedupe-contract.mjs
       - run: npx tsc --noEmit
