@@ -34,9 +34,13 @@ Use the authenticated integration bridge endpoint:
 
 `GET /api/bridge/gadgetpoint/commands`
 
-Only approved commands are returned. WorkflowOS leases each returned command as `dispatched` so concurrent GadgetPoint workers do not process the same approved request twice.
+WorkflowOS leases returned commands as `dispatched` so concurrent GadgetPoint workers do not process the same current lease twice. If an acknowledgement never arrives, a stale dispatch lease can be returned again after the recovery window so a lost response does not permanently strand the command.
 
-GadgetPoint Admin must treat the command id and idempotency key as idempotent. If the real GadgetPoint order already exists for the command, return the existing order instead of creating a duplicate.
+**Adapter idempotency is mandatory across every dispatch and re-dispatch.** The WorkflowOS command `id` is the stable execution identity for the lifetime of the command and does not change when a stale lease is recovered. GadgetPoint Admin must persist that command `id` as an idempotency key before or atomically with the authoritative commerce mutation. The command `idempotency_key` is an additional stable business-operation key and must also be honored. If either key already maps to a GadgetPoint order, return/reuse that existing order instead of creating another one.
+
+A re-dispatched command is therefore a retry of the same requested mutation, never a new order request. Adapters must not use `attempt_count`, `dispatched_at`, delivery time, or poll occurrence as an execution identity.
+
+WorkflowOS intentionally does not impose a hard retry cap on stale dispatch recovery: eventual delivery is preferred over permanently stranding an approved command. Adapter-side idempotency by stable command `id` is what makes those retries safe.
 
 ## 3. GadgetPoint acknowledges the command
 
