@@ -84,8 +84,8 @@ requireText('commerce workflow fail-closed database handling', commerceWorkflow,
 
 forbidText('commerce workflow ignored database errors', commerceWorkflow, [
   "const { data: intents } = await supabase.from('buyer_intents')",
-  "await supabase.from('notifications').insert({",
-  "await supabase.from('buyer_intents').update(update).eq('id', intent.id);",
+  "\n  await supabase.from('notifications').insert({",
+  "\n    await supabase.from('buyer_intents').update(update).eq('id', intent.id);",
 ]);
 
 const eventIdValidation = commerce.indexOf("const eventId = String(event.id || '').trim()");
