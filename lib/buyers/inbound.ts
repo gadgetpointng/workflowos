@@ -74,10 +74,10 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
   const score = scoreBuyerIntent(scoringInput);
   const stage = matches.length ? 'product_search' : 'sourcing_required';
   const evidence = {
+    ...(input.evidence || {}),
     capture: 'integration',
     external_id: externalId,
     workflow_stage: stage,
-    ...(input.evidence || {}),
   };
 
   const { data: intent, error } = await admin.from('buyer_intents').insert({
