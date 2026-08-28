@@ -14,6 +14,7 @@ Secrets must live in the deployment platform or integration secret store, never 
 ## Normalized buyer intake adapters
 - `BUYER_INTAKE_WEBHOOK_SECRET`
 - `GADGETPOINT_WORKSPACE_ID` — fail-closed workspace boundary for signed normalized intake; callers cannot route a validly signed payload into another organization.
+- Every accepted payload must include a stable `external_id` from the source event/message/order. WorkflowOS uses it with the organization and source as the idempotency key, so retries and concurrent deliveries do not create duplicate buyer requests, tasks or notifications.
 
 ## WhatsApp Business webhook
 - `META_APP_SECRET` — validates `x-hub-signature-256` on inbound Meta webhook payloads.
