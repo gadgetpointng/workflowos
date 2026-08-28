@@ -34,6 +34,7 @@ const workspaceBoundaryChecks = [
   ['buyer intake requires external idempotency key', buyerWebhook.includes('external_id is required for idempotent buyer intake') && buyerWebhook.includes('externalId,')],
   ['buyer intake health requires signature and workspace config', buyerHealth.includes('const configured = signatureConfigured && workspaceConfigured')],
   ['buyer intake health fails closed when config is incomplete', buyerHealth.includes('status: configured ? 200 : 503')],
+  ['buyer intake does not expose internal error messages', buyerWebhook.includes("return NextResponse.json({ error: 'Buyer intake failed' }, { status: 500 })") && !buyerWebhook.includes("error instanceof Error ? error.message")],
 ];
 for (const [name, ok] of workspaceBoundaryChecks) {
   if (!ok) failures.push(name);
