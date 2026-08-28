@@ -5,6 +5,7 @@ const credentials = read('docs/INTEGRATION_CREDENTIALS.md');
 const whatsapp = read('app/api/integrations/whatsapp/webhook/route.ts');
 const instagram = read('app/api/integrations/instagram/webhook/route.ts');
 const buyerWebhook = read('app/api/integrations/buyer-intake/webhook/route.ts');
+const buyerHealth = read('app/api/integrations/buyer-intake/health/route.ts');
 const buyerInbound = read('lib/buyers/inbound.ts');
 
 const requirements = [
@@ -12,8 +13,8 @@ const requirements = [
   ['WHATSAPP_WEBHOOK_VERIFY_TOKEN', [whatsapp]],
   ['INSTAGRAM_WEBHOOK_VERIFY_TOKEN', [instagram]],
   ['META_WEBHOOK_VERIFY_TOKEN', [instagram]],
-  ['GADGETPOINT_WORKSPACE_ID', [whatsapp, instagram, buyerWebhook]],
-  ['BUYER_INTAKE_WEBHOOK_SECRET', [buyerInbound, buyerWebhook]],
+  ['GADGETPOINT_WORKSPACE_ID', [whatsapp, instagram, buyerWebhook, buyerHealth]],
+  ['BUYER_INTAKE_WEBHOOK_SECRET', [buyerInbound, buyerWebhook, buyerHealth]],
 ];
 
 const failures = [];
@@ -31,6 +32,8 @@ const workspaceBoundaryChecks = [
   ['buyer intake rejects cross-workspace payloads', buyerWebhook.includes('organizationId !== configuredWorkspaceId') && buyerWebhook.includes('Buyer intake workspace mismatch') && buyerWebhook.includes('status: 403')],
   ['buyer intake writes only to configured workspace', buyerWebhook.includes('organizationId: configuredWorkspaceId')],
   ['buyer intake requires external idempotency key', buyerWebhook.includes('external_id is required for idempotent buyer intake') && buyerWebhook.includes('externalId,')],
+  ['buyer intake health requires signature and workspace config', buyerHealth.includes('const configured = signatureConfigured && workspaceConfigured')],
+  ['buyer intake health fails closed when config is incomplete', buyerHealth.includes('status: configured ? 200 : 503')],
 ];
 for (const [name, ok] of workspaceBoundaryChecks) {
   if (!ok) failures.push(name);
