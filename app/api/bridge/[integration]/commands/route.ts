@@ -1,6 +1,14 @@
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { authenticateBridge } from '@/lib/integrations/bridge';
 import { canReceiveCommands } from '@/lib/integrations/capabilities';
+
+function deterministicUuid(seed: string) {
+  const chars = crypto.createHash('sha256').update(seed).digest('hex').slice(0, 32).split('');
+  chars[12] = '5';
+  chars[16] = ((Number.parseInt(chars[16], 16) & 0x3) | 0x8).toString(16);
+  return `${chars.slice(0, 8).join('')}-${chars.slice(8, 12).join('')}-${chars.slice(12, 16).join('')}-${chars.slice(16, 20).join('')}-${chars.slice(20, 32).join('')}`;
+}
 
 export async function GET(request: Request, context: { params: Promise<{ integration: string }> }) {
   const { integration: slug } = await context.params;
@@ -45,7 +53,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
   if (!body.id || !['acknowledged','failed'].includes(body.status)) return NextResponse.json({ error: 'id and status (acknowledged|failed) are required' }, { status: 400 });
 
   const { data: command, error: commandError } = await auth.supabase.from('integration_commands')
-    .select('id,command_type,target_entity_type,target_entity_id,payload,status')
+    .select('id,command_type,target_entity_type,target_entity_id,payload,status,updated_at')
     .eq('id', body.id)
     .eq('integration_id', auth.integration.id)
     .eq('organization_id', auth.integration.organization_id)
@@ -55,61 +63,93 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     return NextResponse.json({ error: 'Could not load integration command' }, { status: 500 });
   }
   if (!command) return NextResponse.json({ error: 'Command not found' }, { status: 404 });
-
-  const patch = body.status === 'acknowledged'
-    ? { status: 'acknowledged', acknowledged_at: new Date().toISOString(), result: body.result ?? {}, updated_at: new Date().toISOString() }
-    : { status: 'failed', failed_at: new Date().toISOString(), result: body.result ?? {}, last_error: String(body.error ?? body.result?.error ?? 'External command failed'), updated_at: new Date().toISOString() };
-  const { data, error } = await auth.supabase.from('integration_commands').update(patch)
-    .eq('id', body.id).eq('integration_id', auth.integration.id).eq('organization_id', auth.integration.organization_id).select().single();
-  if (error) {
-    console.error('Could not update integration command', error);
-    return NextResponse.json({ error: 'Could not update integration command' }, { status: 500 });
+  if (command.status !== 'dispatched' && command.status !== body.status) {
+    return NextResponse.json({ error: 'Command status conflicts with this acknowledgement' }, { status: 409 });
   }
 
-  if (command.command_type === 'order.create') {
-    const externalOrderId = String(body.result?.order_id ?? body.result?.external_order_id ?? body.result?.id ?? '').trim() || null;
-    const { data: intents } = await auth.supabase.from('buyer_intents')
-      .select('id,evidence,assigned_to,product_query')
-      .eq('organization_id', auth.integration.organization_id)
-      .contains('evidence', { commerce_command_id: command.id })
-      .limit(50);
+  const processingAt = new Date().toISOString();
+  const { data: lease, error: leaseError } = await auth.supabase.from('integration_commands')
+    .update({ updated_at: processingAt })
+    .eq('id', command.id)
+    .eq('integration_id', auth.integration.id)
+    .eq('organization_id', auth.integration.organization_id)
+    .eq('status', command.status)
+    .eq('updated_at', command.updated_at)
+    .select('id')
+    .maybeSingle();
+  if (leaseError) {
+    console.error('Could not lease integration command acknowledgement', leaseError);
+    return NextResponse.json({ error: 'Could not process integration command acknowledgement' }, { status: 500 });
+  }
+  if (!lease) return NextResponse.json({ error: 'Command acknowledgement is already processing', retry: true }, { status: 409 });
 
-    for (const intent of intents ?? []) {
-      const evidence = intent.evidence && typeof intent.evidence === 'object' && !Array.isArray(intent.evidence) ? intent.evidence : {};
-      const stage = body.status === 'acknowledged' ? 'awaiting_payment' : 'order_request_failed';
-      await auth.supabase.from('buyer_intents').update({
-        evidence: {
-          ...evidence,
-          workflow_stage: stage,
-          commerce_command_status: body.status,
-          ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
-          commerce_command_result: body.result ?? {},
-        },
-        updated_at: new Date().toISOString(),
-      }).eq('id', intent.id);
+  try {
+    if (command.command_type === 'order.create') {
+      const externalOrderId = String(body.result?.order_id ?? body.result?.external_order_id ?? body.result?.id ?? '').trim() || null;
+      const { data: intents, error: intentsError } = await auth.supabase.from('buyer_intents')
+        .select('id,evidence,assigned_to,product_query')
+        .eq('organization_id', auth.integration.organization_id)
+        .contains('evidence', { commerce_command_id: command.id })
+        .limit(50);
+      if (intentsError) throw new Error('Could not resolve buyer intents for commerce command');
 
-      if (intent.assigned_to) {
-        await auth.supabase.from('notifications').insert({
-          organization_id: auth.integration.organization_id,
-          recipient_id: intent.assigned_to,
-          title: body.status === 'acknowledged' ? 'GadgetPoint order created' : 'GadgetPoint order request failed',
-          body: body.status === 'acknowledged'
-            ? `${intent.product_query} is now waiting for payment confirmation.`
-            : `${intent.product_query} needs attention before the order can continue.`,
-          type: 'buyer_request',
-        });
+      for (const intent of intents ?? []) {
+        const evidence = intent.evidence && typeof intent.evidence === 'object' && !Array.isArray(intent.evidence) ? intent.evidence : {};
+        const stage = body.status === 'acknowledged' ? 'awaiting_payment' : 'order_request_failed';
+        const { error: intentUpdateError } = await auth.supabase.from('buyer_intents').update({
+          evidence: {
+            ...evidence,
+            workflow_stage: stage,
+            commerce_command_status: body.status,
+            ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
+            commerce_command_result: body.result ?? {},
+          },
+          updated_at: new Date().toISOString(),
+        }).eq('id', intent.id);
+        if (intentUpdateError) throw new Error('Could not update buyer intent from commerce command');
+
+        if (intent.assigned_to) {
+          const { error: notificationError } = await auth.supabase.from('notifications').insert({
+            id: deterministicUuid(`commerce-command-notification:${command.id}:${intent.id}:${body.status}`),
+            organization_id: auth.integration.organization_id,
+            recipient_id: intent.assigned_to,
+            title: body.status === 'acknowledged' ? 'GadgetPoint order created' : 'GadgetPoint order request failed',
+            body: body.status === 'acknowledged'
+              ? `${intent.product_query} is now waiting for payment confirmation.`
+              : `${intent.product_query} needs attention before the order can continue.`,
+            type: 'buyer_request',
+          });
+          if (notificationError && notificationError.code !== '23505') throw new Error('Could not create commerce command notification');
+        }
       }
+
+      const { error: activityError } = await auth.supabase.from('activity_logs').insert({
+        id: deterministicUuid(`commerce-command-activity:${command.id}:${body.status}`),
+        organization_id: auth.integration.organization_id,
+        actor_id: null,
+        action: body.status === 'acknowledged' ? 'commerce.order_request_acknowledged' : 'commerce.order_request_failed',
+        entity_type: command.target_entity_type || 'integration_command',
+        entity_id: command.target_entity_id || command.id,
+        metadata: { command_id: command.id, external_order_id: externalOrderId, result: body.result ?? {} },
+      });
+      if (activityError && activityError.code !== '23505') throw new Error('Could not record commerce command activity');
     }
 
-    await auth.supabase.from('activity_logs').insert({
-      organization_id: auth.integration.organization_id,
-      actor_id: null,
-      action: body.status === 'acknowledged' ? 'commerce.order_request_acknowledged' : 'commerce.order_request_failed',
-      entity_type: command.target_entity_type || 'integration_command',
-      entity_id: command.target_entity_id || command.id,
-      metadata: { command_id: command.id, external_order_id: externalOrderId, result: body.result ?? {} },
-    });
-  }
+    const patch = body.status === 'acknowledged'
+      ? { status: 'acknowledged', acknowledged_at: new Date().toISOString(), result: body.result ?? {}, updated_at: new Date().toISOString() }
+      : { status: 'failed', failed_at: new Date().toISOString(), result: body.result ?? {}, last_error: String(body.error ?? body.result?.error ?? 'External command failed'), updated_at: new Date().toISOString() };
+    const { data, error } = await auth.supabase.from('integration_commands').update(patch)
+      .eq('id', body.id)
+      .eq('integration_id', auth.integration.id)
+      .eq('organization_id', auth.integration.organization_id)
+      .eq('updated_at', processingAt)
+      .select()
+      .single();
+    if (error) throw error;
 
-  return NextResponse.json({ data });
+    return NextResponse.json({ data, replayed: command.status === body.status });
+  } catch (error) {
+    console.error('Could not finalize integration command acknowledgement', error);
+    return NextResponse.json({ error: 'Could not finalize integration command acknowledgement', retry: true }, { status: 500 });
+  }
 }
