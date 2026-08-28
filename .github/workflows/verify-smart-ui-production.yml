@@ -20,6 +20,8 @@ jobs:
           node-version: '24'
       - name: Install dependencies
         run: npm install --no-package-lock
+      - name: Commerce observability gate
+        run: node scripts/check-commerce-observability-contract.mjs
       - name: Typecheck
         run: npx tsc --noEmit
       - name: Build
