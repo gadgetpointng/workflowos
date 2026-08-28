@@ -15,7 +15,10 @@ export async function GET(request: Request, context: { params: Promise<{ integra
     .eq('status', 'approved')
     .order('created_at', { ascending: true })
     .limit(50);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error('Could not load integration commands', error);
+    return NextResponse.json({ error: 'Could not load integration commands' }, { status: 500 });
+  }
 
   const claimed: any[] = [];
   for (const row of pending ?? []) {
@@ -47,14 +50,21 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     .eq('integration_id', auth.integration.id)
     .eq('organization_id', auth.integration.organization_id)
     .maybeSingle();
-  if (commandError || !command) return NextResponse.json({ error: commandError?.message || 'Command not found' }, { status: 404 });
+  if (commandError) {
+    console.error('Could not load integration command', commandError);
+    return NextResponse.json({ error: 'Could not load integration command' }, { status: 500 });
+  }
+  if (!command) return NextResponse.json({ error: 'Command not found' }, { status: 404 });
 
   const patch = body.status === 'acknowledged'
     ? { status: 'acknowledged', acknowledged_at: new Date().toISOString(), result: body.result ?? {}, updated_at: new Date().toISOString() }
     : { status: 'failed', failed_at: new Date().toISOString(), result: body.result ?? {}, last_error: String(body.error ?? body.result?.error ?? 'External command failed'), updated_at: new Date().toISOString() };
   const { data, error } = await auth.supabase.from('integration_commands').update(patch)
     .eq('id', body.id).eq('integration_id', auth.integration.id).eq('organization_id', auth.integration.organization_id).select().single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error('Could not update integration command', error);
+    return NextResponse.json({ error: 'Could not update integration command' }, { status: 500 });
+  }
 
   if (command.command_type === 'order.create') {
     const externalOrderId = String(body.result?.order_id ?? body.result?.external_order_id ?? body.result?.id ?? '').trim() || null;
