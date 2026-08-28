@@ -18,6 +18,10 @@ export async function POST(request: Request, context: { params: Promise<{ integr
   try { event = await request.json(); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
   if (!allowed.has(String(event.type || ''))) return NextResponse.json({ error: 'Supported commerce events: order.created, order.updated, payment.updated' }, { status: 400 });
 
+  const eventId = String(event.id || '').trim();
+  if (!eventId) return NextResponse.json({ error: 'Commerce events require a stable event id for idempotency' }, { status: 400 });
+  event.id = eventId;
+
   const data = event.data ?? {};
   if ((event.type === 'order.created' || event.type === 'order.updated') && !data.id && !data.order_id && !data.external_order_id) {
     return NextResponse.json({ error: `${event.type} requires an order id` }, { status: 400 });
