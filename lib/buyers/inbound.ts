@@ -65,12 +65,13 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
     if (duplicate) return { ok: true, duplicate: true, buyerIntentId: duplicate.id };
   }
 
-  const { data: products } = await admin
+  const { data: products, error: productsError } = await admin
     .from('connected_products')
     .select('id,external_product_id,name,category,price,stock_quantity,active,sku,metadata')
     .eq('organization_id', input.organizationId)
     .eq('active', true)
     .limit(500);
+  if (productsError) throw new Error('Could not load connected inventory for buyer matching');
 
   const scoringInput = {
     product_query: productQuery,
