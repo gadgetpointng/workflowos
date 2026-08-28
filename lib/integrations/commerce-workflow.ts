@@ -19,31 +19,34 @@ async function resolveBuyerIntents(supabase: SupabaseLike, organizationId: strin
       ? metadata.buyer_intent_ids.map(String)
       : [];
   if (buyerIntentIds.length) {
-    const { data: intents } = await supabase.from('buyer_intents')
+    const { data: intents, error } = await supabase.from('buyer_intents')
       .select('id,evidence,assigned_to,product_query')
       .eq('organization_id', organizationId)
       .in('id', buyerIntentIds)
       .limit(100);
+    if (error) throw new Error('Could not resolve buyer intents for commerce workflow');
     return intents ?? [];
   }
 
   const quoteId = String(data?.workflow_quote_id ?? metadata?.workflow_quote_id ?? '').trim();
   if (quoteId) {
-    const { data: intents } = await supabase.from('buyer_intents')
+    const { data: intents, error } = await supabase.from('buyer_intents')
       .select('id,evidence,assigned_to,product_query')
       .eq('organization_id', organizationId)
       .contains('evidence', { workflow_quote_id: quoteId })
       .limit(100);
+    if (error) throw new Error('Could not resolve buyer intents for commerce workflow');
     return intents ?? [];
   }
 
   const externalOrderId = String(data?.order_id ?? data?.external_order_id ?? data?.id ?? '').trim();
   if (externalOrderId) {
-    const { data: intents } = await supabase.from('buyer_intents')
+    const { data: intents, error } = await supabase.from('buyer_intents')
       .select('id,evidence,assigned_to,product_query')
       .eq('organization_id', organizationId)
       .contains('evidence', { commerce_order_id: externalOrderId })
       .limit(100);
+    if (error) throw new Error('Could not resolve buyer intents for commerce workflow');
     return intents ?? [];
   }
 
@@ -84,13 +87,14 @@ async function notifyStage(supabase: SupabaseLike, organizationId: string, inten
   };
   const message = labels[stage];
   if (!message) return;
-  await supabase.from('notifications').insert({
+  const { error } = await supabase.from('notifications').insert({
     organization_id: organizationId,
     recipient_id: intent.assigned_to,
     title: message[0],
     body: message[1],
     type: 'buyer_request',
   });
+  if (error) throw new Error('Could not create commerce workflow notification');
 }
 
 export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, organizationId: string, data: any) {
@@ -112,7 +116,8 @@ export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, orga
       updated_at: new Date().toISOString(),
     };
     if (stage === 'completed') update.status = 'closed';
-    await supabase.from('buyer_intents').update(update).eq('id', intent.id);
+    const { error } = await supabase.from('buyer_intents').update(update).eq('id', intent.id);
+    if (error) throw new Error('Could not update buyer intent from commerce order');
     if (stage !== previousStage) await notifyStage(supabase, organizationId, intent, stage);
   }
   return { updated: intents.length, stage, externalOrderId };
@@ -126,7 +131,7 @@ export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, or
   for (const intent of intents) {
     const evidence = evidenceFor(intent);
     const previousStage = String(evidence.workflow_stage ?? '');
-    await supabase.from('buyer_intents').update({
+    const { error } = await supabase.from('buyer_intents').update({
       evidence: {
         ...evidence,
         workflow_stage: stage,
@@ -137,6 +142,7 @@ export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, or
       },
       updated_at: new Date().toISOString(),
     }).eq('id', intent.id);
+    if (error) throw new Error('Could not update buyer intent from commerce payment');
     if (stage !== previousStage) await notifyStage(supabase, organizationId, intent, stage);
   }
   return { updated: intents.length, stage, externalOrderId };
