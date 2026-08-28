@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { authenticateBridge } from '@/lib/integrations/bridge';
 import { canReceiveCommands } from '@/lib/integrations/capabilities';
 
+const COMMAND_DISPATCH_RETRY_AFTER_MS = 15 * 60 * 1000;
+
 function deterministicUuid(seed: string) {
   const chars = crypto.createHash('sha256').update(seed).digest('hex').slice(0, 32).split('');
   chars[12] = '5';
@@ -16,29 +18,56 @@ export async function GET(request: Request, context: { params: Promise<{ integra
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const { supabase, integration } = auth;
   if (!canReceiveCommands(integration.capabilities)) return NextResponse.json({ error: 'Integration is not permitted to receive commands' }, { status: 403 });
-  const { data: pending, error } = await supabase.from('integration_commands')
-    .select('id,command_type,target_entity_type,target_entity_id,payload,created_at,attempt_count')
+
+  const staleBefore = new Date(Date.now() - COMMAND_DISPATCH_RETRY_AFTER_MS).toISOString();
+  const commandSelection = 'id,command_type,target_entity_type,target_entity_id,payload,created_at,attempt_count,status,updated_at,dispatched_at';
+  const { data: approved, error: approvedError } = await supabase.from('integration_commands')
+    .select(commandSelection)
     .eq('integration_id', integration.id)
     .eq('organization_id', integration.organization_id)
     .eq('status', 'approved')
     .order('created_at', { ascending: true })
     .limit(50);
-  if (error) {
-    console.error('Could not load integration commands', error);
+  if (approvedError) {
+    console.error('Could not load approved integration commands', approvedError);
     return NextResponse.json({ error: 'Could not load integration commands' }, { status: 500 });
   }
 
+  const { data: staleDispatched, error: staleError } = await supabase.from('integration_commands')
+    .select(commandSelection)
+    .eq('integration_id', integration.id)
+    .eq('organization_id', integration.organization_id)
+    .eq('status', 'dispatched')
+    .lt('dispatched_at', staleBefore)
+    .order('dispatched_at', { ascending: true })
+    .limit(50);
+  if (staleError) {
+    console.error('Could not load stale dispatched integration commands', staleError);
+    return NextResponse.json({ error: 'Could not load integration commands' }, { status: 500 });
+  }
+
+  const candidates = [...(staleDispatched ?? []), ...(approved ?? [])]
+    .sort((a: any, b: any) => String(a.created_at).localeCompare(String(b.created_at)))
+    .slice(0, 50);
   const claimed: any[] = [];
-  for (const row of pending ?? []) {
+  for (const row of candidates) {
     const now = new Date().toISOString();
-    const { data: leased } = await supabase.from('integration_commands')
+    let leaseQuery = supabase.from('integration_commands')
       .update({ status:'dispatched', dispatched_at:now, updated_at:now, attempt_count:Number(row.attempt_count ?? 0)+1 })
       .eq('id', row.id)
       .eq('integration_id', integration.id)
       .eq('organization_id', integration.organization_id)
-      .eq('status','approved')
+      .eq('status', row.status)
+      .eq('updated_at', row.updated_at);
+    if (row.status === 'dispatched') leaseQuery = leaseQuery.lt('dispatched_at', staleBefore);
+
+    const { data: leased, error: leaseError } = await leaseQuery
       .select('id,command_type,target_entity_type,target_entity_id,payload,created_at,attempt_count')
       .maybeSingle();
+    if (leaseError) {
+      console.error('Could not lease integration command for dispatch', leaseError);
+      return NextResponse.json({ error: 'Could not dispatch integration commands', retry: true }, { status: 500 });
+    }
     if (leased) claimed.push(leased);
   }
   return NextResponse.json({ commands: claimed });
