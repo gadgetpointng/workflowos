@@ -31,12 +31,26 @@ requireText('commands route', commands, [
   "command.command_type === 'order.create'",
   "commerce_order_id",
   "order_request_failed",
-  "console.error('Could not load integration commands', error)",
+  "console.error('Could not load approved integration commands', approvedError)",
   "{ error: 'Could not load integration commands' }",
   "console.error('Could not load integration command', commandError)",
   "{ error: 'Could not load integration command' }",
   "console.error('Could not finalize integration command acknowledgement', error)",
   "{ error: 'Could not finalize integration command acknowledgement', retry: true }",
+]);
+
+requireText('commands dispatch retry contract', commands, [
+  'const COMMAND_DISPATCH_RETRY_AFTER_MS = 15 * 60 * 1000',
+  'const staleBefore = new Date(Date.now() - COMMAND_DISPATCH_RETRY_AFTER_MS).toISOString()',
+  ".eq('status', 'dispatched')",
+  ".lt('dispatched_at', staleBefore)",
+  "const candidates = [...(staleDispatched ?? []), ...(approved ?? [])]",
+  ".eq('status', row.status)",
+  ".eq('updated_at', row.updated_at)",
+  "if (row.status === 'dispatched') leaseQuery = leaseQuery.lt('dispatched_at', staleBefore)",
+  'const { data: leased, error: leaseError }',
+  "console.error('Could not lease integration command for dispatch', leaseError)",
+  "{ error: 'Could not dispatch integration commands', retry: true }",
 ]);
 
 requireText('commands acknowledgement retry contract', commands, [
@@ -62,6 +76,10 @@ requireText('commands acknowledgement retry contract', commands, [
 forbidText('commands route error privacy', commands, [
   '{ error: error.message }',
   "commandError?.message || 'Command not found'",
+]);
+
+forbidText('commands route ignored dispatch errors', commands, [
+  'const { data: leased } = await leaseQuery',
 ]);
 
 forbidText('commands route ignored side-effect errors', commands, [
@@ -126,6 +144,14 @@ forbidText('commerce workflow ignored database errors', commerceWorkflow, [
   "\n  await supabase.from('notifications').insert({",
   "\n    await supabase.from('buyer_intents').update(update).eq('id', intent.id);",
 ]);
+
+const dispatchStaleLoad = commands.indexOf(".eq('status', 'dispatched')");
+const dispatchCandidateMerge = commands.indexOf('const candidates =');
+const dispatchLease = commands.indexOf(".eq('status', row.status)");
+const dispatchLeaseError = commands.indexOf("console.error('Could not lease integration command for dispatch', leaseError)");
+if (dispatchStaleLoad === -1 || dispatchCandidateMerge === -1 || dispatchLease === -1 || dispatchLeaseError === -1 || dispatchStaleLoad > dispatchCandidateMerge || dispatchCandidateMerge > dispatchLease || dispatchLease > dispatchLeaseError) {
+  failures.push('commands route: stale dispatched commands must be loaded, merged, compare-and-swap leased, and fail closed on lease errors');
+}
 
 const commandLease = commands.indexOf('const { data: lease, error: leaseError }');
 const commandEffects = commands.indexOf("if (command.command_type === 'order.create')");
