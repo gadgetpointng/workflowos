@@ -32,8 +32,10 @@ export async function POST(request: Request) {
 
   const source = String(body?.source || '').trim().toLowerCase();
   const organizationId = String(body?.organization_id || '').trim();
+  const externalId = String(body?.external_id || '').trim();
   if (!allowedSources.has(source)) return NextResponse.json({ error: 'Unsupported buyer source' }, { status: 400 });
   if (!organizationId || !String(body?.product_query || '').trim()) return NextResponse.json({ error: 'organization_id and product_query are required' }, { status: 400 });
+  if (!externalId) return NextResponse.json({ error: 'external_id is required for idempotent buyer intake' }, { status: 400 });
   if (organizationId !== configuredWorkspaceId) {
     return NextResponse.json({ error: 'Buyer intake workspace mismatch' }, { status: 403 });
   }
@@ -42,7 +44,7 @@ export async function POST(request: Request) {
     const result = await captureInboundBuyer({
       organizationId: configuredWorkspaceId,
       source,
-      externalId: body.external_id ? String(body.external_id) : null,
+      externalId,
       buyerName: body.buyer_name ? String(body.buyer_name) : null,
       phone: body.phone ? String(body.phone) : null,
       email: body.email ? String(body.email) : null,
