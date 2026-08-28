@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { authenticateBridge, recordIntegrationEvent, type BridgeEvent } from '@/lib/integrations/bridge';
+import { authenticateBridge, markIntegrationEventProcessed, recordIntegrationEvent, type BridgeEvent } from '@/lib/integrations/bridge';
 import { canPublishEvents } from '@/lib/integrations/capabilities';
 import { advanceBuyerWorkflowFromOrder, advanceBuyerWorkflowFromPayment } from '@/lib/integrations/commerce-workflow';
 
@@ -30,32 +30,57 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     return NextResponse.json({ error: 'payment.updated requires order_id/external_order_id or workflow_quote_id correlation' }, { status: 400 });
   }
 
-  const tracked = await recordIntegrationEvent({
-    supabase: auth.supabase,
-    organizationId: auth.integration.organization_id,
-    integrationId: auth.integration.id,
-    source: slug,
-    event,
-  });
+  let tracked;
+  try {
+    tracked = await recordIntegrationEvent({
+      supabase: auth.supabase,
+      organizationId: auth.integration.organization_id,
+      integrationId: auth.integration.id,
+      source: slug,
+      event,
+    });
+  } catch (error) {
+    console.error('Could not record commerce event', error);
+    return NextResponse.json({ error: 'Could not record commerce event' }, { status: 500 });
+  }
+
   if (tracked.duplicate) return NextResponse.json({ ok: true, duplicate: true, event_id: tracked.eventId });
+  if (tracked.inProgress) {
+    return NextResponse.json({ ok: false, retry: true, error: 'Commerce event is already processing', event_id: tracked.eventId }, { status: 409 });
+  }
 
-  const workflow = event.type === 'payment.updated'
-    ? await advanceBuyerWorkflowFromPayment(auth.supabase, auth.integration.organization_id, data)
-    : await advanceBuyerWorkflowFromOrder(auth.supabase, auth.integration.organization_id, data);
+  try {
+    const workflow = event.type === 'payment.updated'
+      ? await advanceBuyerWorkflowFromPayment(auth.supabase, auth.integration.organization_id, data)
+      : await advanceBuyerWorkflowFromOrder(auth.supabase, auth.integration.organization_id, data);
 
-  await auth.supabase.from('activity_logs').insert({
-    organization_id: auth.integration.organization_id,
-    actor_id: null,
-    action: `commerce.${event.type}`,
-    entity_type: 'integration_event',
-    entity_id: tracked.eventId,
-    metadata: { source: slug, workflow },
-  });
-  await auth.supabase.from('external_integrations').update({
-    last_synced_at: new Date().toISOString(),
-    status: 'connected',
-    updated_at: new Date().toISOString(),
-  }).eq('id', auth.integration.id);
+    const { error: activityError } = await auth.supabase.from('activity_logs').insert({
+      organization_id: auth.integration.organization_id,
+      actor_id: null,
+      action: `commerce.${event.type}`,
+      entity_type: 'integration_event',
+      entity_id: tracked.eventId,
+      metadata: { source: slug, workflow },
+    });
+    if (activityError) throw activityError;
 
-  return NextResponse.json({ ok: true, event_id: tracked.eventId, workflow });
+    const { error: syncError } = await auth.supabase.from('external_integrations').update({
+      last_synced_at: new Date().toISOString(),
+      status: 'connected',
+      updated_at: new Date().toISOString(),
+    }).eq('id', auth.integration.id);
+    if (syncError) throw syncError;
+
+    await markIntegrationEventProcessed({
+      supabase: auth.supabase,
+      organizationId: auth.integration.organization_id,
+      integrationId: auth.integration.id,
+      eventId: tracked.eventId,
+    });
+
+    return NextResponse.json({ ok: true, event_id: tracked.eventId, workflow, retry: tracked.retry });
+  } catch (error) {
+    console.error('Commerce event processing failed', error);
+    return NextResponse.json({ error: 'Commerce event processing failed', retry: true, event_id: tracked.eventId }, { status: 500 });
+  }
 }
