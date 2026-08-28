@@ -8,6 +8,8 @@ export type BridgeEvent = {
   data?: Record<string, any>;
 };
 
+const EVENT_RETRY_AFTER_MS = 2 * 60 * 1000;
+
 export function hashSecret(secret: string) {
   return crypto.createHash('sha256').update(secret).digest('hex');
 }
@@ -89,13 +91,19 @@ export async function recordIntegrationEvent(opts: {
 }) {
   const externalId = opts.event.id ?? null;
   if (externalId) {
-    const { data: existing } = await opts.supabase
+    const { data: existing, error: existingError } = await opts.supabase
       .from('integration_events')
-      .select('id')
+      .select('id,processed_at,created_at')
       .eq('integration_id', opts.integrationId)
       .eq('external_id', externalId)
       .maybeSingle();
-    if (existing) return { duplicate: true, eventId: existing.id };
+    if (existingError) throw existingError;
+    if (existing) {
+      if (existing.processed_at) return { duplicate: true, inProgress: false, retry: false, eventId: existing.id };
+      const createdAt = Date.parse(String(existing.created_at || ''));
+      const inProgress = Number.isFinite(createdAt) && Date.now() - createdAt < EVENT_RETRY_AFTER_MS;
+      return { duplicate: false, inProgress, retry: !inProgress, eventId: existing.id };
+    }
   }
 
   const { data, error } = await opts.supabase.from('integration_events').insert({
@@ -107,8 +115,39 @@ export async function recordIntegrationEvent(opts: {
     entity_type: opts.event.type.split('.')[0] ?? null,
     entity_id: opts.event.data?.id ? String(opts.event.data.id) : null,
     payload: opts.event,
-    processed_at: new Date().toISOString()
+    processed_at: null,
   }).select('id').single();
+
+  if (error && externalId && error.code === '23505') {
+    const { data: raced, error: racedError } = await opts.supabase
+      .from('integration_events')
+      .select('id,processed_at')
+      .eq('integration_id', opts.integrationId)
+      .eq('external_id', externalId)
+      .maybeSingle();
+    if (racedError) throw racedError;
+    if (raced) {
+      return raced.processed_at
+        ? { duplicate: true, inProgress: false, retry: false, eventId: raced.id }
+        : { duplicate: false, inProgress: true, retry: false, eventId: raced.id };
+    }
+  }
+
   if (error) throw error;
-  return { duplicate: false, eventId: data.id };
+  return { duplicate: false, inProgress: false, retry: false, eventId: data.id };
+}
+
+export async function markIntegrationEventProcessed(opts: {
+  supabase: ReturnType<typeof createAdminClient>;
+  organizationId: string;
+  integrationId: string;
+  eventId: string;
+}) {
+  const { error } = await opts.supabase
+    .from('integration_events')
+    .update({ processed_at: new Date().toISOString() })
+    .eq('id', opts.eventId)
+    .eq('organization_id', opts.organizationId)
+    .eq('integration_id', opts.integrationId);
+  if (error) throw error;
 }
