@@ -9,6 +9,8 @@ const evidenceInputIndex = evidenceBlock.indexOf('...(input.evidence || {})');
 const evidenceCaptureIndex = evidenceBlock.indexOf("capture: 'integration'");
 const evidenceExternalIdIndex = evidenceBlock.indexOf('external_id: externalId');
 const evidenceStageIndex = evidenceBlock.indexOf('workflow_stage: stage');
+const ownerErrorGuard = "if (ownerError) throw new Error('Could not validate buyer routing owner')";
+const buyerInsert = "admin.from('buyer_intents').insert";
 
 const checks = [
   [
@@ -42,13 +44,23 @@ const checks = [
       inbound.includes('assignedTo = assignee?.id || null') &&
       inbound.includes('assigned_to: assignedTo') &&
       inbound.includes('assignee_id: assignedTo') &&
-      inbound.includes('const recipientId = assignedTo ||'),
+      inbound.includes('const recipientId = assignedTo || ownerId'),
   ],
   [
     'assignee validation fails closed on database errors',
     inbound.includes('error: assigneeError') &&
       inbound.includes("if (assigneeError) throw new Error('Could not validate buyer assignee')") &&
       inbound.indexOf("if (assigneeError) throw new Error('Could not validate buyer assignee')") < inbound.indexOf('assignedTo = assignee?.id || null'),
+  ],
+  [
+    'fallback owner routing is resolved in the same organization and fails closed before buyer creation',
+    inbound.includes('error: ownerError') &&
+      inbound.includes(".eq('role', 'owner')") &&
+      inbound.includes('ownerId = owner?.id || null') &&
+      inbound.includes(ownerErrorGuard) &&
+      inbound.indexOf(ownerErrorGuard) < inbound.indexOf(buyerInsert) &&
+      inbound.includes('const creatorId = assignedTo || ownerId') &&
+      inbound.includes('const recipientId = assignedTo || ownerId'),
   ],
   [
     'inventory matching fails closed on database errors',
