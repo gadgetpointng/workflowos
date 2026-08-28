@@ -35,6 +35,16 @@ const checks = [
       evidenceStageIndex > evidenceInputIndex,
   ],
   [
+    'adapter-supplied assignee is constrained to an active profile in the same organization',
+    inbound.includes(".eq('id', assignedTo)") &&
+      inbound.includes(".eq('organization_id', input.organizationId)") &&
+      inbound.includes(".eq('active', true)") &&
+      inbound.includes('assignedTo = assignee?.id || null') &&
+      inbound.includes('assigned_to: assignedTo') &&
+      inbound.includes('assignee_id: assignedTo') &&
+      inbound.includes('const recipientId = assignedTo ||'),
+  ],
+  [
     'database enforces source-scoped external reference uniqueness',
     schema.includes('unique (organization_id, source, external_ref)'),
   ],
