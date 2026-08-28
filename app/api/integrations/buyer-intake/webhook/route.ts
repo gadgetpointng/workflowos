@@ -7,10 +7,11 @@ export const dynamic = 'force-dynamic';
 const allowedSources = new Set(['facebook','facebook_marketplace','instagram','whatsapp','tiktok','jiji','jumia','konga','google','website','phone','referral','walk_in','other']);
 
 export async function GET() {
+  const configured = Boolean(process.env.BUYER_INTAKE_WEBHOOK_SECRET && process.env.GADGETPOINT_WORKSPACE_ID);
   return NextResponse.json({
     ok: true,
     webhook: 'buyer-intake',
-    configured: Boolean(process.env.BUYER_INTAKE_WEBHOOK_SECRET),
+    configured,
     sources: [...allowedSources],
   }, { headers: { 'cache-control': 'no-store' } });
 }
@@ -21,16 +22,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid buyer intake signature' }, { status: 401 });
   }
 
+  const configuredWorkspaceId = String(process.env.GADGETPOINT_WORKSPACE_ID || '').trim();
+  if (!configuredWorkspaceId) {
+    return NextResponse.json({ error: 'Buyer intake workspace is not configured' }, { status: 503 });
+  }
+
   let body: any;
   try { body = JSON.parse(rawBody); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
 
   const source = String(body?.source || '').trim().toLowerCase();
+  const organizationId = String(body?.organization_id || '').trim();
   if (!allowedSources.has(source)) return NextResponse.json({ error: 'Unsupported buyer source' }, { status: 400 });
-  if (!body?.organization_id || !String(body?.product_query || '').trim()) return NextResponse.json({ error: 'organization_id and product_query are required' }, { status: 400 });
+  if (!organizationId || !String(body?.product_query || '').trim()) return NextResponse.json({ error: 'organization_id and product_query are required' }, { status: 400 });
+  if (organizationId !== configuredWorkspaceId) {
+    return NextResponse.json({ error: 'Buyer intake workspace mismatch' }, { status: 403 });
+  }
 
   try {
     const result = await captureInboundBuyer({
-      organizationId: String(body.organization_id),
+      organizationId: configuredWorkspaceId,
       source,
       externalId: body.external_id ? String(body.external_id) : null,
       buyerName: body.buyer_name ? String(body.buyer_name) : null,

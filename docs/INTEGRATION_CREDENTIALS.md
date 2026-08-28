@@ -3,7 +3,7 @@
 Secrets must live in the deployment platform or integration secret store, never in source control. Non-secret routing identifiers should also be configured explicitly so inbound events are assigned to the intended GadgetPoint workspace.
 
 ## Shared buyer acquisition routing
-- `GADGETPOINT_WORKSPACE_ID` — organization/workspace that receives WhatsApp and Instagram buyer messages.
+- `GADGETPOINT_WORKSPACE_ID` — organization/workspace that receives normalized buyer intake, WhatsApp and Instagram buyer messages. Signed buyer-intake payloads must declare this same organization ID; mismatched workspace IDs are rejected.
 
 ## Meta / Facebook Lead Ads
 - `META_APP_SECRET`
@@ -13,6 +13,7 @@ Secrets must live in the deployment platform or integration secret store, never 
 
 ## Normalized buyer intake adapters
 - `BUYER_INTAKE_WEBHOOK_SECRET`
+- `GADGETPOINT_WORKSPACE_ID` — fail-closed workspace boundary for signed normalized intake; callers cannot route a validly signed payload into another organization.
 
 ## WhatsApp Business webhook
 - `META_APP_SECRET` — validates `x-hub-signature-256` on inbound Meta webhook payloads.
