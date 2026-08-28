@@ -64,6 +64,6 @@ export async function POST(request: Request) {
     return NextResponse.json(result, { status: result.duplicate ? 200 : 201 });
   } catch (error) {
     console.error('Buyer intake webhook failed', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Buyer intake failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Buyer intake failed' }, { status: 500 });
   }
 }
