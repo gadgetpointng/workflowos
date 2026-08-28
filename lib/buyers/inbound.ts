@@ -41,7 +41,7 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
 
   let assignedTo = input.assignedTo ? String(input.assignedTo).trim() : null;
   if (assignedTo) {
-    const { data: assignee } = await admin
+    const { data: assignee, error: assigneeError } = await admin
       .from('profiles')
       .select('id')
       .eq('id', assignedTo)
@@ -49,6 +49,7 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
       .eq('active', true)
       .limit(1)
       .maybeSingle();
+    if (assigneeError) throw new Error('Could not validate buyer assignee');
     assignedTo = assignee?.id || null;
   }
 
