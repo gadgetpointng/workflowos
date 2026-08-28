@@ -65,6 +65,20 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
     if (duplicate) return { ok: true, duplicate: true, buyerIntentId: duplicate.id };
   }
 
+  let ownerId: string | null = null;
+  if (!assignedTo) {
+    const { data: owner, error: ownerError } = await admin
+      .from('profiles')
+      .select('id')
+      .eq('organization_id', input.organizationId)
+      .eq('role', 'owner')
+      .eq('active', true)
+      .limit(1)
+      .maybeSingle();
+    if (ownerError) throw new Error('Could not validate buyer routing owner');
+    ownerId = owner?.id || null;
+  }
+
   const { data: products, error: productsError } = await admin
     .from('connected_products')
     .select('id,external_product_id,name,category,price,stock_quantity,active,sku,metadata')
@@ -133,11 +147,7 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
 
   let taskId: string | null = null;
   if (input.autoCreateTask !== false) {
-    let creatorId = assignedTo;
-    if (!creatorId) {
-      const { data: owner } = await admin.from('profiles').select('id').eq('organization_id', input.organizationId).eq('role', 'owner').eq('active', true).limit(1).maybeSingle();
-      creatorId = owner?.id || null;
-    }
+    const creatorId = assignedTo || ownerId;
     if (creatorId) {
       const location = [input.city, input.state].filter(Boolean).join(', ');
       const title = matches.length ? `Find for buyer: ${productQuery}` : `Source for buyer: ${productQuery}`;
@@ -166,7 +176,7 @@ export async function captureInboundBuyer(input: InboundBuyerRequest) {
     }
   }
 
-  const recipientId = assignedTo || (await admin.from('profiles').select('id').eq('organization_id', input.organizationId).eq('role', 'owner').eq('active', true).limit(1).maybeSingle()).data?.id || null;
+  const recipientId = assignedTo || ownerId;
   if (recipientId) await admin.from('notifications').insert({ organization_id: input.organizationId, recipient_id: recipientId, title: `New ${source} buyer request`, body: `${input.buyerName || 'Buyer'} · ${productQuery}`, type: 'buyer_request' });
 
   await admin.from('activity_logs').insert({ organization_id: input.organizationId, actor_id: creatorIdForLog(assignedTo), action: 'buyer_intent.integration_captured', entity_type: 'buyer_intent', entity_id: intent.id, metadata: { source, external_id: externalId, score, match_count: matches.length, task_id: taskId } });
