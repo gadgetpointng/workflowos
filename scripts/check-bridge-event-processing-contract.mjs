@@ -64,6 +64,7 @@ requireText('generic buyer workflow write observability', genericBridge, [
   "operation: 'external_integrations.update'",
   "operation: 'analytics_events.insert.vendor_sale'",
   "operation: 'analytics_events.insert.acquisition_lead'",
+  "operation: 'commerce_signals.insert.order'",
   "code: conversationError.code",
   "code: buyerIntentError.code",
   "code: marketplaceBuyerIntentError.code",
@@ -74,6 +75,7 @@ requireText('generic buyer workflow write observability', genericBridge, [
   "code: integrationSyncError.code",
   "code: vendorAnalyticsError.code",
   "code: acquisitionAnalyticsError.code",
+  "code: orderSignalError.code",
 ]);
 
 for (const forbidden of [
@@ -87,6 +89,7 @@ for (const forbidden of [
   'integrationSyncError.message',
   'vendorAnalyticsError.message',
   'acquisitionAnalyticsError.message',
+  'orderSignalError.message',
 ]) {
   if (genericBridge.includes(forbidden)) {
     failures.push(`generic buyer workflow write observability must not log database error messages: ${forbidden}`);
@@ -104,6 +107,7 @@ for (const errorName of [
   'integrationSyncError',
   'vendorAnalyticsError',
   'acquisitionAnalyticsError',
+  'orderSignalError',
 ]) {
   const postDedupeFailure = new RegExp(`return\\s+NextResponse\\.json\\(\\{\\s*error:\\s*${errorName}\\.code`);
   if (postDedupeFailure.test(genericBridge)) {
@@ -116,7 +120,7 @@ for (const errorName of [
 // Freeze that legacy debt by table/operation while allowing future fixes to reduce it.
 const legacyUncheckedWriteBudget = new Map([
   ['growth_opportunities:insert', 1],
-  ['commerce_signals:insert', 1],
+  ['commerce_signals:insert', 0],
   ['activity_logs:insert', 1],
   ['analytics_events:insert', 0],
   ['leads:update', 0],
