@@ -138,7 +138,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       last_synced_at: new Date().toISOString()
     }, { onConflict: 'integration_id,external_order_id' }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    await supabase.from('commerce_signals').insert({
+    const { error: orderSignalError } = await supabase.from('commerce_signals').insert({
       organization_id: orgId,
       integration_id: integration.id,
       source: slug,
@@ -147,6 +147,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       metadata: { external_order_id: d.id, channel: d.channel ?? slug },
       observed_at: event.occurred_at ?? new Date().toISOString()
     });
+    if (orderSignalError) console.error('Generic bridge commerce signal write failed', { operation: 'commerce_signals.insert.order', code: orderSignalError.code });
     if (customer?.id) await refreshCustomerCommerce(supabase, customer.id);
     result = { order: data, customer_id: customer?.id ?? null };
   }
