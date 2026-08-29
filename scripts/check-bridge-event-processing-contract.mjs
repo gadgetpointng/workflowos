@@ -66,6 +66,7 @@ requireText('generic buyer workflow write observability', genericBridge, [
   "operation: 'analytics_events.insert.acquisition_lead'",
   "operation: 'commerce_signals.insert.order'",
   "operation: 'growth_opportunities.insert.low_stock'",
+  "operation: 'activity_logs.insert.storefront_intelligence_failure'",
   "code: conversationError.code",
   "code: buyerIntentError.code",
   "code: marketplaceBuyerIntentError.code",
@@ -78,6 +79,7 @@ requireText('generic buyer workflow write observability', genericBridge, [
   "code: acquisitionAnalyticsError.code",
   "code: orderSignalError.code",
   "code: lowStockOpportunityError.code",
+  "code: storefrontIntelligenceActivityError.code",
 ]);
 
 for (const forbidden of [
@@ -93,11 +95,20 @@ for (const forbidden of [
   'acquisitionAnalyticsError.message',
   'orderSignalError.message',
   'lowStockOpportunityError.message',
+  'storefrontIntelligenceActivityError.message',
 ]) {
   if (genericBridge.includes(forbidden)) {
     failures.push(`generic buyer workflow write observability must not log database error messages: ${forbidden}`);
   }
 }
+
+if (genericBridge.includes('intelligenceError?.message')) {
+  failures.push('generic storefront intelligence failure telemetry must not persist raw exception messages');
+}
+requireText('generic storefront intelligence error privacy', genericBridge, [
+  "error_code: intelligenceFailureCode",
+  "'storefront_intelligence_failed'",
+]);
 
 for (const errorName of [
   'conversationError',
@@ -112,6 +123,7 @@ for (const errorName of [
   'acquisitionAnalyticsError',
   'orderSignalError',
   'lowStockOpportunityError',
+  'storefrontIntelligenceActivityError',
 ]) {
   const postDedupeFailure = new RegExp(`return\\s+NextResponse\\.json\\(\\{\\s*error:\\s*${errorName}\\.code`);
   if (postDedupeFailure.test(genericBridge)) {
@@ -125,7 +137,7 @@ for (const errorName of [
 const legacyUncheckedWriteBudget = new Map([
   ['growth_opportunities:insert', 0],
   ['commerce_signals:insert', 0],
-  ['activity_logs:insert', 1],
+  ['activity_logs:insert', 0],
   ['analytics_events:insert', 0],
   ['leads:update', 0],
   ['customer_conversations:insert', 0],
