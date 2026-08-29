@@ -121,7 +121,9 @@ export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, orga
       updated_at: new Date().toISOString(),
     };
     if (stage === 'completed') update.status = 'closed';
-    const { error } = await supabase.from('buyer_intents').update(update).eq('id', intent.id);
+    const { error } = await supabase.from('buyer_intents').update(update)
+      .eq('id', intent.id)
+      .eq('organization_id', organizationId);
     if (error) throw new Error('Could not update buyer intent from commerce order');
     if (stage !== previousStage || retryingSameStageEvent) await notifyStage(supabase, organizationId, intent, stage, eventId);
   }
@@ -148,7 +150,9 @@ export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, or
         payment_updated_at: new Date().toISOString(),
       },
       updated_at: new Date().toISOString(),
-    }).eq('id', intent.id);
+    })
+      .eq('id', intent.id)
+      .eq('organization_id', organizationId);
     if (error) throw new Error('Could not update buyer intent from commerce payment');
     if (stage !== previousStage || retryingSameStageEvent) await notifyStage(supabase, organizationId, intent, stage, eventId);
   }
