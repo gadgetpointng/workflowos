@@ -54,6 +54,19 @@ if (genericBridge.includes(".eq('id', integration.id);")) {
   failures.push('generic bridge route must not update integration sync state by id without organization scope');
 }
 
+requireText('generic buyer workflow write observability', genericBridge, [
+  "operation: 'customer_conversations.insert'",
+  "operation: 'buyer_intents.upsert'",
+  "operation: 'tasks.insert'",
+  "code: conversationError.code",
+  "code: buyerIntentError.code",
+  "code: taskError.code",
+]);
+
+if (genericBridge.includes("console.error('Generic bridge buyer workflow write failed', { operation:") && genericBridge.includes('message:')) {
+  failures.push('generic buyer workflow write observability must not log database error messages or buyer payload content');
+}
+
 // The generic bridge still uses immediate event dedupe, so silently adding more unchecked
 // database writes would increase the number of side effects that cannot recover on retry.
 // Freeze that legacy debt by table/operation while allowing future fixes to reduce it.
@@ -63,9 +76,9 @@ const legacyUncheckedWriteBudget = new Map([
   ['activity_logs:insert', 1],
   ['analytics_events:insert', 2],
   ['leads:update', 3],
-  ['customer_conversations:insert', 1],
-  ['buyer_intents:upsert', 3],
-  ['tasks:insert', 2],
+  ['customer_conversations:insert', 0],
+  ['buyer_intents:upsert', 1],
+  ['tasks:insert', 0],
   ['external_integrations:update', 1],
 ]);
 const uncheckedWriteCounts = new Map();
