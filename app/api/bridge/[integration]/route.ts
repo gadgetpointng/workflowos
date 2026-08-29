@@ -9,12 +9,12 @@ import { evaluateStorefrontSignal } from '@/lib/growth/storefront-intelligence';
 
 
 async function connectedProductsFor(supabase:any, orgId:string) {
-  const { data } = await supabase.from('connected_products').select('id,external_product_id,name,category,price,stock_quantity,active,sku,metadata').eq('organization_id',orgId).eq('active',true).l[...]
+  const { data } = await supabase.from('connected_products').select('id,external_product_id,name,category,price,stock_quantity,active,sku,metadata').eq('organization_id',orgId).eq('active',true).limit(500);
   return data ?? [];
 }
 
 async function recommendSalesAssignee(supabase:any, orgId:string) {
-  const { data:caps } = await supabase.from('staff_capabilities').select('profile_id,proficiency,profiles(active)').eq('organization_id',orgId).eq('capability','sales').eq('active',true).order('pr[...]
+  const { data:caps } = await supabase.from('staff_capabilities').select('profile_id,proficiency,profiles(active)').eq('organization_id',orgId).eq('capability','sales').eq('active',true).order('proficiency',{ascending:false}).limit(20);
   const ids=(caps??[]).filter((x:any)=>x.profiles?.active!==false).map((x:any)=>x.profile_id);
   if(!ids.length) return null;
   const { data:open } = await supabase.from('tasks').select('assignee_id,status').eq('organization_id',orgId).in('assignee_id',ids).not('status','in','("completed","cancelled")');
@@ -40,7 +40,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
   if (!canPublishEvents(integration.capabilities)) return NextResponse.json({ error: 'Integration is not permitted to publish events' }, { status: 403 });
   const orgId = integration.organization_id;
   const ownershipDomain = domainForEvent(event.type);
-  event = { ...event, data: { ...(event.data ?? {}), _workflowos: { ownership_domain: ownershipDomain, source_system: slug, mirror_only: ['products','inventory','orders','payments','shopping_exper[...]
+  event = { ...event, data: { ...(event.data ?? {}), _workflowos: { ownership_domain: ownershipDomain, source_system: slug, mirror_only: ['products','inventory','orders','payments','shopping_experience'].includes(ownershipDomain) } } };
   const tracked = await recordIntegrationEvent({ supabase, organizationId: orgId, integrationId: integration.id, source: slug, event });
   if (tracked.duplicate) return NextResponse.json({ ok: true, duplicate: true, event_id: tracked.eventId });
 
@@ -120,7 +120,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
 
   if (event.type === 'order.created' || event.type === 'order.updated') {
     if (!d.id) return NextResponse.json({ error: `${event.type} requires data.id` }, { status: 400 });
-    const customer = await resolveCustomer(supabase, orgId, { name:d.customer_name ?? d.customer?.name ?? null, email:d.customer_email ?? d.customer?.email ?? null, phone:d.customer_phone ?? d.cu[...]
+    const customer = await resolveCustomer(supabase, orgId, { name:d.customer_name ?? d.customer?.name ?? null, email:d.customer_email ?? d.customer?.email ?? null, phone:d.customer_phone ?? d.customer?.phone ?? null, source:d.channel ?? slug, lifecycle:'customer' });
     const { data, error } = await supabase.from('connected_orders').upsert({
       organization_id: orgId,
       integration_id: integration.id,
@@ -196,19 +196,16 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     }
 
     if (event.type === 'marketplace.demand' && (d.query || d.search_query || d.product_interest)) {
-      const input:any = { product_query:d.product_interest ?? d.query ?? d.search_query, category:d.category ?? null, brand:d.brand ?? null, model:d.model ?? null, budget_min:d.budget_min ?? null[...]
+      const input:any = { product_query:d.product_interest ?? d.query ?? d.search_query, category:d.category ?? null, brand:d.brand ?? null, model:d.model ?? null, budget_min:d.budget_min ?? null, budget_max:d.budget_max ?? d.value ?? null, state:d.state ?? null, city:d.city ?? null, urgency:d.urgency ?? 'normal', source:slug, consent_status:'public_signal' };
       const products=await connectedProductsFor(supabase,orgId); const matches=matchProducts(input,products); const score=scoreBuyerIntent(input);
-      const { data:intent, error: buyerIntentError } = await supabase.from('buyer_intents').upsert({ organization_id:orgId, source:slug, external_ref:event.id ?? null, product_query:input.product_query, category:input.ca[...]
-      if (buyerIntentError) {
-        console.error('Generic bridge buyer workflow write failed', { operation: 'buyer_intents.upsert', code: buyerIntentError.code });
-      }
+      const { data:intent } = await supabase.from('buyer_intents').upsert({ organization_id:orgId, source:slug, external_ref:event.id ?? null, product_query:input.product_query, category:input.category, brand:input.brand, model:input.model, budget_min:input.budget_min, budget_max:input.budget_max, state:input.state, city:input.city, urgency:input.urgency, consent_status:'public_signal', intent_score:score, status:matches.length?'matched':'new', matched_products:matches, evidence:{integration_event_id:tracked.eventId, public_signal:true} },{onConflict:'organization_id,source,external_ref'}).select().maybeSingle();
       result = { ...result, buyer_intent:intent };
     }
   }
 
   if (event.type === 'vendor.order.created') {
     if (!d.vendor_id || !d.offer_id) return NextResponse.json({ error: 'vendor.order.created requires data.vendor_id and data.offer_id' }, { status: 400 });
-    const { data: offer, error: offerError } = await supabase.from('external_product_offers').select('id,vendor_id,title,source_price,selling_price,commission_amount').eq('organization_id',orgId)[...]
+    const { data: offer, error: offerError } = await supabase.from('external_product_offers').select('id,vendor_id,title,source_price,selling_price,commission_amount').eq('organization_id',orgId).eq('id',d.offer_id).eq('vendor_id',d.vendor_id).single();
     if (offerError || !offer) return NextResponse.json({ error: 'Vendor offer not found' }, { status: 404 });
     const qty = Math.max(1, Number(d.quantity ?? 1));
     const selling = Number(d.unit_selling_price ?? offer.selling_price ?? 0);
@@ -229,7 +226,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       metadata: { external_order_id: d.external_order_id ?? null, source: slug, product_title: offer.title, ...(d.metadata ?? {}) }
     }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    await supabase.from('analytics_events').insert({ organization_id: orgId, event_type: 'vendor_sale', source: slug, entity_type: 'vendor_order', entity_id: vendorOrder.id, amount: gross, curren[...]
+    await supabase.from('analytics_events').insert({ organization_id: orgId, event_type: 'vendor_sale', source: slug, entity_type: 'vendor_order', entity_id: vendorOrder.id, amount: gross, currency: d.currency ?? 'NGN', metadata: { commission_amount: commission, vendor_amount: vendorAmount, vendor_id: d.vendor_id } });
     result = { vendor_order: vendorOrder, commission_amount: commission, vendor_amount: vendorAmount };
   }
 
@@ -264,7 +261,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });
       leadId = lead.id;
     }
-    const { data: conversation, error: conversationError } = await supabase.from('customer_conversations').insert({
+    const { data: conversation } = await supabase.from('customer_conversations').insert({
       organization_id: orgId,
       integration_id: integration.id,
       channel: 'whatsapp',
@@ -279,30 +276,21 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       status: 'open',
       metadata: d.metadata ?? {}
     }).select().single();
-    if (conversationError) {
-      console.error('Generic bridge buyer workflow write failed', { operation: 'customer_conversations.insert', code: conversationError.code });
-    }
     const assigneeId = await recommendSalesAssignee(supabase, orgId);
     if (assigneeId && leadId) await supabase.from('leads').update({assigned_to:assigneeId}).eq('id',leadId);
     const productQuery=d.product_interest ?? d.message ?? 'WhatsApp product inquiry';
-    const intentInput:any={product_query:productQuery,category:d.category??null,brand:d.brand??null,model:d.model??null,budget_min:d.budget_min??null,budget_max:d.budget_max??null,state:d.state??[...]
+    const intentInput:any={product_query:productQuery,category:d.category??null,brand:d.brand??null,model:d.model??null,budget_min:d.budget_min??null,budget_max:d.budget_max??null,state:d.state??null,city:d.city??null,urgency:d.urgent?'high':(d.urgency??'normal'),source:'whatsapp',consent_status:'opted_in'};
     const products=await connectedProductsFor(supabase,orgId); const matches=matchProducts(intentInput,products); const intentScore=scoreBuyerIntent(intentInput);
-    const { data:buyerIntent, error: buyerIntentError } = await supabase.from('buyer_intents').upsert({organization_id:orgId,source:'whatsapp',external_ref:event.id ?? d.message_id ?? d.conversation_id ?? null,buyer_name[...]
-    if (buyerIntentError) {
-      console.error('Generic bridge buyer workflow write failed', { operation: 'buyer_intents.upsert', code: buyerIntentError.code });
-    }
-    const { data: task, error: taskError } = await supabase.from('tasks').insert({
+    const { data:buyerIntent } = await supabase.from('buyer_intents').upsert({organization_id:orgId,source:'whatsapp',external_ref:event.id ?? d.message_id ?? d.conversation_id ?? null,buyer_name:d.name??null,phone,email:d.email??null,product_query:productQuery,category:intentInput.category,brand:intentInput.brand,model:intentInput.model,budget_min:intentInput.budget_min,budget_max:intentInput.budget_max,state:intentInput.state,city:intentInput.city,urgency:intentInput.urgency,consent_status:'opted_in',intent_score:intentScore,status:matches.length?'matched':'qualified',assigned_to:assigneeId,lead_id:leadId,matched_products:matches,evidence:{integration_event_id:tracked.eventId,message:d.message??null}}, {onConflict:'organization_id,source,external_ref'}).select().maybeSingle();
+    const { data: task } = await supabase.from('tasks').insert({
       organization_id: orgId,
       title: `Follow up WhatsApp lead: ${d.name ?? phone}`,
-      description: `${d.message ?? `Customer inquiry${d.product_interest ? ` about ${d.product_interest}` : ''}.`}${matches[0]?`\nTop product match: ${matches[0].name}${matches[0].price?` — NGN[...]
+      description: `${d.message ?? `Customer inquiry${d.product_interest ? ` about ${d.product_interest}` : ''}.`}${matches[0]?`\nTop product match: ${matches[0].name}${matches[0].price?` — NGN ${matches[0].price}`:''}`:''}`,
       department: 'sales',
       priority: d.urgent ? 'high' : 'medium',
       status: assigneeId ? 'assigned' : 'open',
       assignee_id: assigneeId
     }).select().single();
-    if (taskError) {
-      console.error('Generic bridge buyer workflow write failed', { operation: 'tasks.insert', code: taskError.code });
-    }
     result = { lead_id: leadId, buyer_intent:buyerIntent, product_matches:matches, assigned_to:assigneeId, conversation, task };
   }
 
@@ -321,32 +309,26 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     const assigneeId = await recommendSalesAssignee(supabase, orgId);
     let leadId=existing?.id ?? null;
     if (leadId) {
-      await supabase.from('leads').update({name:d.name ?? d.customer_name ?? undefined,phone:phone ?? undefined,email:email ?? undefined,source,product_interest:productQuery,status:'new',assigned[...]
+      await supabase.from('leads').update({name:d.name ?? d.customer_name ?? undefined,phone:phone ?? undefined,email:email ?? undefined,source,product_interest:productQuery,status:'new',assigned_to:assigneeId ?? undefined,customer_id:customer?.id ?? undefined,notes:d.message ?? d.form_answer ?? undefined,updated_at:new Date().toISOString()}).eq('id',leadId);
     } else {
-      const {data:lead,error}=await supabase.from('leads').insert({organization_id:orgId,name:d.name ?? d.customer_name ?? phone ?? email ?? `${source} lead`,phone,email,source,product_interest:p[...]
+      const {data:lead,error}=await supabase.from('leads').insert({organization_id:orgId,name:d.name ?? d.customer_name ?? phone ?? email ?? `${source} lead`,phone,email,source,product_interest:productQuery,status:'new',assigned_to:assigneeId,customer_id:customer?.id ?? null,notes:d.message ?? d.form_answer ?? null}).select().single();
       if(error) return NextResponse.json({error:error.message},{status:400});
       leadId=lead.id;
     }
-    const intentInput:any={product_query:productQuery,category:d.category??null,brand:d.brand??null,model:d.model??null,budget_min:d.budget_min??null,budget_max:d.budget_max??d.estimated_value??n[...]
+    const intentInput:any={product_query:productQuery,category:d.category??null,brand:d.brand??null,model:d.model??null,budget_min:d.budget_min??null,budget_max:d.budget_max??d.estimated_value??null,state:d.state??null,city:d.city??null,urgency:d.urgency??'normal',source,consent_status:consent};
     const products=await connectedProductsFor(supabase,orgId); const matches=matchProducts(intentInput,products); const intentScore=scoreBuyerIntent(intentInput);
-    const {data:buyerIntent, error: buyerIntentError}=await supabase.from('buyer_intents').upsert({organization_id:orgId,source,external_ref:event.id ?? d.lead_id ?? d.external_id ?? null,buyer_name:d.name??d.customer_na[...]
-    if (buyerIntentError) {
-      console.error('Generic bridge buyer workflow write failed', { operation: 'buyer_intents.upsert', code: buyerIntentError.code });
-    }
-    await supabase.from('analytics_events').insert({organization_id:orgId,event_type:'acquisition_lead',source,entity_type:'lead',entity_id:leadId,amount:d.estimated_value??d.budget_max??null,cur[...]
+    const {data:buyerIntent}=await supabase.from('buyer_intents').upsert({organization_id:orgId,source,external_ref:event.id ?? d.lead_id ?? d.external_id ?? null,buyer_name:d.name??d.customer_name??null,phone,email,product_query:productQuery,category:intentInput.category,brand:intentInput.brand,model:intentInput.model,budget_min:intentInput.budget_min,budget_max:intentInput.budget_max,state:intentInput.state,city:intentInput.city,urgency:intentInput.urgency,consent_status:consent,intent_score:intentScore,status:matches.length?'matched':'qualified',assigned_to:assigneeId,lead_id:leadId,matched_products:matches,evidence:{integration_event_id:tracked.eventId,campaign_id:d.campaign_id??null,ad_id:d.ad_id??null,adset_id:d.adset_id??null,form_id:d.form_id??null}}, {onConflict:'organization_id,source,external_ref'}).select().maybeSingle();
+    await supabase.from('analytics_events').insert({organization_id:orgId,event_type:'acquisition_lead',source,entity_type:'lead',entity_id:leadId,amount:d.estimated_value??d.budget_max??null,currency:d.currency??'NGN',metadata:{campaign_id:d.campaign_id??null,ad_id:d.ad_id??null,adset_id:d.adset_id??null,form_id:d.form_id??null,platform:event.type}});
     let task:any=null;
     if (consent === 'opted_in') {
-      const {data:t, error: taskError}=await supabase.from('tasks').insert({organization_id:orgId,title:`Follow up ${source === 'facebook' ? 'Meta' : 'TikTok'} buyer: ${d.name ?? phone ?? email}`,description:`Buye[...]
-      if (taskError) {
-        console.error('Generic bridge buyer workflow write failed', { operation: 'tasks.insert', code: taskError.code });
-      }
+      const {data:t}=await supabase.from('tasks').insert({organization_id:orgId,title:`Follow up ${source === 'facebook' ? 'Meta' : 'TikTok'} buyer: ${d.name ?? phone ?? email}`,description:`Buyer asked about ${productQuery}.${matches[0]?` Top GadgetPoint match: ${matches[0].name}${matches[0].price?` — NGN ${matches[0].price}`:''}.`:''}`,department:'sales',priority:intentScore>=80?'high':'medium',status:assigneeId?'assigned':'open',assignee_id:assigneeId}).select().single(); task=t;
     }
     result={lead_id:leadId,buyer_intent:buyerIntent,product_matches:matches,assigned_to:assigneeId,task,source};
   }
 
   if (event.type === 'social.engagement' || event.type === 'campaign.attribution') {
     const source = String(d.platform ?? slug ?? 'social').toLowerCase();
-    const {data:analytics,error}=await supabase.from('analytics_events').insert({organization_id:orgId,event_type:event.type.replace('.','_'),source,entity_type:d.entity_type??'campaign',entity_i[...]
+    const {data:analytics,error}=await supabase.from('analytics_events').insert({organization_id:orgId,event_type:event.type.replace('.','_'),source,entity_type:d.entity_type??'campaign',entity_id:d.entity_id??d.campaign_id??null,amount:d.revenue??d.value??null,currency:d.currency??'NGN',metadata:{campaign_id:d.campaign_id??null,ad_id:d.ad_id??null,clicks:d.clicks??null,views:d.views??null,engagements:d.engagements??null,conversions:d.conversions??null,...(d.metadata??{})}}).select().single();
     if(error) return NextResponse.json({error:error.message},{status:400});
     result={analytics};
   }
