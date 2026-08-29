@@ -63,8 +63,10 @@ requireText('generic buyer workflow write observability', genericBridge, [
   "code: taskError.code",
 ]);
 
-if (genericBridge.includes("console.error('Generic bridge buyer workflow write failed', { operation:") && genericBridge.includes('message:')) {
-  failures.push('generic buyer workflow write observability must not log database error messages or buyer payload content');
+for (const forbidden of ['conversationError.message', 'buyerIntentError.message', 'taskError.message']) {
+  if (genericBridge.includes(forbidden)) {
+    failures.push(`generic buyer workflow write observability must not log database error messages: ${forbidden}`);
+  }
 }
 
 // The generic bridge still uses immediate event dedupe, so silently adding more unchecked
