@@ -19,6 +19,11 @@ requireText('shared bridge event recorder', bridge, [
   'EVENT_RETRY_AFTER_MS',
 ]);
 
+const organizationScopedDedupeReads = bridge.split(".eq('organization_id', opts.organizationId)").length - 1;
+if (organizationScopedDedupeReads < 2) {
+  failures.push('shared bridge event recorder: both existing-event and raced-event dedupe reads must be organization scoped');
+}
+
 requireText('commerce retryable event processing', commerce, [
   'deferProcessed: true',
   'tracked.inProgress',
