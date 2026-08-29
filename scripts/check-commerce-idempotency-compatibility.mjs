@@ -33,6 +33,10 @@ const compatibilityVectors = [
     seed: '33333333-3333-3333-3333-333333333333:44444444-4444-4444-4444-444444444444:awaiting_payment',
     expected: '505fe9c0-c551-5839-a324-e26132c042b9',
   },
+  {
+    seed: 'commerce-event-activity:55555555-5555-5555-5555-555555555555:payment.updated',
+    expected: '444c0d78-2fd2-524c-b0df-9a5ec57a8665',
+  },
 ];
 
 for (const vector of compatibilityVectors) {
