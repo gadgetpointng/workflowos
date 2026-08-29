@@ -65,6 +65,7 @@ requireText('generic buyer workflow write observability', genericBridge, [
   "operation: 'analytics_events.insert.vendor_sale'",
   "operation: 'analytics_events.insert.acquisition_lead'",
   "operation: 'commerce_signals.insert.order'",
+  "operation: 'growth_opportunities.insert.low_stock'",
   "code: conversationError.code",
   "code: buyerIntentError.code",
   "code: marketplaceBuyerIntentError.code",
@@ -76,6 +77,7 @@ requireText('generic buyer workflow write observability', genericBridge, [
   "code: vendorAnalyticsError.code",
   "code: acquisitionAnalyticsError.code",
   "code: orderSignalError.code",
+  "code: lowStockOpportunityError.code",
 ]);
 
 for (const forbidden of [
@@ -90,6 +92,7 @@ for (const forbidden of [
   'vendorAnalyticsError.message',
   'acquisitionAnalyticsError.message',
   'orderSignalError.message',
+  'lowStockOpportunityError.message',
 ]) {
   if (genericBridge.includes(forbidden)) {
     failures.push(`generic buyer workflow write observability must not log database error messages: ${forbidden}`);
@@ -108,6 +111,7 @@ for (const errorName of [
   'vendorAnalyticsError',
   'acquisitionAnalyticsError',
   'orderSignalError',
+  'lowStockOpportunityError',
 ]) {
   const postDedupeFailure = new RegExp(`return\\s+NextResponse\\.json\\(\\{\\s*error:\\s*${errorName}\\.code`);
   if (postDedupeFailure.test(genericBridge)) {
@@ -119,7 +123,7 @@ for (const errorName of [
 // database writes would increase the number of side effects that cannot recover on retry.
 // Freeze that legacy debt by table/operation while allowing future fixes to reduce it.
 const legacyUncheckedWriteBudget = new Map([
-  ['growth_opportunities:insert', 1],
+  ['growth_opportunities:insert', 0],
   ['commerce_signals:insert', 0],
   ['activity_logs:insert', 1],
   ['analytics_events:insert', 0],
