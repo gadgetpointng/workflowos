@@ -345,6 +345,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
   }
 
   const automations = await runAutomationsForBridgeEvent({ supabase, organizationId: orgId, source: slug, event, sourceEntityId: event.data?.id ? String(event.data.id) : null });
-  await supabase.from('external_integrations').update({ last_synced_at: new Date().toISOString(), status: 'connected' }).eq('id', integration.id).eq('organization_id', orgId);
+  const { error: integrationSyncError } = await supabase.from('external_integrations').update({ last_synced_at: new Date().toISOString(), status: 'connected' }).eq('id', integration.id).eq('organization_id', orgId);
+  if (integrationSyncError) console.error('Generic bridge sync write failed', { operation: 'external_integrations.update', code: integrationSyncError.code });
   return NextResponse.json({ ok: true, event_id: tracked.eventId, automations, ...result });
 }
