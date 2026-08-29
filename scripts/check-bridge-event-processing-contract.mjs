@@ -60,10 +60,11 @@ requireText('generic buyer workflow write observability', genericBridge, [
   "operation: 'tasks.insert'",
   "code: conversationError.code",
   "code: buyerIntentError.code",
+  "code: marketplaceBuyerIntentError.code",
   "code: taskError.code",
 ]);
 
-for (const forbidden of ['conversationError.message', 'buyerIntentError.message', 'taskError.message']) {
+for (const forbidden of ['conversationError.message', 'buyerIntentError.message', 'marketplaceBuyerIntentError.message', 'taskError.message']) {
   if (genericBridge.includes(forbidden)) {
     failures.push(`generic buyer workflow write observability must not log database error messages: ${forbidden}`);
   }
@@ -79,7 +80,7 @@ const legacyUncheckedWriteBudget = new Map([
   ['analytics_events:insert', 2],
   ['leads:update', 3],
   ['customer_conversations:insert', 0],
-  ['buyer_intents:upsert', 1],
+  ['buyer_intents:upsert', 0],
   ['tasks:insert', 0],
   ['external_integrations:update', 1],
 ]);
