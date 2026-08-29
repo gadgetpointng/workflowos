@@ -1,5 +1,11 @@
 import { canManage, requireUser } from '@/lib/auth';
-import { COMMAND_DISPATCH_RETRY_AFTER_MS, isCommandDispatchStale } from '@/lib/integrations/command-dispatch';
+import {
+  COMMAND_DISPATCH_RETRY_AFTER_MS,
+  COMMAND_DISPATCH_WARNING_ATTEMPT_COUNT,
+  COMMAND_DISPATCH_WARNING_STALE_MS,
+  isCommandDispatchStale,
+  needsCommandDeliveryAttention,
+} from '@/lib/integrations/command-dispatch';
 
 function formatAge(value?: string | null) {
   if (!value) return '—';
@@ -47,6 +53,10 @@ export default async function CommerceCommandDeliveryStatus() {
     .filter(Boolean)
     .sort((a: string, b: string) => String(a).localeCompare(String(b)))[0] ?? null;
   const retryMinutes = COMMAND_DISPATCH_RETRY_AFTER_MS / 60000;
+  const warningStaleMinutes = COMMAND_DISPATCH_WARNING_STALE_MS / 60000;
+  const needsAttention = commands.some((command: any) =>
+    needsCommandDeliveryAttention(Number(command.attempt_count ?? 0), command.dispatched_at, now),
+  );
 
   return (
     <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
@@ -58,10 +68,16 @@ export default async function CommerceCommandDeliveryStatus() {
             Read-only delivery telemetry for this workspace. Stale commands become eligible for safe re-dispatch after {retryMinutes} minutes.
           </p>
         </div>
-        <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${stale.length > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
-          {stale.length > 0 ? `${stale.length} retrying` : 'Healthy'}
+        <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${needsAttention ? 'bg-rose-50 text-rose-700' : stale.length > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+          {needsAttention ? 'Needs attention' : stale.length > 0 ? `${stale.length} retrying` : 'Healthy'}
         </span>
       </div>
+
+      {needsAttention ? (
+        <div className="border-b border-rose-100 bg-rose-50/70 px-5 py-3 text-xs font-semibold text-rose-800 sm:px-6">
+          Delivery has crossed the manager warning threshold: at least {COMMAND_DISPATCH_WARNING_ATTEMPT_COUNT} attempts or a dispatch age over {warningStaleMinutes} minutes. Recovery remains automatic; no retry cap or command mutation is applied here.
+        </div>
+      ) : null}
 
       <div className="grid gap-px bg-slate-100 sm:grid-cols-2 xl:grid-cols-4">
         {[
