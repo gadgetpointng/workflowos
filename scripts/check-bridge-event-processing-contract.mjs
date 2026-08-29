@@ -62,6 +62,8 @@ requireText('generic buyer workflow write observability', genericBridge, [
   "operation: 'leads.update.whatsapp_assignment'",
   "operation: 'leads.update.acquisition_refresh'",
   "operation: 'external_integrations.update'",
+  "operation: 'analytics_events.insert.vendor_sale'",
+  "operation: 'analytics_events.insert.acquisition_lead'",
   "code: conversationError.code",
   "code: buyerIntentError.code",
   "code: marketplaceBuyerIntentError.code",
@@ -70,6 +72,8 @@ requireText('generic buyer workflow write observability', genericBridge, [
   "code: leadAssignmentError.code",
   "code: acquisitionLeadUpdateError.code",
   "code: integrationSyncError.code",
+  "code: vendorAnalyticsError.code",
+  "code: acquisitionAnalyticsError.code",
 ]);
 
 for (const forbidden of [
@@ -81,6 +85,8 @@ for (const forbidden of [
   'leadAssignmentError.message',
   'acquisitionLeadUpdateError.message',
   'integrationSyncError.message',
+  'vendorAnalyticsError.message',
+  'acquisitionAnalyticsError.message',
 ]) {
   if (genericBridge.includes(forbidden)) {
     failures.push(`generic buyer workflow write observability must not log database error messages: ${forbidden}`);
@@ -96,6 +102,8 @@ for (const errorName of [
   'leadAssignmentError',
   'acquisitionLeadUpdateError',
   'integrationSyncError',
+  'vendorAnalyticsError',
+  'acquisitionAnalyticsError',
 ]) {
   const postDedupeFailure = new RegExp(`return\\s+NextResponse\\.json\\(\\{\\s*error:\\s*${errorName}\\.code`);
   if (postDedupeFailure.test(genericBridge)) {
@@ -110,7 +118,7 @@ const legacyUncheckedWriteBudget = new Map([
   ['growth_opportunities:insert', 1],
   ['commerce_signals:insert', 1],
   ['activity_logs:insert', 1],
-  ['analytics_events:insert', 2],
+  ['analytics_events:insert', 0],
   ['leads:update', 0],
   ['customer_conversations:insert', 0],
   ['buyer_intents:upsert', 0],
