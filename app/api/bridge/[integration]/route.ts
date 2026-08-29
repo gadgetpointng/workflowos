@@ -181,7 +181,10 @@ export async function POST(request: Request, context: { params: Promise<{ integr
         });
         if (intelligence) result = { ...result, storefront_intelligence: intelligence };
       } catch (intelligenceError: any) {
-        await supabase.from('activity_logs').insert({
+        const intelligenceFailureCode = typeof intelligenceError?.code === 'string' && intelligenceError.code
+          ? intelligenceError.code
+          : 'storefront_intelligence_failed';
+        const { error: storefrontIntelligenceActivityError } = await supabase.from('activity_logs').insert({
           organization_id: orgId,
           actor_id: null,
           action: 'storefront.intelligence.failed',
@@ -190,9 +193,10 @@ export async function POST(request: Request, context: { params: Promise<{ integr
           metadata: {
             event_type: event.type,
             source: slug,
-            error: intelligenceError?.message ?? 'Storefront intelligence failed',
+            error_code: intelligenceFailureCode,
           },
         });
+        if (storefrontIntelligenceActivityError) console.error('Generic bridge activity log write failed', { operation: 'activity_logs.insert.storefront_intelligence_failure', code: storefrontIntelligenceActivityError.code });
       }
     }
 
