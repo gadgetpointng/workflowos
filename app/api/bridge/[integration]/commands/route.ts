@@ -2,8 +2,7 @@ import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { authenticateBridge } from '@/lib/integrations/bridge';
 import { canReceiveCommands } from '@/lib/integrations/capabilities';
-
-const COMMAND_DISPATCH_RETRY_AFTER_MS = 15 * 60 * 1000;
+import { COMMAND_DISPATCH_RETRY_AFTER_MS } from '@/lib/integrations/command-dispatch';
 
 function deterministicUuid(seed: string) {
   const chars = crypto.createHash('sha256').update(seed).digest('hex').slice(0, 32).split('');
