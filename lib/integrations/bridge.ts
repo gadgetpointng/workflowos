@@ -88,6 +88,7 @@ export async function recordIntegrationEvent(opts: {
   integrationId: string;
   source: string;
   event: BridgeEvent;
+  deferProcessed?: boolean;
 }) {
   const externalId = opts.event.id ?? null;
   if (externalId) {
@@ -99,7 +100,9 @@ export async function recordIntegrationEvent(opts: {
       .maybeSingle();
     if (existingError) throw existingError;
     if (existing) {
-      if (existing.processed_at) return { duplicate: true, inProgress: false, retry: false, eventId: existing.id };
+      if (!opts.deferProcessed || existing.processed_at) {
+        return { duplicate: true, inProgress: false, retry: false, eventId: existing.id };
+      }
       const createdAt = Date.parse(String(existing.created_at || ''));
       const inProgress = Number.isFinite(createdAt) && Date.now() - createdAt < EVENT_RETRY_AFTER_MS;
       return { duplicate: false, inProgress, retry: !inProgress, eventId: existing.id };
@@ -115,7 +118,7 @@ export async function recordIntegrationEvent(opts: {
     entity_type: opts.event.type.split('.')[0] ?? null,
     entity_id: opts.event.data?.id ? String(opts.event.data.id) : null,
     payload: opts.event,
-    processed_at: null,
+    processed_at: opts.deferProcessed ? null : new Date().toISOString(),
   }).select('id').single();
 
   if (error && externalId && error.code === '23505') {
@@ -127,9 +130,10 @@ export async function recordIntegrationEvent(opts: {
       .maybeSingle();
     if (racedError) throw racedError;
     if (raced) {
-      return raced.processed_at
-        ? { duplicate: true, inProgress: false, retry: false, eventId: raced.id }
-        : { duplicate: false, inProgress: true, retry: false, eventId: raced.id };
+      if (!opts.deferProcessed || raced.processed_at) {
+        return { duplicate: true, inProgress: false, retry: false, eventId: raced.id };
+      }
+      return { duplicate: false, inProgress: true, retry: false, eventId: raced.id };
     }
   }
 
