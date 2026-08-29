@@ -41,7 +41,17 @@ export default async function CommerceCommandDeliveryStatus() {
     );
   }
 
+  const { data: activity, error: activityError } = await supabase
+    .from('activity_logs')
+    .select('action,created_at')
+    .eq('organization_id', profile.organization_id)
+    .in('action', ['commerce.order_request_acknowledged', 'commerce.order_request_failed'])
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (activityError) console.error('Could not load commerce delivery outcome history', activityError);
+
   const commands = data ?? [];
+  const recentActivity = activityError ? [] : (activity ?? []);
   const now = Date.now();
   const ready = commands.filter((command: any) => command.status === 'approved');
   const dispatched = commands.filter((command: any) => command.status === 'dispatched');
@@ -57,6 +67,9 @@ export default async function CommerceCommandDeliveryStatus() {
   const needsAttention = commands.some((command: any) =>
     needsCommandDeliveryAttention(Number(command.attempt_count ?? 0), command.dispatched_at, now),
   );
+  const acknowledgedRecently = recentActivity.filter((entry: any) => entry.action === 'commerce.order_request_acknowledged').length;
+  const failedRecently = recentActivity.filter((entry: any) => entry.action === 'commerce.order_request_failed').length;
+  const latestOutcomeAt = recentActivity[0]?.created_at ?? null;
 
   return (
     <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
@@ -92,6 +105,20 @@ export default async function CommerceCommandDeliveryStatus() {
             <div className="mt-1 text-xs font-medium text-slate-500">{note}</div>
           </div>
         ))}
+      </div>
+
+      <div className="border-t border-slate-100 px-5 py-4 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">Recent delivery outcomes</div>
+            <p className="mt-1 text-xs font-medium text-slate-500">Privacy-safe summary of the latest 20 commerce command outcomes in this workspace.</p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase">
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">Acknowledged {acknowledgedRecently}</span>
+            <span className="rounded-full bg-rose-50 px-3 py-1 text-rose-700">Failed {failedRecently}</span>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">Latest {formatAge(latestOutcomeAt)} ago</span>
+          </div>
+        </div>
       </div>
     </section>
   );
