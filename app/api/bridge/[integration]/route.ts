@@ -261,7 +261,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });
       leadId = lead.id;
     }
-    const { data: conversation } = await supabase.from('customer_conversations').insert({
+    const { data: conversation, error: conversationError } = await supabase.from('customer_conversations').insert({
       organization_id: orgId,
       integration_id: integration.id,
       channel: 'whatsapp',
@@ -276,13 +276,15 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       status: 'open',
       metadata: d.metadata ?? {}
     }).select().single();
+    if (conversationError) console.error('Generic bridge buyer workflow write failed', { operation: 'customer_conversations.insert', code: conversationError.code });
     const assigneeId = await recommendSalesAssignee(supabase, orgId);
     if (assigneeId && leadId) await supabase.from('leads').update({assigned_to:assigneeId}).eq('id',leadId).eq('organization_id', orgId);
     const productQuery=d.product_interest ?? d.message ?? 'WhatsApp product inquiry';
     const intentInput:any={product_query:productQuery,category:d.category??null,brand:d.brand??null,model:d.model??null,budget_min:d.budget_min??null,budget_max:d.budget_max??null,state:d.state??null,city:d.city??null,urgency:d.urgent?'high':(d.urgency??'normal'),source:'whatsapp',consent_status:'opted_in'};
     const products=await connectedProductsFor(supabase,orgId); const matches=matchProducts(intentInput,products); const intentScore=scoreBuyerIntent(intentInput);
-    const { data:buyerIntent } = await supabase.from('buyer_intents').upsert({organization_id:orgId,source:'whatsapp',external_ref:event.id ?? d.message_id ?? d.conversation_id ?? null,buyer_name:d.name??null,phone,email:d.email??null,product_query:productQuery,category:intentInput.category,brand:intentInput.brand,model:intentInput.model,budget_min:intentInput.budget_min,budget_max:intentInput.budget_max,state:intentInput.state,city:intentInput.city,urgency:intentInput.urgency,consent_status:'opted_in',intent_score:intentScore,status:matches.length?'matched':'qualified',assigned_to:assigneeId,lead_id:leadId,matched_products:matches,evidence:{integration_event_id:tracked.eventId,message:d.message??null}}, {onConflict:'organization_id,source,external_ref'}).select().maybeSingle();
-    const { data: task } = await supabase.from('tasks').insert({
+    const { data:buyerIntent, error:buyerIntentError } = await supabase.from('buyer_intents').upsert({organization_id:orgId,source:'whatsapp',external_ref:event.id ?? d.message_id ?? d.conversation_id ?? null,buyer_name:d.name??null,phone,email:d.email??null,product_query:productQuery,category:intentInput.category,brand:intentInput.brand,model:intentInput.model,budget_min:intentInput.budget_min,budget_max:intentInput.budget_max,state:intentInput.state,city:intentInput.city,urgency:intentInput.urgency,consent_status:'opted_in',intent_score:intentScore,status:matches.length?'matched':'qualified',assigned_to:assigneeId,lead_id:leadId,matched_products:matches,evidence:{integration_event_id:tracked.eventId,message:d.message??null}}, {onConflict:'organization_id,source,external_ref'}).select().maybeSingle();
+    if (buyerIntentError) console.error('Generic bridge buyer workflow write failed', { operation: 'buyer_intents.upsert', code: buyerIntentError.code });
+    const { data: task, error: taskError } = await supabase.from('tasks').insert({
       organization_id: orgId,
       title: `Follow up WhatsApp lead: ${d.name ?? phone}`,
       description: `${d.message ?? `Customer inquiry${d.product_interest ? ` about ${d.product_interest}` : ''}.`}${matches[0]?`\nTop product match: ${matches[0].name}${matches[0].price?` — NGN ${matches[0].price}`:''}`:''}`,
@@ -291,6 +293,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       status: assigneeId ? 'assigned' : 'open',
       assignee_id: assigneeId
     }).select().single();
+    if (taskError) console.error('Generic bridge buyer workflow write failed', { operation: 'tasks.insert', code: taskError.code });
     result = { lead_id: leadId, buyer_intent:buyerIntent, product_matches:matches, assigned_to:assigneeId, conversation, task };
   }
 
@@ -317,11 +320,14 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     }
     const intentInput:any={product_query:productQuery,category:d.category??null,brand:d.brand??null,model:d.model??null,budget_min:d.budget_min??null,budget_max:d.budget_max??d.estimated_value??null,state:d.state??null,city:d.city??null,urgency:d.urgency??'normal',source,consent_status:consent};
     const products=await connectedProductsFor(supabase,orgId); const matches=matchProducts(intentInput,products); const intentScore=scoreBuyerIntent(intentInput);
-    const {data:buyerIntent}=await supabase.from('buyer_intents').upsert({organization_id:orgId,source,external_ref:event.id ?? d.lead_id ?? d.external_id ?? null,buyer_name:d.name??d.customer_name??null,phone,email,product_query:productQuery,category:intentInput.category,brand:intentInput.brand,model:intentInput.model,budget_min:intentInput.budget_min,budget_max:intentInput.budget_max,state:intentInput.state,city:intentInput.city,urgency:intentInput.urgency,consent_status:consent,intent_score:intentScore,status:matches.length?'matched':'qualified',assigned_to:assigneeId,lead_id:leadId,matched_products:matches,evidence:{integration_event_id:tracked.eventId,campaign_id:d.campaign_id??null,ad_id:d.ad_id??null,adset_id:d.adset_id??null,form_id:d.form_id??null}}, {onConflict:'organization_id,source,external_ref'}).select().maybeSingle();
+    const {data:buyerIntent,error:buyerIntentError}=await supabase.from('buyer_intents').upsert({organization_id:orgId,source,external_ref:event.id ?? d.lead_id ?? d.external_id ?? null,buyer_name:d.name??d.customer_name??null,phone,email,product_query:productQuery,category:intentInput.category,brand:intentInput.brand,model:intentInput.model,budget_min:intentInput.budget_min,budget_max:intentInput.budget_max,state:intentInput.state,city:intentInput.city,urgency:intentInput.urgency,consent_status:consent,intent_score:intentScore,status:matches.length?'matched':'qualified',assigned_to:assigneeId,lead_id:leadId,matched_products:matches,evidence:{integration_event_id:tracked.eventId,campaign_id:d.campaign_id??null,ad_id:d.ad_id??null,adset_id:d.adset_id??null,form_id:d.form_id??null}}, {onConflict:'organization_id,source,external_ref'}).select().maybeSingle();
+    if (buyerIntentError) console.error('Generic bridge buyer workflow write failed', { operation: 'buyer_intents.upsert', code: buyerIntentError.code });
     await supabase.from('analytics_events').insert({organization_id:orgId,event_type:'acquisition_lead',source,entity_type:'lead',entity_id:leadId,amount:d.estimated_value??d.budget_max??null,currency:d.currency??'NGN',metadata:{campaign_id:d.campaign_id??null,ad_id:d.ad_id??null,adset_id:d.adset_id??null,form_id:d.form_id??null,platform:event.type}});
     let task:any=null;
     if (consent === 'opted_in') {
-      const {data:t}=await supabase.from('tasks').insert({organization_id:orgId,title:`Follow up ${source === 'facebook' ? 'Meta' : 'TikTok'} buyer: ${d.name ?? phone ?? email}`,description:`Buyer asked about ${productQuery}.${matches[0]?` Top GadgetPoint match: ${matches[0].name}${matches[0].price?` — NGN ${matches[0].price}`:''}.`:''}`,department:'sales',priority:intentScore>=80?'high':'medium',status:assigneeId?'assigned':'open',assignee_id:assigneeId}).select().single(); task=t;
+      const {data:t,error:taskError}=await supabase.from('tasks').insert({organization_id:orgId,title:`Follow up ${source === 'facebook' ? 'Meta' : 'TikTok'} buyer: ${d.name ?? phone ?? email}`,description:`Buyer asked about ${productQuery}.${matches[0]?` Top GadgetPoint match: ${matches[0].name}${matches[0].price?` — NGN ${matches[0].price}`:''}.`:''}`,department:'sales',priority:intentScore>=80?'high':'medium',status:assigneeId?'assigned':'open',assignee_id:assigneeId}).select().single();
+      if (taskError) console.error('Generic bridge buyer workflow write failed', { operation: 'tasks.insert', code: taskError.code });
+      task=t;
     }
     result={lead_id:leadId,buyer_intent:buyerIntent,product_matches:matches,assigned_to:assigneeId,task,source};
   }
