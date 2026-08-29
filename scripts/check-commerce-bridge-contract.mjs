@@ -40,7 +40,7 @@ requireText('commands route', commands, [
 ]);
 
 requireText('commands dispatch retry contract', commands, [
-  'const COMMAND_DISPATCH_RETRY_AFTER_MS = 15 * 60 * 1000',
+  "import { COMMAND_DISPATCH_RETRY_AFTER_MS } from '@/lib/integrations/command-dispatch'",
   'const staleBefore = new Date(Date.now() - COMMAND_DISPATCH_RETRY_AFTER_MS).toISOString()',
   ".eq('status', 'dispatched')",
   ".lt('dispatched_at', staleBefore)",
