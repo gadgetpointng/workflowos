@@ -277,7 +277,16 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       status: 'open',
       metadata: d.metadata ?? {}
     }).select().single();
-    if (conversationError) console.error('Generic bridge buyer workflow write failed', { operation: 'customer_conversations.insert', code: conversationError.code });
+    if (conversationError) {
+      console.error('Generic bridge buyer workflow write failed', {
+        operation: 'customer_conversations.insert',
+        code: conversationError.code
+      });
+      return NextResponse.json(
+        { error: 'Customer conversation could not be created', retry: true },
+        { status: 500 }
+      );
+    }
     const assigneeId = await recommendSalesAssignee(supabase, orgId);
     if (assigneeId && leadId) {
       const { error: leadAssignmentError } = await supabase.from('leads').update({assigned_to:assigneeId}).eq('id',leadId).eq('organization_id', orgId);
