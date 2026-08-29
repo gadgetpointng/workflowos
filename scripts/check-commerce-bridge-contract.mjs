@@ -19,6 +19,7 @@ const commands = read('app/api/bridge/[integration]/commands/route.ts');
 const commerce = read('app/api/bridge/[integration]/commerce/route.ts');
 const bridge = read('lib/integrations/bridge.ts');
 const commerceWorkflow = read('lib/integrations/commerce-workflow.ts');
+const idempotency = read('lib/integrations/idempotency.ts');
 const quotes = read('app/api/quotes/[id]/route.ts');
 const docs = read('docs/GADGETPOINT_COMMERCE_BRIDGE.md');
 
@@ -53,7 +54,16 @@ requireText('commands dispatch retry contract', commands, [
   "{ error: 'Could not dispatch integration commands', retry: true }",
 ]);
 
+requireText('shared deterministic id contract', idempotency, [
+  "import crypto from 'crypto'",
+  'export function deterministicUuid(seed: string)',
+  "crypto.createHash('sha256').update(seed).digest('hex').slice(0, 32).split('')",
+  "chars[12] = '5'",
+  "chars[16] = ((Number.parseInt(chars[16], 16) & 0x3) | 0x8).toString(16)",
+]);
+
 requireText('commands acknowledgement retry contract', commands, [
+  "import { deterministicUuid } from '@/lib/integrations/idempotency'",
   "select('id,command_type,target_entity_type,target_entity_id,payload,status,updated_at')",
   "command.status !== 'dispatched' && command.status !== body.status",
   "Command status conflicts with this acknowledgement",
@@ -87,6 +97,11 @@ forbidText('commands route ignored side-effect errors', commands, [
   "\n      await auth.supabase.from('buyer_intents').update({",
   "\n        await auth.supabase.from('notifications').insert({",
   "\n    await auth.supabase.from('activity_logs').insert({",
+]);
+
+forbidText('commands route local deterministic id implementation', commands, [
+  "import crypto from 'crypto'",
+  'function deterministicUuid(seed: string)',
 ]);
 
 requireText('commerce route', commerce, [
@@ -128,10 +143,8 @@ requireText('commerce workflow fail-closed database handling', commerceWorkflow,
 ]);
 
 requireText('commerce workflow notification idempotency', commerceWorkflow, [
-  "import crypto from 'crypto'",
-  'function notificationId(eventId: string, intentId: string, stage: string)',
-  "crypto.createHash('sha256').update(`${eventId}:${intentId}:${stage}`)",
-  'id: notificationId(eventId, intent.id, stage)',
+  "import { deterministicUuid } from '@/lib/integrations/idempotency'",
+  'id: deterministicUuid(`${eventId}:${intent.id}:${stage}`)',
   'commerce_stage_event_id: eventId',
   "const retryingSameStageEvent = previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId",
   'if (stage !== previousStage || retryingSameStageEvent) await notifyStage(supabase, organizationId, intent, stage, eventId)',
@@ -143,6 +156,12 @@ forbidText('commerce workflow ignored database errors', commerceWorkflow, [
   "const { data: intents } = await supabase.from('buyer_intents')",
   "\n  await supabase.from('notifications').insert({",
   "\n    await supabase.from('buyer_intents').update(update).eq('id', intent.id);",
+]);
+
+forbidText('commerce workflow local deterministic id implementation', commerceWorkflow, [
+  "import crypto from 'crypto'",
+  'function notificationId(eventId: string, intentId: string, stage: string)',
+  "crypto.createHash('sha256')",
 ]);
 
 const dispatchStaleLoad = commands.indexOf(".eq('status', 'dispatched')");
@@ -178,7 +197,7 @@ if (pendingInsert === -1 || processedUpdate === -1 || pendingInsert > processedU
 }
 
 const notificationInsert = commerceWorkflow.indexOf("const { error } = await supabase.from('notifications').insert({");
-const deterministicNotificationId = commerceWorkflow.indexOf('id: notificationId(eventId, intent.id, stage)');
+const deterministicNotificationId = commerceWorkflow.indexOf('id: deterministicUuid(`${eventId}:${intent.id}:${stage}`)');
 const duplicateNotificationHandling = commerceWorkflow.indexOf("error.code !== '23505'");
 if (notificationInsert === -1 || deterministicNotificationId === -1 || duplicateNotificationHandling === -1 || deterministicNotificationId < notificationInsert || duplicateNotificationHandling < notificationInsert) {
   failures.push('commerce workflow: stage notifications must use deterministic event-scoped ids and tolerate duplicate-key retries');
