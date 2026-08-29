@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import StaffAdminChat from '@/components/StaffAdminChat';
 
 type Staff = { id: string; full_name?: string | null; email?: string | null; role?: string | null };
 type Controls = { teamFeed: boolean; privateMessages: boolean };
@@ -60,9 +61,7 @@ export default function FloatingMessenger({ owner }: { owner: boolean }) {
     }
   }
 
-  if (!owner) {
-    return <Link href="/inbox" aria-label="Open messages" title="Messages" className="fixed bottom-[5.9rem] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#2377ff] text-xl text-white shadow-[0_10px_28px_rgba(35,119,255,.3)] transition hover:bg-[#1767e8] lg:bottom-6 lg:right-7">✉</Link>;
-  }
+  if (!owner) return <StaffAdminChat />;
 
   return <>
     {open && <button aria-label="Close messenger" className="fixed inset-0 z-[54] bg-[#08111f]/20" onClick={() => setOpen(false)} />}
