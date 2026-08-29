@@ -129,6 +129,10 @@ requireText('commerce route', commerce, [
   "{ error: 'Commerce event processing failed', retry: true",
 ]);
 
+requireText('commerce integration sync organization boundary', commerce, [
+  ".eq('id', auth.integration.id)\n      .eq('organization_id', auth.integration.organization_id)",
+]);
+
 requireText('bridge event retry contract', bridge, [
   'EVENT_RETRY_AFTER_MS',
   ".select('id,processed_at,created_at')",
