@@ -245,7 +245,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
         notes: d.message ?? undefined,
         customer_id: customer?.id ?? undefined,
         updated_at: new Date().toISOString()
-      }).eq('id', leadId);
+      }).eq('id', leadId).eq('organization_id', orgId);
     } else {
       const { data: lead, error } = await supabase.from('leads').insert({
         organization_id: orgId,
@@ -277,7 +277,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       metadata: d.metadata ?? {}
     }).select().single();
     const assigneeId = await recommendSalesAssignee(supabase, orgId);
-    if (assigneeId && leadId) await supabase.from('leads').update({assigned_to:assigneeId}).eq('id',leadId);
+    if (assigneeId && leadId) await supabase.from('leads').update({assigned_to:assigneeId}).eq('id',leadId).eq('organization_id', orgId);
     const productQuery=d.product_interest ?? d.message ?? 'WhatsApp product inquiry';
     const intentInput:any={product_query:productQuery,category:d.category??null,brand:d.brand??null,model:d.model??null,budget_min:d.budget_min??null,budget_max:d.budget_max??null,state:d.state??null,city:d.city??null,urgency:d.urgent?'high':(d.urgency??'normal'),source:'whatsapp',consent_status:'opted_in'};
     const products=await connectedProductsFor(supabase,orgId); const matches=matchProducts(intentInput,products); const intentScore=scoreBuyerIntent(intentInput);
@@ -309,7 +309,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     const assigneeId = await recommendSalesAssignee(supabase, orgId);
     let leadId=existing?.id ?? null;
     if (leadId) {
-      await supabase.from('leads').update({name:d.name ?? d.customer_name ?? undefined,phone:phone ?? undefined,email:email ?? undefined,source,product_interest:productQuery,status:'new',assigned_to:assigneeId ?? undefined,customer_id:customer?.id ?? undefined,notes:d.message ?? d.form_answer ?? undefined,updated_at:new Date().toISOString()}).eq('id',leadId);
+      await supabase.from('leads').update({name:d.name ?? d.customer_name ?? undefined,phone:phone ?? undefined,email:email ?? undefined,source,product_interest:productQuery,status:'new',assigned_to:assigneeId ?? undefined,customer_id:customer?.id ?? undefined,notes:d.message ?? d.form_answer ?? undefined,updated_at:new Date().toISOString()}).eq('id',leadId).eq('organization_id',orgId);
     } else {
       const {data:lead,error}=await supabase.from('leads').insert({organization_id:orgId,name:d.name ?? d.customer_name ?? phone ?? email ?? `${source} lead`,phone,email,source,product_interest:productQuery,status:'new',assigned_to:assigneeId,customer_id:customer?.id ?? null,notes:d.message ?? d.form_answer ?? null}).select().single();
       if(error) return NextResponse.json({error:error.message},{status:400});
@@ -334,6 +334,6 @@ export async function POST(request: Request, context: { params: Promise<{ integr
   }
 
   const automations = await runAutomationsForBridgeEvent({ supabase, organizationId: orgId, source: slug, event, sourceEntityId: event.data?.id ? String(event.data.id) : null });
-  await supabase.from('external_integrations').update({ last_synced_at: new Date().toISOString(), status: 'connected' }).eq('id', integration.id);
+  await supabase.from('external_integrations').update({ last_synced_at: new Date().toISOString(), status: 'connected' }).eq('id', integration.id).eq('organization_id', orgId);
   return NextResponse.json({ ok: true, event_id: tracked.eventId, automations, ...result });
 }
