@@ -117,7 +117,6 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       });
     }
   }
-
   if (event.type === 'order.created' || event.type === 'order.updated') {
     if (!d.id) return NextResponse.json({ error: `${event.type} requires data.id` }, { status: 400 });
     const customer = await resolveCustomer(supabase, orgId, { name:d.customer_name ?? d.customer?.name ?? null, email:d.customer_email ?? d.customer?.email ?? null, phone:d.customer_phone ?? d.customer?.phone ?? null, source:d.channel ?? slug, lifecycle:'customer' });
@@ -238,7 +237,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     const { data: existing } = await supabase.from('leads').select('id').eq('organization_id', orgId).eq('phone', phone).maybeSingle();
     let leadId = existing?.id;
     if (leadId) {
-      await supabase.from('leads').update({
+      const { error: leadRefreshError } = await supabase.from('leads').update({
         name: d.name ?? undefined,
         product_interest: d.product_interest ?? undefined,
         source: 'whatsapp',
@@ -247,6 +246,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
         customer_id: customer?.id ?? undefined,
         updated_at: new Date().toISOString()
       }).eq('id', leadId).eq('organization_id', orgId);
+      if (leadRefreshError) console.error('Generic bridge buyer workflow write failed', { operation: 'leads.update.whatsapp_refresh', code: leadRefreshError.code });
     } else {
       const { data: lead, error } = await supabase.from('leads').insert({
         organization_id: orgId,
@@ -279,7 +279,10 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     }).select().single();
     if (conversationError) console.error('Generic bridge buyer workflow write failed', { operation: 'customer_conversations.insert', code: conversationError.code });
     const assigneeId = await recommendSalesAssignee(supabase, orgId);
-    if (assigneeId && leadId) await supabase.from('leads').update({assigned_to:assigneeId}).eq('id',leadId).eq('organization_id', orgId);
+    if (assigneeId && leadId) {
+      const { error: leadAssignmentError } = await supabase.from('leads').update({assigned_to:assigneeId}).eq('id',leadId).eq('organization_id', orgId);
+      if (leadAssignmentError) console.error('Generic bridge buyer workflow write failed', { operation: 'leads.update.whatsapp_assignment', code: leadAssignmentError.code });
+    }
     const productQuery=d.product_interest ?? d.message ?? 'WhatsApp product inquiry';
     const intentInput:any={product_query:productQuery,category:d.category??null,brand:d.brand??null,model:d.model??null,budget_min:d.budget_min??null,budget_max:d.budget_max??null,state:d.state??null,city:d.city??null,urgency:d.urgent?'high':(d.urgency??'normal'),source:'whatsapp',consent_status:'opted_in'};
     const products=await connectedProductsFor(supabase,orgId); const matches=matchProducts(intentInput,products); const intentScore=scoreBuyerIntent(intentInput);
@@ -313,7 +316,8 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     const assigneeId = await recommendSalesAssignee(supabase, orgId);
     let leadId=existing?.id ?? null;
     if (leadId) {
-      await supabase.from('leads').update({name:d.name ?? d.customer_name ?? undefined,phone:phone ?? undefined,email:email ?? undefined,source,product_interest:productQuery,status:'new',assigned_to:assigneeId ?? undefined,customer_id:customer?.id ?? undefined,notes:d.message ?? d.form_answer ?? undefined,updated_at:new Date().toISOString()}).eq('id',leadId).eq('organization_id',orgId);
+      const { error: acquisitionLeadUpdateError } = await supabase.from('leads').update({name:d.name ?? d.customer_name ?? undefined,phone:phone ?? undefined,email:email ?? undefined,source,product_interest:productQuery,status:'new',assigned_to:assigneeId ?? undefined,customer_id:customer?.id ?? undefined,notes:d.message ?? d.form_answer ?? undefined,updated_at:new Date().toISOString()}).eq('id',leadId).eq('organization_id',orgId);
+      if (acquisitionLeadUpdateError) console.error('Generic bridge buyer workflow write failed', { operation: 'leads.update.acquisition_refresh', code: acquisitionLeadUpdateError.code });
     } else {
       const {data:lead,error}=await supabase.from('leads').insert({organization_id:orgId,name:d.name ?? d.customer_name ?? phone ?? email ?? `${source} lead`,phone,email,source,product_interest:productQuery,status:'new',assigned_to:assigneeId,customer_id:customer?.id ?? null,notes:d.message ?? d.form_answer ?? null}).select().single();
       if(error) return NextResponse.json({error:error.message},{status:400});
