@@ -20,13 +20,16 @@ const policy = read('lib/integrations/command-dispatch.ts');
 const status = read('components/CommerceCommandDeliveryStatus.tsx');
 const section = read('components/GadgetPointStaffAccessStatusSection.tsx');
 
-const routeRetry = route.match(/COMMAND_DISPATCH_RETRY_AFTER_MS\s*=\s*([^;]+);/)?.[1]?.replace(/\s+/g, '');
-const policyRetry = policy.match(/COMMAND_DISPATCH_RETRY_AFTER_MS\s*=\s*([^;]+);/)?.[1]?.replace(/\s+/g, '');
-if (!routeRetry || !policyRetry || routeRetry !== policyRetry) {
-  failures.push('commerce observability: UI stale-window policy must match the command dispatch retry window');
-}
+requireText('commerce command dispatch shared policy', route, [
+  "import { COMMAND_DISPATCH_RETRY_AFTER_MS } from '@/lib/integrations/command-dispatch'",
+  'Date.now() - COMMAND_DISPATCH_RETRY_AFTER_MS',
+]);
+forbidText('commerce command dispatch shared policy', route, [
+  'const COMMAND_DISPATCH_RETRY_AFTER_MS =',
+]);
 
 requireText('commerce command delivery policy', policy, [
+  'COMMAND_DISPATCH_RETRY_AFTER_MS = 15 * 60 * 1000',
   'COMMAND_DISPATCH_WARNING_STALE_MS = 60 * 60 * 1000',
   'COMMAND_DISPATCH_WARNING_ATTEMPT_COUNT = 3',
   'needsCommandDeliveryAttention',
