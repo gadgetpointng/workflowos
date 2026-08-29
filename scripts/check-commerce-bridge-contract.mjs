@@ -119,6 +119,7 @@ requireText('commerce route', commerce, [
   "Commerce events require a stable event id for idempotency",
   "event.id = eventId",
   "recordIntegrationEvent",
+  "deferProcessed: true",
   "tracked.duplicate",
   "tracked.inProgress",
   "Commerce event is already processing",
@@ -135,8 +136,9 @@ requireText('commerce integration sync organization boundary', commerce, [
 
 requireText('bridge event retry contract', bridge, [
   'EVENT_RETRY_AFTER_MS',
+  'deferProcessed?: boolean',
   ".select('id,processed_at,created_at')",
-  'processed_at: null',
+  "processed_at: opts.deferProcessed ? null : new Date().toISOString()",
   "error.code === '23505'",
   'markIntegrationEventProcessed',
   '.update({ processed_at: new Date().toISOString() })',
@@ -199,19 +201,20 @@ if (commandLease === -1 || commandEffects === -1 || commandFinalize === -1 || co
 
 const eventIdValidation = commerce.indexOf("const eventId = String(event.id || '').trim()");
 const eventRecording = commerce.indexOf('tracked = await recordIntegrationEvent');
+const deferredCommerce = commerce.indexOf('deferProcessed: true');
 const workflowAdvance = commerce.indexOf("const workflow = event.type === 'payment.updated'");
 const eventFinalize = commerce.indexOf('await markIntegrationEventProcessed');
 if (eventIdValidation === -1 || eventRecording === -1 || eventIdValidation > eventRecording) {
   failures.push('commerce route: stable event id validation must happen before integration event recording');
 }
-if (workflowAdvance === -1 || eventFinalize === -1 || workflowAdvance > eventFinalize) {
-  failures.push('commerce route: event must only be marked processed after workflow advancement');
+if (eventRecording === -1 || deferredCommerce === -1 || workflowAdvance === -1 || eventFinalize === -1 || eventRecording > deferredCommerce || deferredCommerce > workflowAdvance || workflowAdvance > eventFinalize) {
+  failures.push('commerce route: event must opt into deferred processing before retry-safe workflow effects and only be finalized afterward');
 }
 
-const pendingInsert = bridge.indexOf('processed_at: null');
+const deferredInsert = bridge.indexOf("processed_at: opts.deferProcessed ? null : new Date().toISOString()");
 const processedUpdate = bridge.indexOf('.update({ processed_at: new Date().toISOString() })');
-if (pendingInsert === -1 || processedUpdate === -1 || pendingInsert > processedUpdate) {
-  failures.push('bridge event retry contract: integration event must begin pending and be finalized separately');
+if (deferredInsert === -1 || processedUpdate === -1 || deferredInsert > processedUpdate) {
+  failures.push('bridge event retry contract: opted-in events must begin pending and be finalized separately');
 }
 
 const notificationInsert = commerceWorkflow.indexOf("const { error } = await supabase.from('notifications').insert({");
