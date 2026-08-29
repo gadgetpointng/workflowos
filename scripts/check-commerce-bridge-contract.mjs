@@ -83,6 +83,11 @@ requireText('commands acknowledgement retry contract', commands, [
   'replayed: command.status === body.status',
 ]);
 
+requireText('commands buyer intent organization boundary', commands, [
+  ".eq('organization_id', auth.integration.organization_id)\n        .contains('evidence', { commerce_command_id: command.id })",
+  ".eq('id', intent.id)\n          .eq('organization_id', auth.integration.organization_id)",
+]);
+
 forbidText('commands route error privacy', commands, [
   '{ error: error.message }',
   "commandError?.message || 'Command not found'",
@@ -142,6 +147,10 @@ requireText('commerce workflow fail-closed database handling', commerceWorkflow,
   "if (error) throw new Error('Could not update buyer intent from commerce payment')",
 ]);
 
+requireText('commerce workflow buyer intent organization boundary', commerceWorkflow, [
+  ".eq('id', intent.id)\n      .eq('organization_id', organizationId)",
+]);
+
 requireText('commerce workflow notification idempotency', commerceWorkflow, [
   "import { deterministicUuid } from '@/lib/integrations/idempotency'",
   'id: deterministicUuid(`${eventId}:${intent.id}:${stage}`)',
@@ -156,6 +165,11 @@ forbidText('commerce workflow ignored database errors', commerceWorkflow, [
   "const { data: intents } = await supabase.from('buyer_intents')",
   "\n  await supabase.from('notifications').insert({",
   "\n    await supabase.from('buyer_intents').update(update).eq('id', intent.id);",
+]);
+
+forbidText('commerce workflow unscoped buyer writes', commerceWorkflow, [
+  ".update(update).eq('id', intent.id);",
+  "    }).eq('id', intent.id);",
 ]);
 
 forbidText('commerce workflow local deterministic id implementation', commerceWorkflow, [
