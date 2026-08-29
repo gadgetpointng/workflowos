@@ -87,6 +87,22 @@ for (const forbidden of [
   }
 }
 
+for (const errorName of [
+  'conversationError',
+  'buyerIntentError',
+  'marketplaceBuyerIntentError',
+  'taskError',
+  'leadRefreshError',
+  'leadAssignmentError',
+  'acquisitionLeadUpdateError',
+  'integrationSyncError',
+]) {
+  const postDedupeFailure = new RegExp(`return\\s+NextResponse\\.json\\(\\{\\s*error:\\s*${errorName}\\.code`);
+  if (postDedupeFailure.test(genericBridge)) {
+    failures.push(`generic bridge immediate-dedupe path must not fail closed after observed ${errorName}`);
+  }
+}
+
 // The generic bridge still uses immediate event dedupe, so silently adding more unchecked
 // database writes would increase the number of side effects that cannot recover on retry.
 // Freeze that legacy debt by table/operation while allowing future fixes to reduce it.
