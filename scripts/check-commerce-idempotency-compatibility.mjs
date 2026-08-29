@@ -1,7 +1,9 @@
 import fs from 'node:fs/promises';
 
 const helperPath = new URL('../lib/integrations/idempotency.ts', import.meta.url);
+const commerceRoutePath = new URL('../app/api/bridge/[integration]/commerce/route.ts', import.meta.url);
 const helperSource = await fs.readFile(helperPath, 'utf8');
+const commerceRouteSource = await fs.readFile(commerceRoutePath, 'utf8');
 
 if (!helperSource.includes("export function deterministicUuid(seed: string)")) {
   throw new Error('Shared commerce idempotency helper signature changed');
@@ -45,4 +47,19 @@ if (deterministicUuid(repeatSeed) !== deterministicUuid(repeatSeed)) {
   throw new Error('Commerce deterministic UUID helper is not deterministic');
 }
 
-console.log(`Commerce idempotency compatibility verified (${compatibilityVectors.length} vectors).`);
+const requiredCommerceActivityContract = [
+  "import { deterministicUuid } from '@/lib/integrations/idempotency'",
+  'id: deterministicUuid(`commerce-event-activity:${tracked.eventId}:${event.type}`)',
+  "if (activityError && activityError.code !== '23505') throw activityError",
+];
+for (const required of requiredCommerceActivityContract) {
+  if (!commerceRouteSource.includes(required)) {
+    throw new Error(`Commerce event activity idempotency contract missing ${JSON.stringify(required)}`);
+  }
+}
+
+if (commerceRouteSource.includes('if (activityError) throw activityError;')) {
+  throw new Error('Commerce event activity retries must tolerate duplicate-key 23505');
+}
+
+console.log(`Commerce idempotency compatibility verified (${compatibilityVectors.length} vectors) with retry-safe event activity logging.`);
