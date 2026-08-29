@@ -20,6 +20,7 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: node scripts/check-commerce-bridge-contract.mjs
       - run: node scripts/check-bridge-event-processing-contract.mjs
+      - run: node scripts/check-storefront-intelligence-observability.mjs
       - run: node scripts/check-commerce-idempotency-compatibility.mjs
       - run: node scripts/check-commerce-observability-contract.mjs
       - run: node scripts/check-channel-credential-contract.mjs
