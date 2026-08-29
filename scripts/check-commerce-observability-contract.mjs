@@ -26,6 +26,14 @@ if (!routeRetry || !policyRetry || routeRetry !== policyRetry) {
   failures.push('commerce observability: UI stale-window policy must match the command dispatch retry window');
 }
 
+requireText('commerce command delivery policy', policy, [
+  'COMMAND_DISPATCH_WARNING_STALE_MS = 60 * 60 * 1000',
+  'COMMAND_DISPATCH_WARNING_ATTEMPT_COUNT = 3',
+  'needsCommandDeliveryAttention',
+  'attemptCount >= COMMAND_DISPATCH_WARNING_ATTEMPT_COUNT',
+  'dispatchedMs < nowMs - COMMAND_DISPATCH_WARNING_STALE_MS',
+]);
+
 requireText('commerce command delivery status', status, [
   "canManage(profile.role)",
   ".from('integration_commands')",
@@ -34,11 +42,16 @@ requireText('commerce command delivery status', status, [
   ".in('status', ['approved', 'dispatched'])",
   'isCommandDispatchStale(command.dispatched_at, now)',
   'COMMAND_DISPATCH_RETRY_AFTER_MS / 60000',
+  'COMMAND_DISPATCH_WARNING_STALE_MS / 60000',
+  'COMMAND_DISPATCH_WARNING_ATTEMPT_COUNT',
+  'needsCommandDeliveryAttention(Number(command.attempt_count ?? 0), command.dispatched_at, now)',
   "console.error('Could not load commerce command delivery observability', error)",
   'Delivery telemetry unavailable',
   'Command dispatch health',
   'Stale / retryable',
   'Highest attempt',
+  'Needs attention',
+  'Recovery remains automatic; no retry cap or command mutation is applied here.',
 ]);
 
 requireText('integrations observability placement', section, [
@@ -51,6 +64,12 @@ forbidText('commerce command delivery privacy', status, [
   'last_error',
   'result',
   'target_entity_id',
+]);
+
+forbidText('commerce command delivery warning mutation', status, [
+  ".update(",
+  ".insert(",
+  ".delete(",
 ]);
 
 if (failures.length) {
