@@ -57,6 +57,20 @@ requireText('commerce command delivery status', status, [
   'Recovery remains automatic; no retry cap or command mutation is applied here.',
 ]);
 
+requireText('commerce delivery outcome history', status, [
+  ".from('activity_logs')",
+  ".select('action,created_at')",
+  ".eq('organization_id', profile.organization_id)",
+  ".in('action', ['commerce.order_request_acknowledged', 'commerce.order_request_failed'])",
+  ".order('created_at', { ascending: false })",
+  '.limit(20)',
+  "console.error('Could not load commerce delivery outcome history', activityError)",
+  'Recent delivery outcomes',
+  'Acknowledged {acknowledgedRecently}',
+  'Failed {failedRecently}',
+  'Latest {formatAge(latestOutcomeAt)} ago',
+]);
+
 requireText('integrations observability placement', section, [
   "import CommerceCommandDeliveryStatus from '@/components/CommerceCommandDeliveryStatus'",
   '<CommerceCommandDeliveryStatus />',
@@ -67,6 +81,9 @@ forbidText('commerce command delivery privacy', status, [
   'last_error',
   'result',
   'target_entity_id',
+  'metadata',
+  'actor_id',
+  'entity_id',
 ]);
 
 forbidText('commerce command delivery warning mutation', status, [
