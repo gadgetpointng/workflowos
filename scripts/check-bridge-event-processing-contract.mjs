@@ -1,0 +1,41 @@
+import fs from 'node:fs';
+
+const bridge = fs.readFileSync('lib/integrations/bridge.ts', 'utf8');
+const commerce = fs.readFileSync('app/api/bridge/[integration]/commerce/route.ts', 'utf8');
+const genericBridge = fs.readFileSync('app/api/bridge/[integration]/route.ts', 'utf8');
+const failures = [];
+
+const requireText = (label, source, expected) => {
+  for (const value of expected) {
+    if (!source.includes(value)) failures.push(`${label}: missing ${JSON.stringify(value)}`);
+  }
+};
+
+requireText('shared bridge event recorder', bridge, [
+  'deferProcessed?: boolean',
+  "processed_at: opts.deferProcessed ? null : new Date().toISOString()",
+  'if (!opts.deferProcessed || existing.processed_at)',
+  'if (!opts.deferProcessed || raced.processed_at)',
+  'EVENT_RETRY_AFTER_MS',
+]);
+
+requireText('commerce retryable event processing', commerce, [
+  'deferProcessed: true',
+  'tracked.inProgress',
+  'await markIntegrationEventProcessed',
+]);
+
+if (genericBridge.includes('deferProcessed: true')) {
+  failures.push('generic bridge route must keep immediate event dedupe semantics until all legacy side effects are retry-safe');
+}
+if (genericBridge.includes('markIntegrationEventProcessed')) {
+  failures.push('generic bridge route must not opt into deferred processing without a complete retry-safe side-effect conversion');
+}
+
+if (failures.length) {
+  console.error('Bridge event processing contract gate failed:');
+  for (const failure of failures) console.error(`- ${failure}`);
+  process.exit(1);
+}
+
+console.log('Bridge event processing contract gate passed.');
