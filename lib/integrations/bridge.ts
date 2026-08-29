@@ -95,6 +95,7 @@ export async function recordIntegrationEvent(opts: {
     const { data: existing, error: existingError } = await opts.supabase
       .from('integration_events')
       .select('id,processed_at,created_at')
+      .eq('organization_id', opts.organizationId)
       .eq('integration_id', opts.integrationId)
       .eq('external_id', externalId)
       .maybeSingle();
@@ -125,6 +126,7 @@ export async function recordIntegrationEvent(opts: {
     const { data: raced, error: racedError } = await opts.supabase
       .from('integration_events')
       .select('id,processed_at')
+      .eq('organization_id', opts.organizationId)
       .eq('integration_id', opts.integrationId)
       .eq('external_id', externalId)
       .maybeSingle();
