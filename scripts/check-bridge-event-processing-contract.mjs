@@ -54,6 +54,40 @@ if (genericBridge.includes(".eq('id', integration.id);")) {
   failures.push('generic bridge route must not update integration sync state by id without organization scope');
 }
 
+// The generic bridge still uses immediate event dedupe, so silently adding more unchecked
+// database writes would increase the number of side effects that cannot recover on retry.
+// Freeze that legacy debt by table/operation while allowing future fixes to reduce it.
+const legacyUncheckedWriteBudget = new Map([
+  ['growth_opportunities:insert', 1],
+  ['commerce_signals:insert', 1],
+  ['activity_logs:insert', 1],
+  ['analytics_events:insert', 2],
+  ['leads:update', 3],
+  ['customer_conversations:insert', 1],
+  ['buyer_intents:upsert', 3],
+  ['tasks:insert', 2],
+  ['external_integrations:update', 1],
+]);
+const uncheckedWriteCounts = new Map();
+for (const line of genericBridge.split('\n')) {
+  if (!line.includes('await supabase.from(')) continue;
+  const write = line.match(/await supabase\.from\('([^']+)'\)\.(insert|update|upsert|delete)\(/);
+  if (!write) continue;
+  const checkedResult = line.includes('const {') && /\berror\b/.test(line.slice(0, line.indexOf('await supabase.from(')));
+  if (checkedResult) continue;
+  const key = `${write[1]}:${write[2]}`;
+  uncheckedWriteCounts.set(key, (uncheckedWriteCounts.get(key) ?? 0) + 1);
+}
+
+for (const [key, count] of uncheckedWriteCounts) {
+  const budget = legacyUncheckedWriteBudget.get(key);
+  if (budget === undefined) {
+    failures.push(`generic bridge unchecked-write budget: new unchecked write ${key} is not allowed`);
+  } else if (count > budget) {
+    failures.push(`generic bridge unchecked-write budget: ${key} grew from maximum ${budget} to ${count}`);
+  }
+}
+
 if (failures.length) {
   console.error('Bridge event processing contract gate failed:');
   for (const failure of failures) console.error(`- ${failure}`);
