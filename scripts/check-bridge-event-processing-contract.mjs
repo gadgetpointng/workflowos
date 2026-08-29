@@ -37,6 +37,23 @@ if (genericBridge.includes('markIntegrationEventProcessed')) {
   failures.push('generic bridge route must not opt into deferred processing without a complete retry-safe side-effect conversion');
 }
 
+requireText('generic bridge organization-scoped writes', genericBridge, [
+  ").eq('id', leadId).eq('organization_id', orgId);",
+  ").eq('id',leadId).eq('organization_id', orgId);",
+  ").eq('id',leadId).eq('organization_id',orgId);",
+  ").eq('id', integration.id).eq('organization_id', orgId);",
+]);
+
+if (genericBridge.includes(".eq('id', leadId);")) {
+  failures.push('generic bridge route must not update WhatsApp leads by id without organization scope');
+}
+if (genericBridge.includes(".eq('id',leadId);")) {
+  failures.push('generic bridge route must not update lead assignment/acquisition rows by id without organization scope');
+}
+if (genericBridge.includes(".eq('id', integration.id);")) {
+  failures.push('generic bridge route must not update integration sync state by id without organization scope');
+}
+
 if (failures.length) {
   console.error('Bridge event processing contract gate failed:');
   for (const failure of failures) console.error(`- ${failure}`);
