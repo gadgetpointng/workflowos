@@ -104,7 +104,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     result = { product: data };
 
     if (event.type === 'inventory.updated' && Number(d.stock_quantity ?? d.quantity) <= Number(d.low_stock_threshold ?? 3)) {
-      await supabase.from('growth_opportunities').insert({
+      const { error: lowStockOpportunityError } = await supabase.from('growth_opportunities').insert({
         organization_id: orgId,
         title: `Low stock: ${d.name ?? d.title ?? d.id}`,
         summary: `Connected inventory reported ${d.stock_quantity ?? d.quantity ?? 0} units remaining.`,
@@ -115,6 +115,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
         recommended_action: 'Review stock and create a restock task.',
         evidence: { event_id: event.id ?? null, stock_quantity: d.stock_quantity ?? d.quantity }
       });
+      if (lowStockOpportunityError) console.error('Generic bridge growth opportunity write failed', { operation: 'growth_opportunities.insert.low_stock', code: lowStockOpportunityError.code });
     }
   }
   if (event.type === 'order.created' || event.type === 'order.updated') {
