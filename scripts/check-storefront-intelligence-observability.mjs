@@ -10,6 +10,8 @@ const required = [
   "observeReadFailure('commerce_signals.count.product_signal', error)",
   "observeReadFailure('commerce_signals.select.search_history', error)",
   "observeReadFailure('growth_recommendations.select.existing', existingError)",
+  "operation: 'activity_logs.insert.storefront_recommendation'",
+  'code: recommendationActivityError.code',
 ];
 
 for (const marker of required) {
@@ -22,6 +24,7 @@ const forbidden = [
   'capabilitiesError.message',
   'openTasksError.message',
   'existingError.message',
+  'recommendationActivityError.message',
   'error.message',
   'console.error(\'Storefront intelligence read failed\', { operation, code: error.code, message:',
 ];
@@ -48,4 +51,13 @@ for (const marker of orgScopedReads) {
   }
 }
 
-console.log('Storefront intelligence read observability contract passed.');
+const activityWriteIndex = source.indexOf("from('activity_logs').insert({");
+if (activityWriteIndex === -1) {
+  throw new Error('Storefront intelligence recommendation activity write is missing.');
+}
+const activityWriteWindow = source.slice(activityWriteIndex, activityWriteIndex + 900);
+if (!activityWriteWindow.includes('organization_id: input.organizationId')) {
+  throw new Error('Storefront intelligence recommendation activity write lost organization scope.');
+}
+
+console.log('Storefront intelligence observability contract passed.');
