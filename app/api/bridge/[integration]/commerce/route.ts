@@ -39,6 +39,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       integrationId: auth.integration.id,
       source: slug,
       event,
+      deferProcessed: true,
     });
   } catch (error) {
     console.error('Could not record commerce event', error);
