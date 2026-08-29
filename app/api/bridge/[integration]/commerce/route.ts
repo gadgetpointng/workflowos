@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { authenticateBridge, markIntegrationEventProcessed, recordIntegrationEvent, type BridgeEvent } from '@/lib/integrations/bridge';
 import { canPublishEvents } from '@/lib/integrations/capabilities';
 import { advanceBuyerWorkflowFromOrder, advanceBuyerWorkflowFromPayment } from '@/lib/integrations/commerce-workflow';
+import { deterministicUuid } from '@/lib/integrations/idempotency';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,6 +56,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       : await advanceBuyerWorkflowFromOrder(auth.supabase, auth.integration.organization_id, data, tracked.eventId);
 
     const { error: activityError } = await auth.supabase.from('activity_logs').insert({
+      id: deterministicUuid(`commerce-event-activity:${tracked.eventId}:${event.type}`),
       organization_id: auth.integration.organization_id,
       actor_id: null,
       action: `commerce.${event.type}`,
@@ -62,7 +64,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       entity_id: tracked.eventId,
       metadata: { source: slug, workflow },
     });
-    if (activityError) throw activityError;
+    if (activityError && activityError.code !== '23505') throw activityError;
 
     const { error: syncError } = await auth.supabase.from('external_integrations').update({
       last_synced_at: new Date().toISOString(),
