@@ -297,7 +297,7 @@ export async function evaluateStorefrontSignal(input: IntelligenceInput) {
     assigneeId,
   );
 
-  await input.supabase.from('activity_logs').insert({
+  const { error: recommendationActivityError } = await input.supabase.from('activity_logs').insert({
     organization_id: input.organizationId,
     actor_id: null,
     action: saved.updated ? 'storefront.intelligence.updated' : 'storefront.intelligence.created',
@@ -310,6 +310,12 @@ export async function evaluateStorefrontSignal(input: IntelligenceInput) {
       signal_key: draft.key,
     },
   });
+  if (recommendationActivityError) {
+    console.error('Storefront intelligence activity write failed', {
+      operation: 'activity_logs.insert.storefront_recommendation',
+      code: recommendationActivityError.code,
+    });
+  }
 
   return {
     qualified: true,
