@@ -70,7 +70,9 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       last_synced_at: new Date().toISOString(),
       status: 'connected',
       updated_at: new Date().toISOString(),
-    }).eq('id', auth.integration.id);
+    })
+      .eq('id', auth.integration.id)
+      .eq('organization_id', auth.integration.organization_id);
     if (syncError) throw syncError;
 
     await markIntegrationEventProcessed({
