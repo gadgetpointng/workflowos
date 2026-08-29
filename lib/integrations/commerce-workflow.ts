@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import { deterministicUuid } from '@/lib/integrations/idempotency';
 
 type SupabaseLike = any;
 
@@ -75,13 +75,6 @@ function paymentStage(statusValue: unknown) {
   return 'awaiting_payment';
 }
 
-function notificationId(eventId: string, intentId: string, stage: string) {
-  const chars = crypto.createHash('sha256').update(`${eventId}:${intentId}:${stage}`).digest('hex').slice(0, 32).split('');
-  chars[12] = '5';
-  chars[16] = ((Number.parseInt(chars[16], 16) & 0x3) | 0x8).toString(16);
-  return `${chars.slice(0, 8).join('')}-${chars.slice(8, 12).join('')}-${chars.slice(12, 16).join('')}-${chars.slice(16, 20).join('')}-${chars.slice(20, 32).join('')}`;
-}
-
 async function notifyStage(supabase: SupabaseLike, organizationId: string, intent: IntentRow, stage: string, eventId: string) {
   if (!intent.assigned_to) return;
   const labels: Record<string, [string, string]> = {
@@ -97,7 +90,7 @@ async function notifyStage(supabase: SupabaseLike, organizationId: string, inten
   const message = labels[stage];
   if (!message) return;
   const { error } = await supabase.from('notifications').insert({
-    id: notificationId(eventId, intent.id, stage),
+    id: deterministicUuid(`${eventId}:${intent.id}:${stage}`),
     organization_id: organizationId,
     recipient_id: intent.assigned_to,
     title: message[0],
