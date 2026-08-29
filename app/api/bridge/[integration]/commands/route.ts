@@ -1,15 +1,8 @@
-import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { authenticateBridge } from '@/lib/integrations/bridge';
 import { canReceiveCommands } from '@/lib/integrations/capabilities';
 import { COMMAND_DISPATCH_RETRY_AFTER_MS } from '@/lib/integrations/command-dispatch';
-
-function deterministicUuid(seed: string) {
-  const chars = crypto.createHash('sha256').update(seed).digest('hex').slice(0, 32).split('');
-  chars[12] = '5';
-  chars[16] = ((Number.parseInt(chars[16], 16) & 0x3) | 0x8).toString(16);
-  return `${chars.slice(0, 8).join('')}-${chars.slice(8, 12).join('')}-${chars.slice(12, 16).join('')}-${chars.slice(16, 20).join('')}-${chars.slice(20, 32).join('')}`;
-}
+import { deterministicUuid } from '@/lib/integrations/idempotency';
 
 export async function GET(request: Request, context: { params: Promise<{ integration: string }> }) {
   const { integration: slug } = await context.params;
