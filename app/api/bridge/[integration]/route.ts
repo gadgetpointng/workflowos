@@ -382,8 +382,11 @@ export async function POST(request: Request, context: { params: Promise<{ integr
 
   if (event.type === 'social.engagement' || event.type === 'campaign.attribution') {
     const source = String(d.platform ?? slug ?? 'social').toLowerCase();
-    const {data:analytics,error}=await supabase.from('analytics_events').insert({organization_id:orgId,event_type:event.type.replace('.','_'),source,entity_type:d.entity_type??'campaign',entity_id:d.entity_id??d.campaign_id??null,amount:d.revenue??d.value??null,currency:d.currency??'NGN',metadata:{campaign_id:d.campaign_id??null,ad_id:d.ad_id??null,clicks:d.clicks??null,views:d.views??null,engagements:d.engagements??null,conversions:d.conversions??null,...(d.metadata??{})}}).select().single();
-    if(error) return NextResponse.json({error:error.message},{status:400});
+    const {data:analytics,error:socialAnalyticsError}=await supabase.from('analytics_events').insert({organization_id:orgId,event_type:event.type.replace('.','_'),source,entity_type:d.entity_type??'campaign',entity_id:d.entity_id??d.campaign_id??null,amount:d.revenue??d.value??null,currency:d.currency??'NGN',metadata:{campaign_id:d.campaign_id??null,ad_id:d.ad_id??null,clicks:d.clicks??null,views:d.views??null,engagements:d.engagements??null,conversions:d.conversions??null,...(d.metadata??{})}}).select().single();
+    if(socialAnalyticsError) {
+      console.error('Generic bridge critical write failed', { operation: 'analytics_events.insert.social_primary', code: socialAnalyticsError.code });
+      return NextResponse.json({error:'Social analytics sync failed'},{status:400});
+    }
     result={analytics};
   }
 
