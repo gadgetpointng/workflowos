@@ -248,7 +248,8 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     const phone = d.phone ?? d.customer_phone;
     if (!phone) return NextResponse.json({ error: 'whatsapp.inquiry requires data.phone' }, { status: 400 });
     const customer = await resolveCustomer(supabase, orgId, { name:d.name ?? null, phone, email:d.email ?? null, source:'whatsapp', lifecycle:'prospect' });
-    const { data: existing } = await supabase.from('leads').select('id').eq('organization_id', orgId).eq('phone', phone).maybeSingle();
+    const { data: existing, error: whatsappLeadLookupError } = await supabase.from('leads').select('id').eq('organization_id', orgId).eq('phone', phone).maybeSingle();
+    observeBridgeReadFailure('leads.select.whatsapp_existing', whatsappLeadLookupError);
     let leadId = existing?.id;
     if (leadId) {
       const { error: leadRefreshError } = await supabase.from('leads').update({
@@ -325,8 +326,16 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     const consent = d.consent_status === 'do_not_contact' ? 'do_not_contact' : (d.consent === false ? 'unknown' : 'opted_in');
     const customer = await resolveCustomer(supabase, orgId, { name:d.name ?? d.customer_name ?? null, phone, email, source, lifecycle:'prospect' });
     let existing:any = null;
-    if (phone) ({data:existing}=await supabase.from('leads').select('id').eq('organization_id',orgId).eq('phone',phone).maybeSingle());
-    if (!existing && email) ({data:existing}=await supabase.from('leads').select('id').eq('organization_id',orgId).eq('email',String(email).toLowerCase()).maybeSingle());
+    if (phone) {
+      const { data: phoneExisting, error: acquisitionPhoneLeadLookupError } = await supabase.from('leads').select('id').eq('organization_id',orgId).eq('phone',phone).maybeSingle();
+      observeBridgeReadFailure('leads.select.acquisition_phone_existing', acquisitionPhoneLeadLookupError);
+      existing = phoneExisting;
+    }
+    if (!existing && email) {
+      const { data: emailExisting, error: acquisitionEmailLeadLookupError } = await supabase.from('leads').select('id').eq('organization_id',orgId).eq('email',String(email).toLowerCase()).maybeSingle();
+      observeBridgeReadFailure('leads.select.acquisition_email_existing', acquisitionEmailLeadLookupError);
+      existing = emailExisting;
+    }
     const assigneeId = await recommendSalesAssignee(supabase, orgId);
     let leadId=existing?.id ?? null;
     if (leadId) {
