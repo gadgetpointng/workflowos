@@ -55,6 +55,15 @@ const hardenedCriticalWrites = [
     operation: 'commerce_signals.insert.storefront_primary',
     publicError: 'Storefront signal sync failed',
   },
+  {
+    label: 'vendor order critical write',
+    start: "if (event.type === 'vendor.order.created')",
+    end: "if (event.type === 'whatsapp.inquiry')",
+    write: "from('vendor_orders').insert",
+    errorName: 'vendorOrderError',
+    operation: 'vendor_orders.insert.order',
+    publicError: 'Vendor order sync failed',
+  },
 ];
 
 for (const entry of hardenedCriticalWrites) {
@@ -79,17 +88,11 @@ for (const entry of hardenedCriticalWrites) {
   }
 }
 
-// The generic bridge still uses immediate event dedupe. These two fail-closed
-// responses are legacy critical/mirror writes whose retry semantics must be
-// redesigned before their behavior changes. Freeze the exposure debt here so
-// new raw database-message returns cannot be introduced accidentally.
+// The generic bridge still uses immediate event dedupe. This final fail-closed
+// response is legacy critical/mirror write debt whose retry semantics must be
+// redesigned before behavior changes. Freeze the exposure debt here so new raw
+// database-message returns cannot be introduced accidentally.
 const classifiedCriticalWrites = [
-  {
-    label: 'vendor order critical write',
-    start: "if (event.type === 'vendor.order.created')",
-    end: "if (event.type === 'social.engagement' || event.type === 'campaign.attribution')",
-    write: "from('vendor_orders').insert",
-  },
   {
     label: 'social analytics mirror write',
     start: "if (event.type === 'social.engagement' || event.type === 'campaign.attribution')",
@@ -115,8 +118,7 @@ for (const entry of classifiedCriticalWrites) {
   }
 }
 
-// Vendor-order hardening must preserve the established commerce semantics while
-// its remaining raw-message exposure is removed in a later bounded runtime edit.
+// Vendor-order privacy hardening must preserve the established commerce semantics.
 const vendorStart = bridge.indexOf("if (event.type === 'vendor.order.created')");
 const vendorEnd = bridge.indexOf("if (event.type === 'whatsapp.inquiry')", vendorStart + 1);
 if (vendorStart < 0 || vendorEnd < 0 || vendorEnd <= vendorStart) {
@@ -133,6 +135,9 @@ if (vendorStart < 0 || vendorEnd < 0 || vendorEnd <= vendorStart) {
     "from('vendor_orders').insert",
     "from('analytics_events').insert",
     'analytics_events.insert.vendor_sale',
+    'vendorOrderError',
+    'vendor_orders.insert.order',
+    'Vendor order sync failed',
   ]) {
     if (!vendorSection.includes(marker)) failures.push(`vendor order semantics: required marker is missing: ${marker}`);
   }
@@ -146,6 +151,12 @@ if (vendorStart < 0 || vendorEnd < 0 || vendorEnd <= vendorStart) {
   }
   if (!vendorSection.includes("{ status: 400 }")) {
     failures.push('vendor order semantics: fail-closed primary-write HTTP 400 must be preserved');
+  }
+  if (vendorSection.includes('vendorOrderError.message')) {
+    failures.push('vendor order semantics: primary write must not expose database messages');
+  }
+  if (!vendorSection.includes('code: vendorOrderError.code')) {
+    failures.push('vendor order semantics: primary write telemetry must remain code-only');
   }
   if (vendorSection.includes('vendorAnalyticsError.message')) {
     failures.push('vendor order semantics: best-effort vendor analytics must not expose database messages');
