@@ -86,6 +86,12 @@ requireText('generic bridge organization-scoped reads', genericBridge, [
   "from('leads').select('id').eq('organization_id',orgId).eq('email',String(email).toLowerCase())",
 ]);
 
+requireText('generic lead identity conflict recovery wiring', genericBridge, [
+  "import { recoverLeadAfterUniqueConflict } from '@/lib/buyers/lead-identity';",
+  "recoverLeadAfterUniqueConflict(supabase, orgId, { phone, email: d.email ?? null }, whatsappLeadInsertError)",
+  "recoverLeadAfterUniqueConflict(supabase, orgId, { phone, email }, acquisitionLeadInsertError)",
+]);
+
 requireText('generic buyer workflow write observability', genericBridge, [
   "operation: 'customer_conversations.insert'",
   "operation: 'buyer_intents.upsert'",
