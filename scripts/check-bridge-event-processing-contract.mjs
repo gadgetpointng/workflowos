@@ -59,12 +59,18 @@ requireText('generic bridge read observability', genericBridge, [
   "observeBridgeReadFailure('connected_products.select.buyer_matching', connectedProductsError)",
   "observeBridgeReadFailure('staff_capabilities.select.sales_assignee', salesCapabilitiesError)",
   "observeBridgeReadFailure('tasks.select.sales_assignee_load', salesTaskLoadError)",
+  "observeBridgeReadFailure('leads.select.whatsapp_existing', whatsappLeadLookupError)",
+  "observeBridgeReadFailure('leads.select.acquisition_phone_existing', acquisitionPhoneLeadLookupError)",
+  "observeBridgeReadFailure('leads.select.acquisition_email_existing', acquisitionEmailLeadLookupError)",
 ]);
 
 for (const forbidden of [
   'connectedProductsError.message',
   'salesCapabilitiesError.message',
   'salesTaskLoadError.message',
+  'whatsappLeadLookupError.message',
+  'acquisitionPhoneLeadLookupError.message',
+  'acquisitionEmailLeadLookupError.message',
 ]) {
   if (genericBridge.includes(forbidden)) {
     failures.push(`generic bridge read observability must not log database error messages: ${forbidden}`);
@@ -75,6 +81,9 @@ requireText('generic bridge organization-scoped reads', genericBridge, [
   "from('connected_products').select('id,external_product_id,name,category,price,stock_quantity,active,sku,metadata').eq('organization_id',orgId)",
   "from('staff_capabilities').select('profile_id,proficiency,profiles(active)').eq('organization_id',orgId)",
   "from('tasks').select('assignee_id,status').eq('organization_id',orgId)",
+  "from('leads').select('id').eq('organization_id', orgId).eq('phone', phone)",
+  "from('leads').select('id').eq('organization_id',orgId).eq('phone',phone)",
+  "from('leads').select('id').eq('organization_id',orgId).eq('email',String(email).toLowerCase())",
 ]);
 
 requireText('generic buyer workflow write observability', genericBridge, [
