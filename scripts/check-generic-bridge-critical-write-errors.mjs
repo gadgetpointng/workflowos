@@ -115,6 +115,43 @@ for (const entry of classifiedCriticalWrites) {
   }
 }
 
+// Vendor-order hardening must preserve the established commerce semantics while
+// its remaining raw-message exposure is removed in a later bounded runtime edit.
+const vendorStart = bridge.indexOf("if (event.type === 'vendor.order.created')");
+const vendorEnd = bridge.indexOf("if (event.type === 'whatsapp.inquiry')", vendorStart + 1);
+if (vendorStart < 0 || vendorEnd < 0 || vendorEnd <= vendorStart) {
+  failures.push('vendor order semantics: boundaries are missing or reordered');
+} else {
+  const vendorSection = bridge.slice(vendorStart, vendorEnd);
+  for (const marker of [
+    "from('external_product_offers').select",
+    ".eq('organization_id',orgId)",
+    ".eq('id',d.offer_id)",
+    ".eq('vendor_id',d.vendor_id)",
+    "Vendor offer not found",
+    'const commission = Math.max(0, gross - vendorAmount);',
+    "from('vendor_orders').insert",
+    "from('analytics_events').insert",
+    'analytics_events.insert.vendor_sale',
+  ]) {
+    if (!vendorSection.includes(marker)) failures.push(`vendor order semantics: required marker is missing: ${marker}`);
+  }
+  const primaryWrite = vendorSection.indexOf("from('vendor_orders').insert");
+  const analyticsWrite = vendorSection.indexOf("from('analytics_events').insert");
+  if (primaryWrite < 0 || analyticsWrite < 0 || primaryWrite >= analyticsWrite) {
+    failures.push('vendor order semantics: primary vendor order write must remain before best-effort analytics');
+  }
+  if (!vendorSection.includes("{ status: 404 }")) {
+    failures.push('vendor order semantics: stable offer-not-found HTTP 404 must be preserved');
+  }
+  if (!vendorSection.includes("{ status: 400 }")) {
+    failures.push('vendor order semantics: fail-closed primary-write HTTP 400 must be preserved');
+  }
+  if (vendorSection.includes('vendorAnalyticsError.message')) {
+    failures.push('vendor order semantics: best-effort vendor analytics must not expose database messages');
+  }
+}
+
 if (totalRawMessages !== classifiedCriticalWrites.length) {
   failures.push(`generic bridge raw database-message budget changed: expected ${classifiedCriticalWrites.length}, found ${totalRawMessages}`);
 }
