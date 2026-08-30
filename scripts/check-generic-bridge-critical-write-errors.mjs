@@ -6,23 +6,57 @@ const failures = [];
 const rawMessagePattern = /error\.message/g;
 const totalRawMessages = (bridge.match(rawMessagePattern) ?? []).length;
 
-// The generic bridge still uses immediate event dedupe. These seven fail-closed
-// responses are legacy critical/mirror writes whose retry semantics must be
-// redesigned before their behavior changes. Freeze the exposure debt here so
-// new raw database-message returns cannot be introduced accidentally.
-const classifiedCriticalWrites = [
+// These critical mirror writes remain fail-closed, but site/staff now expose only
+// stable public errors with code-only telemetry. Keep this contract bounded so
+// raw database-message debt can only move downward.
+const hardenedCriticalWrites = [
   {
     label: 'site heartbeat mirror write',
     start: "if (event.type === 'site.heartbeat')",
     end: "if (event.type === 'staff.upsert')",
     write: "from('connected_sites').upsert",
+    errorName: 'siteHeartbeatError',
+    operation: 'connected_sites.upsert.site_heartbeat',
+    publicError: 'Site heartbeat sync failed',
   },
   {
     label: 'staff mirror write',
     start: "if (event.type === 'staff.upsert')",
     end: "if (event.type === 'product.upsert' || event.type === 'inventory.updated')",
     write: "from('connected_staff').upsert",
+    errorName: 'staffUpsertError',
+    operation: 'connected_staff.upsert.staff',
+    publicError: 'Staff sync failed',
   },
+];
+
+for (const entry of hardenedCriticalWrites) {
+  const start = bridge.indexOf(entry.start);
+  const end = bridge.indexOf(entry.end, start + 1);
+  if (start < 0 || end < 0 || end <= start) {
+    failures.push(`${entry.label}: hardened classification boundaries are missing or reordered`);
+    continue;
+  }
+  const section = bridge.slice(start, end);
+  for (const marker of [entry.write, entry.errorName, entry.operation, entry.publicError]) {
+    if (!section.includes(marker)) failures.push(`${entry.label}: required hardened marker is missing: ${marker}`);
+  }
+  if (section.includes(`${entry.errorName}.message`)) {
+    failures.push(`${entry.label}: critical write error must not expose database messages`);
+  }
+  if (!section.includes(`code: ${entry.errorName}.code`)) {
+    failures.push(`${entry.label}: critical write telemetry must be code-only`);
+  }
+  if (!section.includes('status: 400')) {
+    failures.push(`${entry.label}: fail-closed HTTP 400 behavior must be preserved`);
+  }
+}
+
+// The generic bridge still uses immediate event dedupe. These five fail-closed
+// responses are legacy critical/mirror writes whose retry semantics must be
+// redesigned before their behavior changes. Freeze the exposure debt here so
+// new raw database-message returns cannot be introduced accidentally.
+const classifiedCriticalWrites = [
   {
     label: 'product/inventory mirror write',
     start: "if (event.type === 'product.upsert' || event.type === 'inventory.updated')",
@@ -104,4 +138,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Generic bridge critical-write error classification gate passed (${totalRawMessages} classified legacy raw-message returns).`);
+console.log(`Generic bridge critical-write error classification gate passed (${totalRawMessages} classified legacy raw-message returns; ${hardenedCriticalWrites.length} hardened critical writes).`);
