@@ -64,6 +64,16 @@ const hardenedCriticalWrites = [
     operation: 'vendor_orders.insert.order',
     publicError: 'Vendor order sync failed',
   },
+  {
+    label: 'social analytics critical write',
+    start: "if (event.type === 'social.engagement' || event.type === 'campaign.attribution')",
+    end: 'const automations = await runAutomationsForBridgeEvent',
+    write: "from('analytics_events').insert",
+    errorName: 'socialAnalyticsError',
+    operation: 'analytics_events.insert.social_primary',
+    publicError: 'Social analytics sync failed',
+    statusMarker: 'status:400',
+  },
 ];
 
 for (const entry of hardenedCriticalWrites) {
@@ -83,40 +93,14 @@ for (const entry of hardenedCriticalWrites) {
   if (!section.includes(`code: ${entry.errorName}.code`)) {
     failures.push(`${entry.label}: critical write telemetry must be code-only`);
   }
-  if (!section.includes('status: 400')) {
+  if (!section.includes(entry.statusMarker ?? 'status: 400')) {
     failures.push(`${entry.label}: fail-closed HTTP 400 behavior must be preserved`);
   }
 }
 
-// The generic bridge still uses immediate event dedupe. This final fail-closed
-// response is legacy critical/mirror write debt whose retry semantics must be
-// redesigned before behavior changes. Freeze the exposure debt here so new raw
-// database-message returns cannot be introduced accidentally.
-const classifiedCriticalWrites = [
-  {
-    label: 'social analytics mirror write',
-    start: "if (event.type === 'social.engagement' || event.type === 'campaign.attribution')",
-    end: 'const automations = await runAutomationsForBridgeEvent',
-    write: "from('analytics_events').insert",
-  },
-];
-
-for (const entry of classifiedCriticalWrites) {
-  const start = bridge.indexOf(entry.start);
-  const end = bridge.indexOf(entry.end, start + 1);
-  if (start < 0 || end < 0 || end <= start) {
-    failures.push(`${entry.label}: classification boundaries are missing or reordered`);
-    continue;
-  }
-  const section = bridge.slice(start, end);
-  if (!section.includes(entry.write)) {
-    failures.push(`${entry.label}: expected critical write marker ${entry.write} is missing`);
-  }
-  const sectionRawMessages = (section.match(rawMessagePattern) ?? []).length;
-  if (sectionRawMessages !== 1) {
-    failures.push(`${entry.label}: expected exactly one legacy raw database-message return, found ${sectionRawMessages}`);
-  }
-}
+// All classified critical writes are now privacy-hardened. Keep this array empty
+// so the global raw-message budget is permanently frozen at zero.
+const classifiedCriticalWrites = [];
 
 // Vendor-order privacy hardening must preserve the established commerce semantics.
 const vendorStart = bridge.indexOf("if (event.type === 'vendor.order.created')");
@@ -164,7 +148,7 @@ if (vendorStart < 0 || vendorEnd < 0 || vendorEnd <= vendorStart) {
 }
 
 // Social analytics hardening must preserve the exact event mapping and fail-closed
-// boundary while the final raw database-message exposure is removed separately.
+// boundary while exposing only a stable public error and code-only telemetry.
 const socialStart = bridge.indexOf("if (event.type === 'social.engagement' || event.type === 'campaign.attribution')");
 const socialEnd = bridge.indexOf('const automations = await runAutomationsForBridgeEvent', socialStart + 1);
 if (socialStart < 0 || socialEnd < 0 || socialEnd <= socialStart) {
@@ -183,6 +167,10 @@ if (socialStart < 0 || socialEnd < 0 || socialEnd <= socialStart) {
     "currency:d.currency??'NGN'",
     "metadata:{campaign_id:d.campaign_id??null,ad_id:d.ad_id??null,clicks:d.clicks??null,views:d.views??null,engagements:d.engagements??null,conversions:d.conversions??null,...(d.metadata??{})}",
     ".select().single()",
+    "socialAnalyticsError",
+    "analytics_events.insert.social_primary",
+    "Social analytics sync failed",
+    "code: socialAnalyticsError.code",
     "{status:400}",
     "result={analytics};",
   ]) {
@@ -192,6 +180,9 @@ if (socialStart < 0 || socialEnd < 0 || socialEnd <= socialStart) {
   const resultAssignment = socialSection.indexOf('result={analytics};');
   if (analyticsWrite < 0 || resultAssignment < 0 || analyticsWrite >= resultAssignment) {
     failures.push('social analytics semantics: primary analytics write must remain before result assignment');
+  }
+  if (socialSection.includes('socialAnalyticsError.message')) {
+    failures.push('social analytics semantics: primary write must not expose database messages');
   }
 }
 
