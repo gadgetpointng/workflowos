@@ -138,7 +138,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
   if (event.type === 'order.created' || event.type === 'order.updated') {
     if (!d.id) return NextResponse.json({ error: `${event.type} requires data.id` }, { status: 400 });
     const customer = await resolveCustomer(supabase, orgId, { name:d.customer_name ?? d.customer?.name ?? null, email:d.customer_email ?? d.customer?.email ?? null, phone:d.customer_phone ?? d.customer?.phone ?? null, source:d.channel ?? slug, lifecycle:'customer' });
-    const { data, error } = await supabase.from('connected_orders').upsert({
+    const { data, error: orderMirrorError } = await supabase.from('connected_orders').upsert({
       organization_id: orgId,
       integration_id: integration.id,
       external_order_id: String(d.id),
@@ -155,7 +155,10 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       ordered_at: d.ordered_at ?? event.occurred_at ?? new Date().toISOString(),
       last_synced_at: new Date().toISOString()
     }, { onConflict: 'integration_id,external_order_id' }).select().single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (orderMirrorError) {
+      console.error('Generic bridge critical write failed', { operation: 'connected_orders.upsert.order', code: orderMirrorError.code });
+      return NextResponse.json({ error: 'Order sync failed' }, { status: 400 });
+    }
     const { error: orderSignalError } = await supabase.from('commerce_signals').insert({
       organization_id: orgId,
       integration_id: integration.id,
