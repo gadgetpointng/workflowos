@@ -37,6 +37,15 @@ const hardenedCriticalWrites = [
     operation: 'connected_products.upsert.product_inventory',
     publicError: 'Product inventory sync failed',
   },
+  {
+    label: 'order mirror write',
+    start: "if (event.type === 'order.created' || event.type === 'order.updated')",
+    end: "if (['storefront.search','product.view','cart.added','marketplace.demand'].includes(event.type))",
+    write: "from('connected_orders').upsert",
+    errorName: 'orderMirrorError',
+    operation: 'connected_orders.upsert.order',
+    publicError: 'Order sync failed',
+  },
 ];
 
 for (const entry of hardenedCriticalWrites) {
@@ -61,17 +70,11 @@ for (const entry of hardenedCriticalWrites) {
   }
 }
 
-// The generic bridge still uses immediate event dedupe. These four fail-closed
+// The generic bridge still uses immediate event dedupe. These three fail-closed
 // responses are legacy critical/mirror writes whose retry semantics must be
 // redesigned before their behavior changes. Freeze the exposure debt here so
 // new raw database-message returns cannot be introduced accidentally.
 const classifiedCriticalWrites = [
-  {
-    label: 'order mirror write',
-    start: "if (event.type === 'order.created' || event.type === 'order.updated')",
-    end: "if (['storefront.search','product.view','cart.added','marketplace.demand'].includes(event.type))",
-    write: "from('connected_orders').upsert",
-  },
   {
     label: 'storefront primary signal write',
     start: "if (['storefront.search','product.view','cart.added','marketplace.demand'].includes(event.type))",
