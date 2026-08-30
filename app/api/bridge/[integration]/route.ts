@@ -242,7 +242,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     const gross = selling * qty;
     const vendorAmount = sourcePrice * qty;
     const commission = Math.max(0, gross - vendorAmount);
-    const { data: vendorOrder, error } = await supabase.from('vendor_orders').insert({
+    const { data: vendorOrder, error: vendorOrderError } = await supabase.from('vendor_orders').insert({
       organization_id: orgId,
       vendor_id: d.vendor_id,
       external_product_offer_id: offer.id,
@@ -254,7 +254,10 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       status: d.status ?? 'confirmed',
       metadata: { external_order_id: d.external_order_id ?? null, source: slug, product_title: offer.title, ...(d.metadata ?? {}) }
     }).select().single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (vendorOrderError) {
+      console.error('Generic bridge critical write failed', { operation: 'vendor_orders.insert.order', code: vendorOrderError.code });
+      return NextResponse.json({ error: 'Vendor order sync failed' }, { status: 400 });
+    }
     const { error: vendorAnalyticsError } = await supabase.from('analytics_events').insert({ organization_id: orgId, event_type: 'vendor_sale', source: slug, entity_type: 'vendor_order', entity_id: vendorOrder.id, amount: gross, currency: d.currency ?? 'NGN', metadata: { commission_amount: commission, vendor_amount: vendorAmount, vendor_id: d.vendor_id } });
     if (vendorAnalyticsError) console.error('Generic bridge analytics write failed', { operation: 'analytics_events.insert.vendor_sale', code: vendorAnalyticsError.code });
     result = { vendor_order: vendorOrder, commission_amount: commission, vendor_amount: vendorAmount };
