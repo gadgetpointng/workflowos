@@ -6,7 +6,7 @@ const failures = [];
 const rawMessagePattern = /error\.message/g;
 const totalRawMessages = (bridge.match(rawMessagePattern) ?? []).length;
 
-// These critical mirror writes remain fail-closed, but site/staff now expose only
+// These critical mirror writes remain fail-closed, but hardened paths expose only
 // stable public errors with code-only telemetry. Keep this contract bounded so
 // raw database-message debt can only move downward.
 const hardenedCriticalWrites = [
@@ -27,6 +27,15 @@ const hardenedCriticalWrites = [
     errorName: 'staffUpsertError',
     operation: 'connected_staff.upsert.staff',
     publicError: 'Staff sync failed',
+  },
+  {
+    label: 'product/inventory mirror write',
+    start: "if (event.type === 'product.upsert' || event.type === 'inventory.updated')",
+    end: "if (event.type === 'order.created' || event.type === 'order.updated')",
+    write: "from('connected_products').upsert",
+    errorName: 'productMirrorError',
+    operation: 'connected_products.upsert.product_inventory',
+    publicError: 'Product inventory sync failed',
   },
 ];
 
@@ -52,17 +61,11 @@ for (const entry of hardenedCriticalWrites) {
   }
 }
 
-// The generic bridge still uses immediate event dedupe. These five fail-closed
+// The generic bridge still uses immediate event dedupe. These four fail-closed
 // responses are legacy critical/mirror writes whose retry semantics must be
 // redesigned before their behavior changes. Freeze the exposure debt here so
 // new raw database-message returns cannot be introduced accidentally.
 const classifiedCriticalWrites = [
-  {
-    label: 'product/inventory mirror write',
-    start: "if (event.type === 'product.upsert' || event.type === 'inventory.updated')",
-    end: "if (event.type === 'order.created' || event.type === 'order.updated')",
-    write: "from('connected_products').upsert",
-  },
   {
     label: 'order mirror write',
     start: "if (event.type === 'order.created' || event.type === 'order.updated')",
