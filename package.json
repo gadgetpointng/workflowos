@@ -4,14 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/check-internal-links.mjs && next build",
+    "build": "node scripts/check-supabase-auth-config.mjs && node scripts/check-internal-links.mjs && next build",
     "start": "next start",
     "lint": "next lint",
     "check:launch": "node scripts/launch-check.mjs",
     "check:boundaries": "node scripts/check-boundaries.mjs && node scripts/check-gadgetpoint-auth-boundary.mjs",
     "check:notifications": "node scripts/check-notification-gates.mjs",
     "check:links": "node scripts/check-internal-links.mjs",
-    "check:release": "npm run check:boundaries && npm run check:notifications && npm run check:links && npm run check:launch"
+    "check:supabase-auth": "node scripts/check-supabase-auth-config.mjs",
+    "check:release": "npm run check:boundaries && npm run check:notifications && npm run check:links && npm run check:supabase-auth && npm run check:launch"
   },
   "dependencies": {
     "@supabase/ssr": "latest",
