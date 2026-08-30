@@ -8,16 +8,23 @@ import { matchProducts, scoreBuyerIntent } from '@/lib/buyers/intelligence';
 import { evaluateStorefrontSignal } from '@/lib/growth/storefront-intelligence';
 
 
+function observeBridgeReadFailure(operation:string, error:any) {
+  if (error) console.error('Generic bridge read failed', { operation, code: error.code });
+}
+
 async function connectedProductsFor(supabase:any, orgId:string) {
-  const { data } = await supabase.from('connected_products').select('id,external_product_id,name,category,price,stock_quantity,active,sku,metadata').eq('organization_id',orgId).eq('active',true).limit(500);
+  const { data, error: connectedProductsError } = await supabase.from('connected_products').select('id,external_product_id,name,category,price,stock_quantity,active,sku,metadata').eq('organization_id',orgId).eq('active',true).limit(500);
+  observeBridgeReadFailure('connected_products.select.buyer_matching', connectedProductsError);
   return data ?? [];
 }
 
 async function recommendSalesAssignee(supabase:any, orgId:string) {
-  const { data:caps } = await supabase.from('staff_capabilities').select('profile_id,proficiency,profiles(active)').eq('organization_id',orgId).eq('capability','sales').eq('active',true).order('proficiency',{ascending:false}).limit(20);
+  const { data:caps, error: salesCapabilitiesError } = await supabase.from('staff_capabilities').select('profile_id,proficiency,profiles(active)').eq('organization_id',orgId).eq('capability','sales').eq('active',true).order('proficiency',{ascending:false}).limit(20);
+  observeBridgeReadFailure('staff_capabilities.select.sales_assignee', salesCapabilitiesError);
   const ids=(caps??[]).filter((x:any)=>x.profiles?.active!==false).map((x:any)=>x.profile_id);
   if(!ids.length) return null;
-  const { data:open } = await supabase.from('tasks').select('assignee_id,status').eq('organization_id',orgId).in('assignee_id',ids).not('status','in','("completed","cancelled")');
+  const { data:open, error: salesTaskLoadError } = await supabase.from('tasks').select('assignee_id,status').eq('organization_id',orgId).in('assignee_id',ids).not('status','in','("completed","cancelled")');
+  observeBridgeReadFailure('tasks.select.sales_assignee_load', salesTaskLoadError);
   const load=new Map<string,number>(); for(const t of open??[]) load.set(t.assignee_id,(load.get(t.assignee_id)||0)+1);
   return [...ids].sort((a,b)=>(load.get(a)||0)-(load.get(b)||0))[0] ?? null;
 }
