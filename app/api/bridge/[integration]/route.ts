@@ -263,7 +263,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       }).eq('id', leadId).eq('organization_id', orgId);
       if (leadRefreshError) console.error('Generic bridge buyer workflow write failed', { operation: 'leads.update.whatsapp_refresh', code: leadRefreshError.code });
     } else {
-      const { data: lead, error } = await supabase.from('leads').insert({
+      const { data: lead, error: whatsappLeadInsertError } = await supabase.from('leads').insert({
         organization_id: orgId,
         name: d.name ?? phone,
         phone,
@@ -274,8 +274,8 @@ export async function POST(request: Request, context: { params: Promise<{ integr
         notes: d.message ?? null,
         customer_id: customer?.id ?? null
       }).select().single();
-      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-      leadId = lead.id;
+      if (whatsappLeadInsertError) console.error('Generic bridge buyer workflow write failed', { operation: 'leads.insert.whatsapp', code: whatsappLeadInsertError.code });
+      leadId = lead?.id ?? null;
     }
     const { data: conversation, error: conversationError } = await supabase.from('customer_conversations').insert({
       organization_id: orgId,
@@ -342,9 +342,9 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       const { error: acquisitionLeadUpdateError } = await supabase.from('leads').update({name:d.name ?? d.customer_name ?? undefined,phone:phone ?? undefined,email:email ?? undefined,source,product_interest:productQuery,status:'new',assigned_to:assigneeId ?? undefined,customer_id:customer?.id ?? undefined,notes:d.message ?? d.form_answer ?? undefined,updated_at:new Date().toISOString()}).eq('id',leadId).eq('organization_id',orgId);
       if (acquisitionLeadUpdateError) console.error('Generic bridge buyer workflow write failed', { operation: 'leads.update.acquisition_refresh', code: acquisitionLeadUpdateError.code });
     } else {
-      const {data:lead,error}=await supabase.from('leads').insert({organization_id:orgId,name:d.name ?? d.customer_name ?? phone ?? email ?? `${source} lead`,phone,email,source,product_interest:productQuery,status:'new',assigned_to:assigneeId,customer_id:customer?.id ?? null,notes:d.message ?? d.form_answer ?? null}).select().single();
-      if(error) return NextResponse.json({error:error.message},{status:400});
-      leadId=lead.id;
+      const {data:lead,error:acquisitionLeadInsertError}=await supabase.from('leads').insert({organization_id:orgId,name:d.name ?? d.customer_name ?? phone ?? email ?? `${source} lead`,phone,email,source,product_interest:productQuery,status:'new',assigned_to:assigneeId,customer_id:customer?.id ?? null,notes:d.message ?? d.form_answer ?? null}).select().single();
+      if(acquisitionLeadInsertError) console.error('Generic bridge buyer workflow write failed', { operation: 'leads.insert.acquisition', code: acquisitionLeadInsertError.code });
+      leadId=lead?.id ?? null;
     }
     const intentInput:any={product_query:productQuery,category:d.category??null,brand:d.brand??null,model:d.model??null,budget_min:d.budget_min??null,budget_max:d.budget_max??d.estimated_value??null,state:d.state??null,city:d.city??null,urgency:d.urgency??'normal',source,consent_status:consent};
     const products=await connectedProductsFor(supabase,orgId); const matches=matchProducts(intentInput,products); const intentScore=scoreBuyerIntent(intentInput);
