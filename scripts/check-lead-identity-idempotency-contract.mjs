@@ -2,6 +2,8 @@ import fs from 'node:fs';
 
 const path = 'supabase/lead-identity-idempotency.sql';
 const sql = fs.readFileSync(path, 'utf8');
+const runtimePath = 'lib/buyers/lead-identity.ts';
+const runtime = fs.readFileSync(runtimePath, 'utf8');
 
 const required = [
   'generated always as',
@@ -38,6 +40,37 @@ for (const marker of forbidden) {
 const uniqueIndexCount = (lowered.match(/create unique index if not exists leads_org_normalized_/g) ?? []).length;
 if (uniqueIndexCount !== 2) {
   throw new Error(`Expected exactly two organization-scoped normalized lead identity indexes, found ${uniqueIndexCount}`);
+}
+
+const runtimeRequired = [
+  "insertError?.code !== '23505'",
+  ".eq('organization_id', organizationId)",
+  ".eq('normalized_phone', normalizedPhone)",
+  ".eq('normalized_email', normalizedEmail)",
+  "'leads.select.unique_conflict_phone'",
+  "'leads.select.unique_conflict_email'",
+  "code: error.code",
+];
+
+for (const marker of runtimeRequired) {
+  if (!runtime.includes(marker)) {
+    throw new Error(`Lead identity runtime recovery contract missing required marker: ${marker}`);
+  }
+}
+
+const runtimeForbidden = [
+  'phoneRecoveryError.message',
+  'emailRecoveryError.message',
+  'insertError.message',
+];
+for (const marker of runtimeForbidden) {
+  if (runtime.includes(marker)) {
+    throw new Error(`Lead identity runtime recovery contract contains forbidden marker: ${marker}`);
+  }
+}
+
+if (!runtime.includes("replace(/\\D/g, '')") || !runtime.includes("trim().toLowerCase()")) {
+  throw new Error('Lead identity runtime normalization must mirror the conservative schema normalization');
 }
 
 console.log('Lead identity idempotency contract OK');
