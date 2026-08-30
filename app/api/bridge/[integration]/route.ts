@@ -100,7 +100,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
 
   if (event.type === 'product.upsert' || event.type === 'inventory.updated') {
     if (!d.id) return NextResponse.json({ error: `${event.type} requires data.id` }, { status: 400 });
-    const { data, error } = await supabase.from('connected_products').upsert({
+    const { data, error: productMirrorError } = await supabase.from('connected_products').upsert({
       organization_id: orgId,
       integration_id: integration.id,
       external_product_id: String(d.id),
@@ -114,7 +114,10 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       metadata: d.metadata ?? {},
       last_synced_at: new Date().toISOString()
     }, { onConflict: 'integration_id,external_product_id' }).select().single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (productMirrorError) {
+      console.error('Generic bridge critical write failed', { operation: 'connected_products.upsert.product_inventory', code: productMirrorError.code });
+      return NextResponse.json({ error: 'Product inventory sync failed' }, { status: 400 });
+    }
     result = { product: data };
 
     if (event.type === 'inventory.updated' && Number(d.stock_quantity ?? d.quantity) <= Number(d.low_stock_threshold ?? 3)) {
