@@ -5,6 +5,7 @@ import { resolveCustomer, refreshCustomerCommerce } from '@/lib/customers';
 import { domainForEvent } from '@/lib/integrations/ownership';
 import { canPublishEvents } from '@/lib/integrations/capabilities';
 import { matchProducts, scoreBuyerIntent } from '@/lib/buyers/intelligence';
+import { recoverLeadAfterUniqueConflict } from '@/lib/buyers/lead-identity';
 import { evaluateStorefrontSignal } from '@/lib/growth/storefront-intelligence';
 
 
@@ -275,7 +276,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
         customer_id: customer?.id ?? null
       }).select().single();
       if (whatsappLeadInsertError) console.error('Generic bridge buyer workflow write failed', { operation: 'leads.insert.whatsapp', code: whatsappLeadInsertError.code });
-      leadId = lead?.id ?? null;
+      leadId = lead?.id ?? (whatsappLeadInsertError ? await recoverLeadAfterUniqueConflict(supabase, orgId, { phone, email: d.email ?? null }, whatsappLeadInsertError) : null);
     }
     const { data: conversation, error: conversationError } = await supabase.from('customer_conversations').insert({
       organization_id: orgId,
@@ -344,7 +345,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     } else {
       const {data:lead,error:acquisitionLeadInsertError}=await supabase.from('leads').insert({organization_id:orgId,name:d.name ?? d.customer_name ?? phone ?? email ?? `${source} lead`,phone,email,source,product_interest:productQuery,status:'new',assigned_to:assigneeId,customer_id:customer?.id ?? null,notes:d.message ?? d.form_answer ?? null}).select().single();
       if(acquisitionLeadInsertError) console.error('Generic bridge buyer workflow write failed', { operation: 'leads.insert.acquisition', code: acquisitionLeadInsertError.code });
-      leadId=lead?.id ?? null;
+      leadId=lead?.id ?? (acquisitionLeadInsertError ? await recoverLeadAfterUniqueConflict(supabase, orgId, { phone, email }, acquisitionLeadInsertError) : null);
     }
     const intentInput:any={product_query:productQuery,category:d.category??null,brand:d.brand??null,model:d.model??null,budget_min:d.budget_min??null,budget_max:d.budget_max??d.estimated_value??null,state:d.state??null,city:d.city??null,urgency:d.urgency??'normal',source,consent_status:consent};
     const products=await connectedProductsFor(supabase,orgId); const matches=matchProducts(intentInput,products); const intentScore=scoreBuyerIntent(intentInput);
