@@ -25,6 +25,7 @@ jobs:
       - run: node scripts/check-commerce-observability-contract.mjs
       - run: node scripts/check-channel-credential-contract.mjs
       - run: node scripts/check-buyer-dedupe-contract.mjs
+      - run: node scripts/check-lead-identity-idempotency-contract.mjs
       - run: npx tsc --noEmit
       - run: npm run check:release
       - run: npm run build
