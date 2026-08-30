@@ -163,6 +163,38 @@ if (vendorStart < 0 || vendorEnd < 0 || vendorEnd <= vendorStart) {
   }
 }
 
+// Social analytics hardening must preserve the exact event mapping and fail-closed
+// boundary while the final raw database-message exposure is removed separately.
+const socialStart = bridge.indexOf("if (event.type === 'social.engagement' || event.type === 'campaign.attribution')");
+const socialEnd = bridge.indexOf('const automations = await runAutomationsForBridgeEvent', socialStart + 1);
+if (socialStart < 0 || socialEnd < 0 || socialEnd <= socialStart) {
+  failures.push('social analytics semantics: boundaries are missing or reordered');
+} else {
+  const socialSection = bridge.slice(socialStart, socialEnd);
+  for (const marker of [
+    "const source = String(d.platform ?? slug ?? 'social').toLowerCase();",
+    "from('analytics_events').insert",
+    "organization_id:orgId",
+    "event_type:event.type.replace('.','_')",
+    "source",
+    "entity_type:d.entity_type??'campaign'",
+    "entity_id:d.entity_id??d.campaign_id??null",
+    "amount:d.revenue??d.value??null",
+    "currency:d.currency??'NGN'",
+    "metadata:{campaign_id:d.campaign_id??null,ad_id:d.ad_id??null,clicks:d.clicks??null,views:d.views??null,engagements:d.engagements??null,conversions:d.conversions??null,...(d.metadata??{})}",
+    ".select().single()",
+    "{status:400}",
+    "result={analytics};",
+  ]) {
+    if (!socialSection.includes(marker)) failures.push(`social analytics semantics: required marker is missing: ${marker}`);
+  }
+  const analyticsWrite = socialSection.indexOf("from('analytics_events').insert");
+  const resultAssignment = socialSection.indexOf('result={analytics};');
+  if (analyticsWrite < 0 || resultAssignment < 0 || analyticsWrite >= resultAssignment) {
+    failures.push('social analytics semantics: primary analytics write must remain before result assignment');
+  }
+}
+
 if (totalRawMessages !== classifiedCriticalWrites.length) {
   failures.push(`generic bridge raw database-message budget changed: expected ${classifiedCriticalWrites.length}, found ${totalRawMessages}`);
 }
