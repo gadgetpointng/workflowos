@@ -175,7 +175,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
 
   if (['storefront.search','product.view','cart.added','marketplace.demand'].includes(event.type)) {
     const signalType = event.type.replace('.', '_');
-    const { data, error } = await supabase.from('commerce_signals').insert({
+    const { data, error: storefrontSignalError } = await supabase.from('commerce_signals').insert({
       organization_id: orgId,
       integration_id: integration.id,
       source: slug,
@@ -187,7 +187,10 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       metadata: d.metadata ?? {},
       observed_at: event.occurred_at ?? new Date().toISOString()
     }).select().single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (storefrontSignalError) {
+      console.error('Generic bridge critical write failed', { operation: 'commerce_signals.insert.storefront_primary', code: storefrontSignalError.code });
+      return NextResponse.json({ error: 'Storefront signal sync failed' }, { status: 400 });
+    }
     result = { signal: data };
 
     if (event.type !== 'marketplace.demand') {
