@@ -58,7 +58,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
   if (event.type === 'site.heartbeat') {
     const siteName = String(d.name ?? d.site_name ?? slug);
     const siteSlug = String(d.slug ?? slug).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
-    const { data: site, error } = await supabase.from('connected_sites').upsert({
+    const { data: site, error: siteHeartbeatError } = await supabase.from('connected_sites').upsert({
       organization_id: orgId,
       integration_id: integration.id,
       name: siteName,
@@ -70,13 +70,16 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       metadata: { ...(d.metadata ?? {}), last_heartbeat_at: event.occurred_at ?? new Date().toISOString() },
       updated_at: new Date().toISOString()
     }, { onConflict: 'organization_id,slug' }).select().single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (siteHeartbeatError) {
+      console.error('Generic bridge critical write failed', { operation: 'connected_sites.upsert.site_heartbeat', code: siteHeartbeatError.code });
+      return NextResponse.json({ error: 'Site heartbeat sync failed' }, { status: 400 });
+    }
     result = { site };
   }
 
   if (event.type === 'staff.upsert') {
     if (!d.id || !d.email) return NextResponse.json({ error: 'staff.upsert requires data.id and data.email' }, { status: 400 });
-    const { data, error } = await supabase.from('connected_staff').upsert({
+    const { data, error: staffUpsertError } = await supabase.from('connected_staff').upsert({
       organization_id: orgId,
       integration_id: integration.id,
       external_staff_id: String(d.id),
@@ -88,7 +91,10 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       metadata: d.metadata ?? {},
       last_synced_at: new Date().toISOString()
     }, { onConflict: 'integration_id,external_staff_id' }).select().single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (staffUpsertError) {
+      console.error('Generic bridge critical write failed', { operation: 'connected_staff.upsert.staff', code: staffUpsertError.code });
+      return NextResponse.json({ error: 'Staff sync failed' }, { status: 400 });
+    }
     result = { staff: data };
   }
 
