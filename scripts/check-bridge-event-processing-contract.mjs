@@ -54,6 +54,29 @@ if (genericBridge.includes(".eq('id', integration.id);")) {
   failures.push('generic bridge route must not update integration sync state by id without organization scope');
 }
 
+requireText('generic bridge read observability', genericBridge, [
+  "operation, code: error.code",
+  "observeBridgeReadFailure('connected_products.select.buyer_matching', connectedProductsError)",
+  "observeBridgeReadFailure('staff_capabilities.select.sales_assignee', salesCapabilitiesError)",
+  "observeBridgeReadFailure('tasks.select.sales_assignee_load', salesTaskLoadError)",
+]);
+
+for (const forbidden of [
+  'connectedProductsError.message',
+  'salesCapabilitiesError.message',
+  'salesTaskLoadError.message',
+]) {
+  if (genericBridge.includes(forbidden)) {
+    failures.push(`generic bridge read observability must not log database error messages: ${forbidden}`);
+  }
+}
+
+requireText('generic bridge organization-scoped reads', genericBridge, [
+  "from('connected_products').select('id,external_product_id,name,category,price,stock_quantity,active,sku,metadata').eq('organization_id',orgId)",
+  "from('staff_capabilities').select('profile_id,proficiency,profiles(active)').eq('organization_id',orgId)",
+  "from('tasks').select('assignee_id,status').eq('organization_id',orgId)",
+]);
+
 requireText('generic buyer workflow write observability', genericBridge, [
   "operation: 'customer_conversations.insert'",
   "operation: 'buyer_intents.upsert'",
