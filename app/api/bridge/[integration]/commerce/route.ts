@@ -46,6 +46,9 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     return NextResponse.json({ error: 'Could not record commerce event' }, { status: 500 });
   }
 
+  if (tracked.conflict) {
+    return NextResponse.json({ ok: false, retry: false, error: 'Commerce event id payload conflicts with the recorded event', event_id: tracked.eventId }, { status: 409 });
+  }
   if (tracked.duplicate) return NextResponse.json({ ok: true, duplicate: true, event_id: tracked.eventId });
   if (tracked.inProgress) {
     return NextResponse.json({ ok: false, retry: true, error: 'Commerce event is already processing', event_id: tracked.eventId }, { status: 409 });
