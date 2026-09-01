@@ -17,6 +17,12 @@ requireText('shared bridge event recorder', bridge, [
   'if (!opts.deferProcessed || existing.processed_at)',
   'if (!opts.deferProcessed || raced.processed_at)',
   'EVENT_RETRY_AFTER_MS',
+  "select('id,processed_at,created_at,payload')",
+  "select('id,processed_at,payload')",
+  'function retryPayloadConflicts(recorded: any, incoming: BridgeEvent)',
+  'retryPayloadConflicts(existing.payload, opts.event)',
+  'retryPayloadConflicts(raced.payload, opts.event)',
+  'conflict: true',
 ]);
 
 const organizationScopedDedupeReads = bridge.split(".eq('organization_id', opts.organizationId)").length - 1;
@@ -26,6 +32,9 @@ if (organizationScopedDedupeReads < 2) {
 
 requireText('commerce retryable event processing', commerce, [
   'deferProcessed: true',
+  'tracked.conflict',
+  "Commerce event id payload conflicts with the recorded event",
+  'retry: false',
   'tracked.inProgress',
   'await markIntegrationEventProcessed',
 ]);
