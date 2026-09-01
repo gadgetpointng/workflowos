@@ -174,8 +174,11 @@ requireText('commerce workflow provenance-safe reopen contract', commerceWorkflo
   "update.evidence.commerce_pre_close_status = intent.status",
   "update.evidence.commerce_closed_by_workflowos = true",
   "update.evidence.commerce_closed_by_workflowos = false",
-  "applyCommerceStatusTransition(update, intent, evidence, stage)",
-  "['returned','cancelled','payment_failed','payment_cancelled'].includes(stage)",
+  "function workflowOwnedPriorStatus(intent: IntentRow, evidence: Record<string, any>)",
+  "if (!newOrderLifecycle && !['returned','cancelled','payment_failed','payment_cancelled'].includes(stage)) return null",
+  "if (newOrderLifecycle && stage !== 'completed')",
+  "update.evidence.commerce_reopen_reason = 'new_order'",
+  "applyCommerceStatusTransition(update, intent, evidence, stage, newOrderLifecycle)",
 ]);
 
 requireText('commerce workflow monotonic normal-stage contract', commerceWorkflow, [
