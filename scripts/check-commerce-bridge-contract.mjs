@@ -160,8 +160,8 @@ requireText('commerce workflow buyer intent organization boundary', commerceWork
 requireText('commerce workflow notification idempotency', commerceWorkflow, [
   "import { deterministicUuid } from '@/lib/integrations/idempotency'",
   'id: deterministicUuid(`${eventId}:${intent.id}:${stage}`)',
-  'commerce_stage_event_id: eventId',
-  "const retryingSameStageEvent = previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId",
+  'commerce_stage_event_id: acceptedStageEvent ? eventId : evidence.commerce_stage_event_id ?? null',
+  "const retryingSameStageEvent = acceptedStageEvent && previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId",
   'if (stage !== previousStage || retryingSameStageEvent) await notifyStage(supabase, organizationId, intent, stage, eventId)',
   'advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, organizationId: string, data: any, eventId: string)',
   'advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, organizationId: string, data: any, eventId: string)',
@@ -176,6 +176,21 @@ requireText('commerce workflow provenance-safe reopen contract', commerceWorkflo
   "update.evidence.commerce_closed_by_workflowos = false",
   "applyCommerceStatusTransition(update, intent, evidence, stage)",
   "['returned','cancelled','payment_failed','payment_cancelled'].includes(stage)",
+]);
+
+requireText('commerce workflow monotonic normal-stage contract', commerceWorkflow, [
+  'const normalStageRank: Record<string, number> = {',
+  'awaiting_payment: 0',
+  'preparing_order: 1',
+  'ready_for_pickup: 2',
+  'delivery: 3',
+  'completed: 4',
+  'function monotonicCommerceStage(previousStage: string, incomingStage: string)',
+  'if (previousRank !== undefined && incomingRank !== undefined && incomingRank < previousRank) return previousStage',
+  'const stage = monotonicCommerceStage(previousStage, incomingStage)',
+  'const acceptedStageEvent = stage === incomingStage',
+  'workflow_stage: stage',
+  'commerce_stage_event_id: acceptedStageEvent ? eventId : evidence.commerce_stage_event_id ?? null',
 ]);
 
 forbidText('commerce workflow ignored database errors', commerceWorkflow, [
