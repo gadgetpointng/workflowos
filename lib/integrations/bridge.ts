@@ -113,11 +113,11 @@ export async function recordIntegrationEvent(opts: {
       .maybeSingle();
     if (existingError) throw existingError;
     if (existing) {
+      if (opts.deferProcessed && retryPayloadConflicts(existing.payload, opts.event)) {
+        return { duplicate: false, inProgress: false, retry: false, conflict: true, eventId: existing.id };
+      }
       if (!opts.deferProcessed || existing.processed_at) {
         return { duplicate: true, inProgress: false, retry: false, conflict: false, eventId: existing.id };
-      }
-      if (retryPayloadConflicts(existing.payload, opts.event)) {
-        return { duplicate: false, inProgress: false, retry: false, conflict: true, eventId: existing.id };
       }
       const createdAt = Date.parse(String(existing.created_at || ''));
       const inProgress = Number.isFinite(createdAt) && Date.now() - createdAt < EVENT_RETRY_AFTER_MS;
@@ -147,11 +147,11 @@ export async function recordIntegrationEvent(opts: {
       .maybeSingle();
     if (racedError) throw racedError;
     if (raced) {
+      if (opts.deferProcessed && retryPayloadConflicts(raced.payload, opts.event)) {
+        return { duplicate: false, inProgress: false, retry: false, conflict: true, eventId: raced.id };
+      }
       if (!opts.deferProcessed || raced.processed_at) {
         return { duplicate: true, inProgress: false, retry: false, conflict: false, eventId: raced.id };
-      }
-      if (retryPayloadConflicts(raced.payload, opts.event)) {
-        return { duplicate: false, inProgress: false, retry: false, conflict: true, eventId: raced.id };
       }
       return { duplicate: false, inProgress: true, retry: false, conflict: false, eventId: raced.id };
     }
