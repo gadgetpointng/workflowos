@@ -5,6 +5,7 @@ type SupabaseLike = any;
 type IntentRow = {
   id: string;
   evidence: Record<string, any> | null;
+  status?: string | null;
   assigned_to?: string | null;
   product_query?: string | null;
 };
@@ -22,7 +23,7 @@ async function resolveBuyerIntents(supabase: SupabaseLike, organizationId: strin
       : [];
   if (buyerIntentIds.length) {
     const { data: intents, error } = await supabase.from('buyer_intents')
-      .select('id,evidence,assigned_to,product_query')
+      .select('id,evidence,status,assigned_to,product_query')
       .eq('organization_id', organizationId)
       .in('id', buyerIntentIds)
       .limit(100);
@@ -33,7 +34,7 @@ async function resolveBuyerIntents(supabase: SupabaseLike, organizationId: strin
   const quoteId = String(data?.workflow_quote_id ?? metadata?.workflow_quote_id ?? '').trim();
   if (quoteId) {
     const { data: intents, error } = await supabase.from('buyer_intents')
-      .select('id,evidence,assigned_to,product_query')
+      .select('id,evidence,status,assigned_to,product_query')
       .eq('organization_id', organizationId)
       .contains('evidence', { workflow_quote_id: quoteId })
       .limit(100);
@@ -44,7 +45,7 @@ async function resolveBuyerIntents(supabase: SupabaseLike, organizationId: strin
   const externalOrderId = String(data?.order_id ?? data?.external_order_id ?? data?.id ?? '').trim();
   if (externalOrderId) {
     const { data: intents, error } = await supabase.from('buyer_intents')
-      .select('id,evidence,assigned_to,product_query')
+      .select('id,evidence,status,assigned_to,product_query')
       .eq('organization_id', organizationId)
       .contains('evidence', { commerce_order_id: externalOrderId })
       .limit(100);
@@ -73,6 +74,28 @@ function paymentStage(statusValue: unknown) {
   if (['cancelled','canceled','void','voided'].includes(status)) return 'payment_cancelled';
   if (['refunded','reversed'].includes(status)) return 'returned';
   return 'awaiting_payment';
+}
+
+function restoreStatusForCommerceReopen(intent: IntentRow, evidence: Record<string, any>, stage: string) {
+  if (!['returned','cancelled','payment_failed','payment_cancelled'].includes(stage)) return null;
+  const priorStatus = String(evidence.commerce_pre_close_status ?? '').trim();
+  if (evidence.commerce_closed_by_workflowos !== true || intent.status !== 'closed' || !priorStatus || priorStatus === 'closed') return null;
+  return priorStatus;
+}
+
+function applyCommerceStatusTransition(update: any, intent: IntentRow, evidence: Record<string, any>, stage: string) {
+  if (stage === 'completed' && intent.status !== 'closed') {
+    update.status = 'closed';
+    update.evidence.commerce_closed_by_workflowos = true;
+    update.evidence.commerce_pre_close_status = intent.status;
+    return;
+  }
+  const restoredStatus = restoreStatusForCommerceReopen(intent, evidence, stage);
+  if (!restoredStatus) return;
+  update.status = restoredStatus;
+  update.evidence.commerce_closed_by_workflowos = false;
+  update.evidence.commerce_restored_status = restoredStatus;
+  update.evidence.commerce_reopened_at = new Date().toISOString();
 }
 
 async function notifyStage(supabase: SupabaseLike, organizationId: string, intent: IntentRow, stage: string, eventId: string) {
@@ -120,7 +143,7 @@ export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, orga
       },
       updated_at: new Date().toISOString(),
     };
-    if (stage === 'completed') update.status = 'closed';
+    applyCommerceStatusTransition(update, intent, evidence, stage);
     const { error } = await supabase.from('buyer_intents').update(update)
       .eq('id', intent.id)
       .eq('organization_id', organizationId);
@@ -139,7 +162,7 @@ export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, or
     const evidence = evidenceFor(intent);
     const previousStage = String(evidence.workflow_stage ?? '');
     const retryingSameStageEvent = previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId;
-    const { error } = await supabase.from('buyer_intents').update({
+    const update:any = {
       evidence: {
         ...evidence,
         workflow_stage: stage,
@@ -150,7 +173,9 @@ export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, or
         payment_updated_at: new Date().toISOString(),
       },
       updated_at: new Date().toISOString(),
-    })
+    };
+    applyCommerceStatusTransition(update, intent, evidence, stage);
+    const { error } = await supabase.from('buyer_intents').update(update)
       .eq('id', intent.id)
       .eq('organization_id', organizationId);
     if (error) throw new Error('Could not update buyer intent from commerce payment');
