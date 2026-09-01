@@ -20,10 +20,21 @@ requireText('shared bridge event recorder', bridge, [
   "select('id,processed_at,created_at,payload')",
   "select('id,processed_at,payload')",
   'function retryPayloadConflicts(recorded: any, incoming: BridgeEvent)',
-  'retryPayloadConflicts(existing.payload, opts.event)',
-  'retryPayloadConflicts(raced.payload, opts.event)',
+  'opts.deferProcessed && retryPayloadConflicts(existing.payload, opts.event)',
+  'opts.deferProcessed && retryPayloadConflicts(raced.payload, opts.event)',
   'conflict: true',
 ]);
+
+const existingConflictCheck = bridge.indexOf('if (opts.deferProcessed && retryPayloadConflicts(existing.payload, opts.event))');
+const existingDuplicateCheck = bridge.indexOf('if (!opts.deferProcessed || existing.processed_at)');
+if (existingConflictCheck < 0 || existingDuplicateCheck < 0 || existingConflictCheck > existingDuplicateCheck) {
+  failures.push('shared bridge event recorder: existing deferred events must reject conflicting payloads before processed-duplicate acknowledgement');
+}
+const racedConflictCheck = bridge.indexOf('if (opts.deferProcessed && retryPayloadConflicts(raced.payload, opts.event))');
+const racedDuplicateCheck = bridge.indexOf('if (!opts.deferProcessed || raced.processed_at)');
+if (racedConflictCheck < 0 || racedDuplicateCheck < 0 || racedConflictCheck > racedDuplicateCheck) {
+  failures.push('shared bridge event recorder: raced deferred events must reject conflicting payloads before processed-duplicate acknowledgement');
+}
 
 const organizationScopedDedupeReads = bridge.split(".eq('organization_id', opts.organizationId)").length - 1;
 if (organizationScopedDedupeReads < 2) {
