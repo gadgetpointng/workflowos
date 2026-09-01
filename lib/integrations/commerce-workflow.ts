@@ -95,14 +95,29 @@ function monotonicCommerceStage(previousStage: string, incomingStage: string, ne
   return incomingStage;
 }
 
-function restoreStatusForCommerceReopen(intent: IntentRow, evidence: Record<string, any>, stage: string) {
-  if (!['returned','cancelled','payment_failed','payment_cancelled'].includes(stage)) return null;
+function workflowOwnedPriorStatus(intent: IntentRow, evidence: Record<string, any>) {
   const priorStatus = String(evidence.commerce_pre_close_status ?? '').trim();
   if (evidence.commerce_closed_by_workflowos !== true || intent.status !== 'closed' || !priorStatus || priorStatus === 'closed') return null;
   return priorStatus;
 }
 
-function applyCommerceStatusTransition(update: any, intent: IntentRow, evidence: Record<string, any>, stage: string) {
+function restoreStatusForCommerceReopen(intent: IntentRow, evidence: Record<string, any>, stage: string, newOrderLifecycle = false) {
+  if (!newOrderLifecycle && !['returned','cancelled','payment_failed','payment_cancelled'].includes(stage)) return null;
+  return workflowOwnedPriorStatus(intent, evidence);
+}
+
+function applyCommerceStatusTransition(update: any, intent: IntentRow, evidence: Record<string, any>, stage: string, newOrderLifecycle = false) {
+  if (newOrderLifecycle && stage !== 'completed') {
+    const restoredStatus = restoreStatusForCommerceReopen(intent, evidence, stage, true);
+    if (restoredStatus) {
+      update.status = restoredStatus;
+      update.evidence.commerce_closed_by_workflowos = false;
+      update.evidence.commerce_restored_status = restoredStatus;
+      update.evidence.commerce_reopened_at = new Date().toISOString();
+      update.evidence.commerce_reopen_reason = 'new_order';
+      return;
+    }
+  }
   if (stage === 'completed' && intent.status !== 'closed') {
     update.status = 'closed';
     update.evidence.commerce_closed_by_workflowos = true;
@@ -166,7 +181,7 @@ export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, orga
       },
       updated_at: new Date().toISOString(),
     };
-    applyCommerceStatusTransition(update, intent, evidence, stage);
+    applyCommerceStatusTransition(update, intent, evidence, stage, newOrderLifecycle);
     const { error } = await supabase.from('buyer_intents').update(update)
       .eq('id', intent.id)
       .eq('organization_id', organizationId);
@@ -201,7 +216,7 @@ export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, or
       },
       updated_at: new Date().toISOString(),
     };
-    applyCommerceStatusTransition(update, intent, evidence, stage);
+    applyCommerceStatusTransition(update, intent, evidence, stage, newOrderLifecycle);
     const { error } = await supabase.from('buyer_intents').update(update)
       .eq('id', intent.id)
       .eq('organization_id', organizationId);
