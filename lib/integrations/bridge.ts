@@ -21,6 +21,18 @@ function bearerToken(request: Request) {
   return match?.[1]?.trim() || null;
 }
 
+function stableEventPayload(value: any): string {
+  if (Array.isArray(value)) return `[${value.map(stableEventPayload).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableEventPayload(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+}
+
+function retryPayloadConflicts(recorded: any, incoming: BridgeEvent) {
+  return stableEventPayload(recorded) !== stableEventPayload(incoming);
+}
+
 export async function authenticateBridge(request: Request, slug: string) {
   // Backward-compatible bridge headers used by existing WorkflowOS connectors.
   const workflowPublicKey = request.headers.get('x-workflow-key');
@@ -94,7 +106,7 @@ export async function recordIntegrationEvent(opts: {
   if (externalId) {
     const { data: existing, error: existingError } = await opts.supabase
       .from('integration_events')
-      .select('id,processed_at,created_at')
+      .select('id,processed_at,created_at,payload')
       .eq('organization_id', opts.organizationId)
       .eq('integration_id', opts.integrationId)
       .eq('external_id', externalId)
@@ -102,11 +114,14 @@ export async function recordIntegrationEvent(opts: {
     if (existingError) throw existingError;
     if (existing) {
       if (!opts.deferProcessed || existing.processed_at) {
-        return { duplicate: true, inProgress: false, retry: false, eventId: existing.id };
+        return { duplicate: true, inProgress: false, retry: false, conflict: false, eventId: existing.id };
+      }
+      if (retryPayloadConflicts(existing.payload, opts.event)) {
+        return { duplicate: false, inProgress: false, retry: false, conflict: true, eventId: existing.id };
       }
       const createdAt = Date.parse(String(existing.created_at || ''));
       const inProgress = Number.isFinite(createdAt) && Date.now() - createdAt < EVENT_RETRY_AFTER_MS;
-      return { duplicate: false, inProgress, retry: !inProgress, eventId: existing.id };
+      return { duplicate: false, inProgress, retry: !inProgress, conflict: false, eventId: existing.id };
     }
   }
 
@@ -125,7 +140,7 @@ export async function recordIntegrationEvent(opts: {
   if (error && externalId && error.code === '23505') {
     const { data: raced, error: racedError } = await opts.supabase
       .from('integration_events')
-      .select('id,processed_at')
+      .select('id,processed_at,payload')
       .eq('organization_id', opts.organizationId)
       .eq('integration_id', opts.integrationId)
       .eq('external_id', externalId)
@@ -133,14 +148,17 @@ export async function recordIntegrationEvent(opts: {
     if (racedError) throw racedError;
     if (raced) {
       if (!opts.deferProcessed || raced.processed_at) {
-        return { duplicate: true, inProgress: false, retry: false, eventId: raced.id };
+        return { duplicate: true, inProgress: false, retry: false, conflict: false, eventId: raced.id };
       }
-      return { duplicate: false, inProgress: true, retry: false, eventId: raced.id };
+      if (retryPayloadConflicts(raced.payload, opts.event)) {
+        return { duplicate: false, inProgress: false, retry: false, conflict: true, eventId: raced.id };
+      }
+      return { duplicate: false, inProgress: true, retry: false, conflict: false, eventId: raced.id };
     }
   }
 
   if (error) throw error;
-  return { duplicate: false, inProgress: false, retry: false, eventId: data.id };
+  return { duplicate: false, inProgress: false, retry: false, conflict: false, eventId: data.id };
 }
 
 export async function markIntegrationEventProcessed(opts: {
