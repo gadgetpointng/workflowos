@@ -120,6 +120,8 @@ requireText('commerce route', commerce, [
   "event.id = eventId",
   "recordIntegrationEvent",
   "deferProcessed: true",
+  "tracked.conflict",
+  "Commerce event id payload conflicts with the recorded event",
   "tracked.duplicate",
   "tracked.inProgress",
   "Commerce event is already processing",
@@ -137,9 +139,11 @@ requireText('commerce integration sync organization boundary', commerce, [
 requireText('bridge event retry contract', bridge, [
   'EVENT_RETRY_AFTER_MS',
   'deferProcessed?: boolean',
-  ".select('id,processed_at,created_at')",
+  ".select('id,processed_at,created_at,payload')",
   "processed_at: opts.deferProcessed ? null : new Date().toISOString()",
   "error.code === '23505'",
+  'retryPayloadConflicts(existing.payload, opts.event)',
+  'retryPayloadConflicts(raced.payload, opts.event)',
   'markIntegrationEventProcessed',
   '.update({ processed_at: new Date().toISOString() })',
 ]);
