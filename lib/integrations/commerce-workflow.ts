@@ -76,6 +76,21 @@ function paymentStage(statusValue: unknown) {
   return 'awaiting_payment';
 }
 
+const normalStageRank: Record<string, number> = {
+  awaiting_payment: 0,
+  preparing_order: 1,
+  ready_for_pickup: 2,
+  delivery: 3,
+  completed: 4,
+};
+
+function monotonicCommerceStage(previousStage: string, incomingStage: string) {
+  const previousRank = normalStageRank[previousStage];
+  const incomingRank = normalStageRank[incomingStage];
+  if (previousRank !== undefined && incomingRank !== undefined && incomingRank < previousRank) return previousStage;
+  return incomingStage;
+}
+
 function restoreStatusForCommerceReopen(intent: IntentRow, evidence: Record<string, any>, stage: string) {
   if (!['returned','cancelled','payment_failed','payment_cancelled'].includes(stage)) return null;
   const priorStatus = String(evidence.commerce_pre_close_status ?? '').trim();
@@ -127,16 +142,18 @@ export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, orga
   const intents = await resolveBuyerIntents(supabase, organizationId, data);
   if (!intents.length) return { updated: 0 };
   const externalOrderId = String(data?.id ?? data?.order_id ?? data?.external_order_id ?? '').trim() || null;
-  const stage = orderStage(data?.status);
+  const incomingStage = orderStage(data?.status);
   for (const intent of intents) {
     const evidence = evidenceFor(intent);
     const previousStage = String(evidence.workflow_stage ?? '');
-    const retryingSameStageEvent = previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId;
+    const stage = monotonicCommerceStage(previousStage, incomingStage);
+    const acceptedStageEvent = stage === incomingStage;
+    const retryingSameStageEvent = acceptedStageEvent && previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId;
     const update:any = {
       evidence: {
         ...evidence,
         workflow_stage: stage,
-        commerce_stage_event_id: eventId,
+        commerce_stage_event_id: acceptedStageEvent ? eventId : evidence.commerce_stage_event_id ?? null,
         commerce_order_status: data?.status ?? null,
         ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
         commerce_order_updated_at: new Date().toISOString(),
@@ -150,23 +167,25 @@ export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, orga
     if (error) throw new Error('Could not update buyer intent from commerce order');
     if (stage !== previousStage || retryingSameStageEvent) await notifyStage(supabase, organizationId, intent, stage, eventId);
   }
-  return { updated: intents.length, stage, externalOrderId };
+  return { updated: intents.length, stage: incomingStage, externalOrderId };
 }
 
 export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, organizationId: string, data: any, eventId: string) {
   const intents = await resolveBuyerIntents(supabase, organizationId, data);
   if (!intents.length) return { updated: 0 };
   const externalOrderId = String(data?.order_id ?? data?.external_order_id ?? data?.order?.id ?? '').trim() || null;
-  const stage = paymentStage(data?.status);
+  const incomingStage = paymentStage(data?.status);
   for (const intent of intents) {
     const evidence = evidenceFor(intent);
     const previousStage = String(evidence.workflow_stage ?? '');
-    const retryingSameStageEvent = previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId;
+    const stage = monotonicCommerceStage(previousStage, incomingStage);
+    const acceptedStageEvent = stage === incomingStage;
+    const retryingSameStageEvent = acceptedStageEvent && previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId;
     const update:any = {
       evidence: {
         ...evidence,
         workflow_stage: stage,
-        commerce_stage_event_id: eventId,
+        commerce_stage_event_id: acceptedStageEvent ? eventId : evidence.commerce_stage_event_id ?? null,
         payment_status: data?.status ?? null,
         payment_reference: data?.reference ?? data?.payment_reference ?? data?.id ?? null,
         ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
@@ -181,5 +200,5 @@ export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, or
     if (error) throw new Error('Could not update buyer intent from commerce payment');
     if (stage !== previousStage || retryingSameStageEvent) await notifyStage(supabase, organizationId, intent, stage, eventId);
   }
-  return { updated: intents.length, stage, externalOrderId };
+  return { updated: intents.length, stage: incomingStage, externalOrderId };
 }
