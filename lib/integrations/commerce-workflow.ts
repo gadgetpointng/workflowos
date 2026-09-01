@@ -85,12 +85,14 @@ const normalStageRank: Record<string, number> = {
 };
 
 const terminalExceptionalStages = new Set(['returned','cancelled']);
+const recoverablePaymentExceptionalStages = new Set(['payment_failed','payment_cancelled']);
 
-function monotonicCommerceStage(previousStage: string, incomingStage: string, newOrderLifecycle = false) {
+function monotonicCommerceStage(previousStage: string, incomingStage: string, newOrderLifecycle = false, source: 'order' | 'payment' = 'payment') {
   const previousRank = normalStageRank[previousStage];
   const incomingRank = normalStageRank[incomingStage];
   if (newOrderLifecycle) return incomingStage;
   if (terminalExceptionalStages.has(previousStage) && incomingRank !== undefined) return previousStage;
+  if (source === 'order' && recoverablePaymentExceptionalStages.has(previousStage) && incomingRank !== undefined) return previousStage;
   if (previousRank !== undefined && incomingRank !== undefined && incomingRank < previousRank) return previousStage;
   return incomingStage;
 }
@@ -167,7 +169,7 @@ export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, orga
     const previousStage = String(evidence.workflow_stage ?? '');
     const previousOrderId = String(evidence.commerce_order_id ?? '').trim();
     const newOrderLifecycle = Boolean(externalOrderId && previousOrderId && externalOrderId !== previousOrderId);
-    const stage = monotonicCommerceStage(previousStage, incomingStage, newOrderLifecycle);
+    const stage = monotonicCommerceStage(previousStage, incomingStage, newOrderLifecycle, 'order');
     const acceptedStageEvent = stage === incomingStage;
     const retryingSameStageEvent = acceptedStageEvent && previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId;
     const update:any = {
@@ -201,7 +203,7 @@ export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, or
     const previousStage = String(evidence.workflow_stage ?? '');
     const previousOrderId = String(evidence.commerce_order_id ?? '').trim();
     const newOrderLifecycle = Boolean(externalOrderId && previousOrderId && externalOrderId !== previousOrderId);
-    const stage = monotonicCommerceStage(previousStage, incomingStage, newOrderLifecycle);
+    const stage = monotonicCommerceStage(previousStage, incomingStage, newOrderLifecycle, 'payment');
     const acceptedStageEvent = stage === incomingStage;
     const retryingSameStageEvent = acceptedStageEvent && previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId;
     const update:any = {
