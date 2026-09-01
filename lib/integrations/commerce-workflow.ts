@@ -89,7 +89,8 @@ const terminalExceptionalStages = new Set(['returned','cancelled']);
 function monotonicCommerceStage(previousStage: string, incomingStage: string, newOrderLifecycle = false) {
   const previousRank = normalStageRank[previousStage];
   const incomingRank = normalStageRank[incomingStage];
-  if (!newOrderLifecycle && terminalExceptionalStages.has(previousStage) && incomingRank !== undefined) return previousStage;
+  if (newOrderLifecycle) return incomingStage;
+  if (terminalExceptionalStages.has(previousStage) && incomingRank !== undefined) return previousStage;
   if (previousRank !== undefined && incomingRank !== undefined && incomingRank < previousRank) return previousStage;
   return incomingStage;
 }
