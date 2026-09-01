@@ -167,6 +167,17 @@ requireText('commerce workflow notification idempotency', commerceWorkflow, [
   'advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, organizationId: string, data: any, eventId: string)',
 ]);
 
+requireText('commerce workflow provenance-safe reopen contract', commerceWorkflow, [
+  "status?: string | null",
+  ".select('id,evidence,status,assigned_to,product_query')",
+  "evidence.commerce_closed_by_workflowos !== true || intent.status !== 'closed'",
+  "update.evidence.commerce_pre_close_status = intent.status",
+  "update.evidence.commerce_closed_by_workflowos = true",
+  "update.evidence.commerce_closed_by_workflowos = false",
+  "applyCommerceStatusTransition(update, intent, evidence, stage)",
+  "['returned','cancelled','payment_failed','payment_cancelled'].includes(stage)",
+]);
+
 forbidText('commerce workflow ignored database errors', commerceWorkflow, [
   "const { data: intents } = await supabase.from('buyer_intents')",
   "\n  await supabase.from('notifications').insert({",
