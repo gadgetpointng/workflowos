@@ -42,7 +42,7 @@ async function resolveBuyerIntents(supabase: SupabaseLike, organizationId: strin
     return intents ?? [];
   }
 
-  const externalOrderId = String(data?.order_id ?? data?.external_order_id ?? data?.id ?? '').trim();
+  const externalOrderId = String(data?.order_id ?? data?.external_order_id ?? data?.order?.id ?? data?.id ?? '').trim();
   if (externalOrderId) {
     const { data: intents, error } = await supabase.from('buyer_intents')
       .select('id,evidence,status,assigned_to,product_query')
