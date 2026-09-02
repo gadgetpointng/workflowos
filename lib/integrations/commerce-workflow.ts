@@ -16,13 +16,16 @@ function evidenceFor(intent: IntentRow) {
 
 async function resolveBuyerIntents(supabase: SupabaseLike, organizationId: string, data: any): Promise<IntentRow[]> {
   const metadata = data?.metadata && typeof data.metadata === 'object' ? data.metadata : {};
-  const buyerIntentIds = (Array.isArray(data?.buyer_intent_ids)
-    ? data.buyer_intent_ids
-    : Array.isArray(metadata?.buyer_intent_ids)
-      ? metadata.buyer_intent_ids
-      : [])
+  const normalizeBuyerIntentIds = (values: unknown[]) => values
     .map((value: unknown) => String(value ?? '').trim())
     .filter(Boolean);
+  const topLevelBuyerIntentIds = Array.isArray(data?.buyer_intent_ids)
+    ? normalizeBuyerIntentIds(data.buyer_intent_ids)
+    : [];
+  const metadataBuyerIntentIds = Array.isArray(metadata?.buyer_intent_ids)
+    ? normalizeBuyerIntentIds(metadata.buyer_intent_ids)
+    : [];
+  const buyerIntentIds = topLevelBuyerIntentIds.length ? topLevelBuyerIntentIds : metadataBuyerIntentIds;
   if (buyerIntentIds.length) {
     const { data: intents, error } = await supabase.from('buyer_intents')
       .select('id,evidence,status,assigned_to,product_query')
