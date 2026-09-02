@@ -195,9 +195,11 @@ export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, orga
         ...evidence,
         workflow_stage: stage,
         commerce_stage_event_id: acceptedStageEvent ? eventId : evidence.commerce_stage_event_id ?? null,
-        commerce_order_status: data?.status ?? null,
+        ...(acceptedStageEvent ? {
+          commerce_order_status: data?.status ?? null,
+          commerce_order_updated_at: new Date().toISOString(),
+        } : {}),
         ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
-        commerce_order_updated_at: new Date().toISOString(),
       },
       updated_at: new Date().toISOString(),
     };
@@ -229,10 +231,12 @@ export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, or
         ...evidence,
         workflow_stage: stage,
         commerce_stage_event_id: acceptedStageEvent ? eventId : evidence.commerce_stage_event_id ?? null,
-        payment_status: data?.status ?? null,
-        payment_reference: firstNonBlank(data?.reference, data?.payment_reference, data?.id) || null,
+        ...(acceptedStageEvent ? {
+          payment_status: data?.status ?? null,
+          payment_reference: firstNonBlank(data?.reference, data?.payment_reference, data?.id) || null,
+          payment_updated_at: new Date().toISOString(),
+        } : {}),
         ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
-        payment_updated_at: new Date().toISOString(),
       },
       updated_at: new Date().toISOString(),
     };
