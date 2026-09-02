@@ -170,6 +170,13 @@ requireText('commerce workflow nonblank correlation precedence', commerceWorkflo
   'payment_reference: firstNonBlank(data?.reference, data?.payment_reference, data?.id) || null',
 ]);
 
+requireText('commerce workflow buyer intent candidate fallback', commerceWorkflow, [
+  'const buyerIntentIdCandidates = [topLevelBuyerIntentIds, metadataBuyerIntentIds]',
+  ".filter((ids, index, groups) => ids.length && (index === 0 || ids.join('\\u0000') !== groups[0].join('\\u0000')));",
+  'for (const buyerIntentIds of buyerIntentIdCandidates) {',
+  'if (intents?.length) return intents;',
+]);
+
 requireText('commerce workflow buyer intent organization boundary', commerceWorkflow, [
   ".eq('id', intent.id)\n      .eq('organization_id', organizationId)",
 ]);
