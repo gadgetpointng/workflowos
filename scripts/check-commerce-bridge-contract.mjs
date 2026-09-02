@@ -190,6 +190,11 @@ requireText('commerce workflow notification idempotency', commerceWorkflow, [
   'advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, organizationId: string, data: any, eventId: string)',
 ]);
 
+requireText('commerce workflow accepted status provenance', commerceWorkflow, [
+  "...(acceptedStageEvent ? {\n          commerce_order_status: data?.status ?? null,\n          commerce_order_updated_at: new Date().toISOString(),\n        } : {}),",
+  "...(acceptedStageEvent ? {\n          payment_status: data?.status ?? null,\n          payment_reference: firstNonBlank(data?.reference, data?.payment_reference, data?.id) || null,\n          payment_updated_at: new Date().toISOString(),\n        } : {}),",
+]);
+
 requireText('commerce workflow provenance-safe reopen contract', commerceWorkflow, [
   "status?: string | null",
   ".select('id,evidence,status,assigned_to,product_query')",
