@@ -97,6 +97,8 @@ function monotonicCommerceStage(previousStage: string, incomingStage: string, ne
   const incomingRank = normalStageRank[incomingStage];
   if (newOrderLifecycle) return incomingStage;
   if (terminalExceptionalStages.has(previousStage) && incomingRank !== undefined) return previousStage;
+  if (terminalExceptionalStages.has(previousStage) && recoverablePaymentExceptionalStages.has(incomingStage)) return previousStage;
+  if (previousStage === 'returned' && incomingStage === 'cancelled') return previousStage;
   if (previousStage === 'completed' && source === 'payment' && recoverablePaymentExceptionalStages.has(incomingStage)) return previousStage;
   if (previousStage === 'completed' && source === 'order' && incomingStage === 'cancelled') return previousStage;
   if (source === 'order' && recoverablePaymentExceptionalStages.has(previousStage) && incomingRank !== undefined) return previousStage;
