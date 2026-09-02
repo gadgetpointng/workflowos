@@ -229,7 +229,7 @@ export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, or
         workflow_stage: stage,
         commerce_stage_event_id: acceptedStageEvent ? eventId : evidence.commerce_stage_event_id ?? null,
         payment_status: data?.status ?? null,
-        payment_reference: data?.reference ?? data?.payment_reference ?? data?.id ?? null,
+        payment_reference: firstNonBlank(data?.reference, data?.payment_reference, data?.id) || null,
         ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
         payment_updated_at: new Date().toISOString(),
       },
