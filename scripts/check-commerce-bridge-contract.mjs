@@ -200,6 +200,10 @@ requireText('commerce workflow monotonic normal-stage contract', commerceWorkflo
   "function monotonicCommerceStage(previousStage: string, incomingStage: string, newOrderLifecycle = false, source: 'order' | 'payment' = 'payment')",
   'if (newOrderLifecycle) return incomingStage',
   'if (terminalExceptionalStages.has(previousStage) && incomingRank !== undefined) return previousStage',
+  'if (terminalExceptionalStages.has(previousStage) && recoverablePaymentExceptionalStages.has(incomingStage)) return previousStage',
+  "if (previousStage === 'returned' && incomingStage === 'cancelled') return previousStage",
+  "if (previousStage === 'completed' && source === 'payment' && recoverablePaymentExceptionalStages.has(incomingStage)) return previousStage",
+  "if (previousStage === 'completed' && source === 'order' && incomingStage === 'cancelled') return previousStage",
   "if (source === 'order' && recoverablePaymentExceptionalStages.has(previousStage) && incomingRank !== undefined) return previousStage",
   'if (previousRank !== undefined && incomingRank !== undefined && incomingRank < previousRank) return previousStage',
   "const previousOrderId = String(evidence.commerce_order_id ?? '').trim()",
@@ -209,6 +213,10 @@ requireText('commerce workflow monotonic normal-stage contract', commerceWorkflo
   'const acceptedStageEvent = stage === incomingStage',
   'workflow_stage: stage',
   'commerce_stage_event_id: acceptedStageEvent ? eventId : evidence.commerce_stage_event_id ?? null',
+]);
+
+forbidText('commerce workflow cancelled to returned remains allowed', commerceWorkflow, [
+  'if (terminalExceptionalStages.has(previousStage) && terminalExceptionalStages.has(incomingStage)) return previousStage',
 ]);
 
 forbidText('commerce workflow ignored database errors', commerceWorkflow, [
