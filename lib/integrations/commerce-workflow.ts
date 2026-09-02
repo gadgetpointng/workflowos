@@ -14,6 +14,14 @@ function evidenceFor(intent: IntentRow) {
   return intent.evidence && typeof intent.evidence === 'object' && !Array.isArray(intent.evidence) ? intent.evidence : {};
 }
 
+function firstNonBlank(...values: unknown[]) {
+  for (const value of values) {
+    const normalized = String(value ?? '').trim();
+    if (normalized) return normalized;
+  }
+  return '';
+}
+
 async function resolveBuyerIntents(supabase: SupabaseLike, organizationId: string, data: any): Promise<IntentRow[]> {
   const metadata = data?.metadata && typeof data.metadata === 'object' ? data.metadata : {};
   const normalizeBuyerIntentIds = (values: unknown[]) => values
@@ -36,7 +44,7 @@ async function resolveBuyerIntents(supabase: SupabaseLike, organizationId: strin
     return intents ?? [];
   }
 
-  const quoteId = String(data?.workflow_quote_id ?? metadata?.workflow_quote_id ?? '').trim();
+  const quoteId = firstNonBlank(data?.workflow_quote_id, metadata?.workflow_quote_id);
   if (quoteId) {
     const { data: intents, error } = await supabase.from('buyer_intents')
       .select('id,evidence,status,assigned_to,product_query')
@@ -47,7 +55,7 @@ async function resolveBuyerIntents(supabase: SupabaseLike, organizationId: strin
     return intents ?? [];
   }
 
-  const externalOrderId = String(data?.order_id ?? data?.external_order_id ?? data?.order?.id ?? data?.id ?? '').trim();
+  const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.order?.id, data?.id);
   if (externalOrderId) {
     const { data: intents, error } = await supabase.from('buyer_intents')
       .select('id,evidence,status,assigned_to,product_query')
@@ -171,7 +179,7 @@ async function notifyStage(supabase: SupabaseLike, organizationId: string, inten
 export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, organizationId: string, data: any, eventId: string) {
   const intents = await resolveBuyerIntents(supabase, organizationId, data);
   if (!intents.length) return { updated: 0 };
-  const externalOrderId = String(data?.order_id ?? data?.external_order_id ?? data?.id ?? '').trim() || null;
+  const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.id) || null;
   const incomingStage = orderStage(data?.status);
   for (const intent of intents) {
     const evidence = evidenceFor(intent);
@@ -205,7 +213,7 @@ export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, orga
 export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, organizationId: string, data: any, eventId: string) {
   const intents = await resolveBuyerIntents(supabase, organizationId, data);
   if (!intents.length) return { updated: 0 };
-  const externalOrderId = String(data?.order_id ?? data?.external_order_id ?? data?.order?.id ?? '').trim() || null;
+  const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.order?.id) || null;
   const incomingStage = paymentStage(data?.status);
   for (const intent of intents) {
     const evidence = evidenceFor(intent);
