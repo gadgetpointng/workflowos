@@ -172,7 +172,6 @@ requireText('commerce workflow nonblank correlation precedence', commerceWorkflo
 
 requireText('commerce workflow buyer intent candidate fallback', commerceWorkflow, [
   'const buyerIntentIdCandidates = [topLevelBuyerIntentIds, metadataBuyerIntentIds]',
-  ".filter((ids, index, groups) => ids.length && (index === 0 || ids.join('\\u0000') !== groups[0].join('\\u0000')));",
   'for (const buyerIntentIds of buyerIntentIdCandidates) {',
   'if (intents?.length) return intents;',
 ]);
