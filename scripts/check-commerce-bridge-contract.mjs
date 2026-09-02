@@ -118,6 +118,8 @@ requireText('commerce route', commerce, [
   "const eventId = String(event.id || '').trim()",
   "Commerce events require a stable event id for idempotency",
   "event.id = eventId",
+  "event.type === 'payment.updated' && !data.order_id && !data.external_order_id && !data.order?.id && !data.workflow_quote_id && !data.metadata?.workflow_quote_id",
+  "payment.updated requires order_id/external_order_id, nested order.id, or workflow_quote_id correlation",
   "recordIntegrationEvent",
   "deferProcessed: true",
   "tracked.conflict",
