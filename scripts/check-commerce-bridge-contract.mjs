@@ -153,11 +153,20 @@ requireText('bridge event retry contract', bridge, [
 requireText('commerce workflow fail-closed database handling', commerceWorkflow, [
   "const { data: intents, error } = await supabase.from('buyer_intents')",
   "if (error) throw new Error('Could not resolve buyer intents for commerce workflow')",
-  "const externalOrderId = String(data?.order_id ?? data?.external_order_id ?? data?.order?.id ?? data?.id ?? '').trim()",
+  'function firstNonBlank(...values: unknown[])',
+  'const quoteId = firstNonBlank(data?.workflow_quote_id, metadata?.workflow_quote_id)',
+  'const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.order?.id, data?.id)',
   "const { error } = await supabase.from('notifications').insert({",
   "if (error && error.code !== '23505') throw new Error('Could not create commerce workflow notification')",
   "if (error) throw new Error('Could not update buyer intent from commerce order')",
   "if (error) throw new Error('Could not update buyer intent from commerce payment')",
+]);
+
+requireText('commerce workflow nonblank correlation precedence', commerceWorkflow, [
+  "const normalized = String(value ?? '').trim()",
+  'if (normalized) return normalized',
+  'const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.id) || null',
+  'const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.order?.id) || null',
 ]);
 
 requireText('commerce workflow buyer intent organization boundary', commerceWorkflow, [
