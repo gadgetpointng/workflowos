@@ -33,8 +33,9 @@ async function resolveBuyerIntents(supabase: SupabaseLike, organizationId: strin
   const metadataBuyerIntentIds = Array.isArray(metadata?.buyer_intent_ids)
     ? normalizeBuyerIntentIds(metadata.buyer_intent_ids)
     : [];
-  const buyerIntentIds = topLevelBuyerIntentIds.length ? topLevelBuyerIntentIds : metadataBuyerIntentIds;
-  if (buyerIntentIds.length) {
+  const buyerIntentIdCandidates = [topLevelBuyerIntentIds, metadataBuyerIntentIds]
+    .filter((ids, index, groups) => ids.length && (index === 0 || ids.join('\u0000') !== groups[0].join('\u0000')));
+  for (const buyerIntentIds of buyerIntentIdCandidates) {
     const { data: intents, error } = await supabase.from('buyer_intents')
       .select('id,evidence,status,assigned_to,product_query')
       .eq('organization_id', organizationId)
