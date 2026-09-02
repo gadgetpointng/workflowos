@@ -24,13 +24,16 @@ export async function POST(request: Request, context: { params: Promise<{ integr
   event.id = eventId;
 
   const data = event.data ?? {};
-  if ((event.type === 'order.created' || event.type === 'order.updated') && !data.id && !data.order_id && !data.external_order_id) {
+  const hasOrderIdCorrelation = [data.id, data.order_id, data.external_order_id].some((value: unknown) => String(value ?? '').trim());
+  if ((event.type === 'order.created' || event.type === 'order.updated') && !hasOrderIdCorrelation) {
     return NextResponse.json({ error: `${event.type} requires an order id` }, { status: 400 });
   }
   const missingPaymentOrderOrQuoteCorrelation = event.type === 'payment.updated' && !data.order_id && !data.external_order_id && !data.order?.id && !data.workflow_quote_id && !data.metadata?.workflow_quote_id;
+  const hasPaymentOrderOrQuoteCorrelation = [data.order_id, data.external_order_id, data.order?.id, data.workflow_quote_id, data.metadata?.workflow_quote_id]
+    .some((value: unknown) => String(value ?? '').trim());
   const hasBuyerIntentIdCorrelation = (Array.isArray(data.buyer_intent_ids) && data.buyer_intent_ids.some((value: unknown) => String(value ?? '').trim()))
     || (Array.isArray(data.metadata?.buyer_intent_ids) && data.metadata.buyer_intent_ids.some((value: unknown) => String(value ?? '').trim()));
-  if (missingPaymentOrderOrQuoteCorrelation && !hasBuyerIntentIdCorrelation) {
+  if ((missingPaymentOrderOrQuoteCorrelation || (event.type === 'payment.updated' && !hasPaymentOrderOrQuoteCorrelation)) && !hasBuyerIntentIdCorrelation) {
     return NextResponse.json({ error: 'payment.updated requires order_id/external_order_id, nested order.id, or workflow_quote_id correlation, or buyer_intent_ids correlation' }, { status: 400 });
   }
 
