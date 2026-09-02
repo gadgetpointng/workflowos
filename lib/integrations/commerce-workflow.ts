@@ -41,7 +41,7 @@ async function resolveBuyerIntents(supabase: SupabaseLike, organizationId: strin
       .in('id', buyerIntentIds)
       .limit(100);
     if (error) throw new Error('Could not resolve buyer intents for commerce workflow');
-    return intents ?? [];
+    if (intents?.length) return intents;
   }
 
   const quoteId = firstNonBlank(data?.workflow_quote_id, metadata?.workflow_quote_id);
@@ -52,7 +52,7 @@ async function resolveBuyerIntents(supabase: SupabaseLike, organizationId: strin
       .contains('evidence', { workflow_quote_id: quoteId })
       .limit(100);
     if (error) throw new Error('Could not resolve buyer intents for commerce workflow');
-    return intents ?? [];
+    if (intents?.length) return intents;
   }
 
   const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.order?.id, data?.id);
