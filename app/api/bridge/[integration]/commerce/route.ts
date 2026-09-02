@@ -28,7 +28,9 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     return NextResponse.json({ error: `${event.type} requires an order id` }, { status: 400 });
   }
   const missingPaymentOrderOrQuoteCorrelation = event.type === 'payment.updated' && !data.order_id && !data.external_order_id && !data.order?.id && !data.workflow_quote_id && !data.metadata?.workflow_quote_id;
-  if (missingPaymentOrderOrQuoteCorrelation && !data.buyer_intent_ids?.length && !data.metadata?.buyer_intent_ids?.length) {
+  const hasBuyerIntentIdCorrelation = (Array.isArray(data.buyer_intent_ids) && data.buyer_intent_ids.length > 0)
+    || (Array.isArray(data.metadata?.buyer_intent_ids) && data.metadata.buyer_intent_ids.length > 0);
+  if (missingPaymentOrderOrQuoteCorrelation && !hasBuyerIntentIdCorrelation) {
     return NextResponse.json({ error: 'payment.updated requires order_id/external_order_id, nested order.id, or workflow_quote_id correlation, or buyer_intent_ids correlation' }, { status: 400 });
   }
 
