@@ -162,7 +162,7 @@ async function notifyStage(supabase: SupabaseLike, organizationId: string, inten
 export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, organizationId: string, data: any, eventId: string) {
   const intents = await resolveBuyerIntents(supabase, organizationId, data);
   if (!intents.length) return { updated: 0 };
-  const externalOrderId = String(data?.id ?? data?.order_id ?? data?.external_order_id ?? '').trim() || null;
+  const externalOrderId = String(data?.order_id ?? data?.external_order_id ?? data?.id ?? '').trim() || null;
   const incomingStage = orderStage(data?.status);
   for (const intent of intents) {
     const evidence = evidenceFor(intent);
