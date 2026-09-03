@@ -120,19 +120,22 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       for (const intent of intents ?? []) {
         const evidence = intent.evidence && typeof intent.evidence === 'object' && !Array.isArray(intent.evidence) ? intent.evidence : {};
         const stage = body.status === 'acknowledged' ? 'awaiting_payment' : 'order_request_failed';
-        const { error: intentUpdateError } = await auth.supabase.from('buyer_intents').update({
-          evidence: {
-            ...evidence,
-            workflow_stage: stage,
-            commerce_command_status: body.status,
-            ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
-            commerce_command_result: body.result ?? {},
-          },
-          updated_at: new Date().toISOString(),
-        })
-          .eq('id', intent.id)
-          .eq('organization_id', auth.integration.organization_id);
-        if (intentUpdateError) throw new Error('Could not update buyer intent from commerce command');
+        const commandStatusAlreadyApplied = evidence.commerce_command_status === body.status;
+        if (!commandStatusAlreadyApplied) {
+          const { error: intentUpdateError } = await auth.supabase.from('buyer_intents').update({
+            evidence: {
+              ...evidence,
+              workflow_stage: stage,
+              commerce_command_status: body.status,
+              ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
+              commerce_command_result: body.result ?? {},
+            },
+            updated_at: new Date().toISOString(),
+          })
+            .eq('id', intent.id)
+            .eq('organization_id', auth.integration.organization_id);
+          if (intentUpdateError) throw new Error('Could not update buyer intent from commerce command');
+        }
 
         if (intent.assigned_to) {
           const { error: notificationError } = await auth.supabase.from('notifications').insert({
