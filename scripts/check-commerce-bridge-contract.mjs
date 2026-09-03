@@ -67,6 +67,8 @@ requireText('commands acknowledgement retry contract', commands, [
   "select('id,command_type,target_entity_type,target_entity_id,payload,status,updated_at')",
   "command.status !== 'dispatched' && command.status !== body.status",
   "Command status conflicts with this acknowledgement",
+  "if (command.status === body.status) {",
+  "return NextResponse.json({ data: command, replayed: true });",
   'const processingAt = new Date().toISOString()',
   'const { data: lease, error: leaseError }',
   ".eq('updated_at', command.updated_at)",
@@ -266,11 +268,12 @@ if (dispatchStaleLoad === -1 || dispatchCandidateMerge === -1 || dispatchLease =
   failures.push('commands route: stale dispatched commands must be loaded, merged, compare-and-swap leased, and fail closed on lease errors');
 }
 
+const commandReplay = commands.indexOf('if (command.status === body.status)');
 const commandLease = commands.indexOf('const { data: lease, error: leaseError }');
 const commandEffects = commands.indexOf("if (command.command_type === 'order.create')");
 const commandFinalize = commands.indexOf("const patch = body.status === 'acknowledged'");
-if (commandLease === -1 || commandEffects === -1 || commandFinalize === -1 || commandLease > commandEffects || commandEffects > commandFinalize) {
-  failures.push('commands route: acknowledgement must lease first, run retry-safe side effects second, and finalize command status last');
+if (commandReplay === -1 || commandLease === -1 || commandEffects === -1 || commandFinalize === -1 || commandReplay > commandLease || commandLease > commandEffects || commandEffects > commandFinalize) {
+  failures.push('commands route: terminal same-status acknowledgements must replay before lease, side effects, and finalization');
 }
 
 const eventIdValidation = commerce.indexOf("const eventId = String(event.id || '').trim()");
