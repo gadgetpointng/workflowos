@@ -126,12 +126,19 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       if (intentsError) throw new Error('Could not resolve buyer intents for commerce command');
 
       const incomingResult = body.result ?? {};
+      const incomingError = body.status === 'failed'
+        ? String(body.error ?? body.result?.error ?? 'External command failed')
+        : null;
       for (const intent of intents ?? []) {
         const evidence = intent.evidence && typeof intent.evidence === 'object' && !Array.isArray(intent.evidence) ? intent.evidence : {};
         const commandStatusAlreadyApplied = evidence.commerce_command_status === body.status;
         const hasRecordedResult = Object.prototype.hasOwnProperty.call(evidence, 'commerce_command_result');
+        const hasRecordedError = Object.prototype.hasOwnProperty.call(evidence, 'commerce_command_error');
         if (commandStatusAlreadyApplied && hasRecordedResult && stablePayload(evidence.commerce_command_result) !== stablePayload(incomingResult)) {
           return NextResponse.json({ error: 'Command acknowledgement payload conflicts with previously applied buyer-intent evidence', retry: false }, { status: 409 });
+        }
+        if (commandStatusAlreadyApplied && body.status === 'failed' && hasRecordedError && String(evidence.commerce_command_error) !== incomingError) {
+          return NextResponse.json({ error: 'Command acknowledgement error conflicts with previously applied buyer-intent evidence', retry: false }, { status: 409 });
         }
       }
 
@@ -147,6 +154,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
               commerce_command_status: body.status,
               ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
               commerce_command_result: incomingResult,
+              ...(body.status === 'failed' ? { commerce_command_error: incomingError } : {}),
             },
             updated_at: new Date().toISOString(),
           })
@@ -177,7 +185,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
         action: body.status === 'acknowledged' ? 'commerce.order_request_acknowledged' : 'commerce.order_request_failed',
         entity_type: command.target_entity_type || 'integration_command',
         entity_id: command.target_entity_id || command.id,
-        metadata: { command_id: command.id, external_order_id: externalOrderId, result: incomingResult },
+        metadata: { command_id: command.id, external_order_id: externalOrderId, result: incomingResult, ...(body.status === 'failed' ? { error: incomingError } : {}) },
       });
       if (activityError && activityError.code !== '23505') throw new Error('Could not record commerce command activity');
     }
