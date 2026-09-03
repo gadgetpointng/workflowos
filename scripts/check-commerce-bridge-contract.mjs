@@ -167,6 +167,7 @@ requireText('commerce workflow nonblank correlation precedence', commerceWorkflo
   'if (normalized) return normalized',
   'const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.id) || null',
   'const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.order?.id) || null',
+  'resolveBuyerIntents(supabase, organizationId, { ...data, id: undefined })',
   'payment_reference: firstNonBlank(data?.reference, data?.payment_reference, data?.id) || null',
 ]);
 
