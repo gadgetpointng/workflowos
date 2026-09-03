@@ -87,6 +87,9 @@ export async function POST(request: Request, context: { params: Promise<{ integr
   if (command.status !== 'dispatched' && command.status !== body.status) {
     return NextResponse.json({ error: 'Command status conflicts with this acknowledgement' }, { status: 409 });
   }
+  if (command.status === body.status) {
+    return NextResponse.json({ data: command, replayed: true });
+  }
 
   const processingAt = new Date().toISOString();
   const { data: lease, error: leaseError } = await auth.supabase.from('integration_commands')
