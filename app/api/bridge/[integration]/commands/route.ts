@@ -132,8 +132,8 @@ export async function POST(request: Request, context: { params: Promise<{ integr
             },
             updated_at: new Date().toISOString(),
           })
-            .eq('id', intent.id)
-            .eq('organization_id', auth.integration.organization_id);
+          .eq('id', intent.id)
+          .eq('organization_id', auth.integration.organization_id);
           if (intentUpdateError) throw new Error('Could not update buyer intent from commerce command');
         }
 
