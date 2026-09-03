@@ -214,7 +214,7 @@ export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, orga
 }
 
 export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, organizationId: string, data: any, eventId: string) {
-  const intents = await resolveBuyerIntents(supabase, organizationId, data);
+  const intents = await resolveBuyerIntents(supabase, organizationId, { ...data, id: undefined });
   if (!intents.length) return { updated: 0 };
   const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.order?.id) || null;
   const incomingStage = paymentStage(data?.status);
