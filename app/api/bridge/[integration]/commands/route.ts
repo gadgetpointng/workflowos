@@ -4,6 +4,14 @@ import { canReceiveCommands } from '@/lib/integrations/capabilities';
 import { COMMAND_DISPATCH_RETRY_AFTER_MS } from '@/lib/integrations/command-dispatch';
 import { deterministicUuid } from '@/lib/integrations/idempotency';
 
+function stablePayload(value: any): string {
+  if (Array.isArray(value)) return `[${value.map(stablePayload).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stablePayload(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+}
+
 export async function GET(request: Request, context: { params: Promise<{ integration: string }> }) {
   const { integration: slug } = await context.params;
   const auth = await authenticateBridge(request, slug);
@@ -117,6 +125,16 @@ export async function POST(request: Request, context: { params: Promise<{ integr
         .limit(50);
       if (intentsError) throw new Error('Could not resolve buyer intents for commerce command');
 
+      const incomingResult = body.result ?? {};
+      for (const intent of intents ?? []) {
+        const evidence = intent.evidence && typeof intent.evidence === 'object' && !Array.isArray(intent.evidence) ? intent.evidence : {};
+        const commandStatusAlreadyApplied = evidence.commerce_command_status === body.status;
+        const hasRecordedResult = Object.prototype.hasOwnProperty.call(evidence, 'commerce_command_result');
+        if (commandStatusAlreadyApplied && hasRecordedResult && stablePayload(evidence.commerce_command_result) !== stablePayload(incomingResult)) {
+          return NextResponse.json({ error: 'Command acknowledgement payload conflicts with previously applied buyer-intent evidence', retry: false }, { status: 409 });
+        }
+      }
+
       for (const intent of intents ?? []) {
         const evidence = intent.evidence && typeof intent.evidence === 'object' && !Array.isArray(intent.evidence) ? intent.evidence : {};
         const stage = body.status === 'acknowledged' ? 'awaiting_payment' : 'order_request_failed';
@@ -128,7 +146,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
               workflow_stage: stage,
               commerce_command_status: body.status,
               ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
-              commerce_command_result: body.result ?? {},
+              commerce_command_result: incomingResult,
             },
             updated_at: new Date().toISOString(),
           })
@@ -159,7 +177,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
         action: body.status === 'acknowledged' ? 'commerce.order_request_acknowledged' : 'commerce.order_request_failed',
         entity_type: command.target_entity_type || 'integration_command',
         entity_id: command.target_entity_id || command.id,
-        metadata: { command_id: command.id, external_order_id: externalOrderId, result: body.result ?? {} },
+        metadata: { command_id: command.id, external_order_id: externalOrderId, result: incomingResult },
       });
       if (activityError && activityError.code !== '23505') throw new Error('Could not record commerce command activity');
     }
