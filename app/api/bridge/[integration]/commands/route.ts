@@ -152,6 +152,24 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       const incomingError = body.status === 'failed'
         ? String(body.error ?? body.result?.error ?? 'External command failed')
         : null;
+      const activityId = deterministicUuid(`commerce-command-activity:${command.id}:${body.status}`);
+      const { data: existingActivity, error: existingActivityError } = await auth.supabase.from('activity_logs')
+        .select('metadata')
+        .eq('id', activityId)
+        .eq('organization_id', auth.integration.organization_id)
+        .maybeSingle();
+      if (existingActivityError) throw new Error('Could not validate existing commerce command activity');
+      if (existingActivity) {
+        const activityMetadata = existingActivity.metadata && typeof existingActivity.metadata === 'object' && !Array.isArray(existingActivity.metadata)
+          ? existingActivity.metadata
+          : {};
+        if (stablePayload(activityMetadata.result ?? {}) !== stablePayload(incomingResult)) {
+          return NextResponse.json({ error: 'Command acknowledgement payload conflicts with previously recorded activity', retry: false }, { status: 409 });
+        }
+        if (body.status === 'failed' && String(activityMetadata.error ?? 'External command failed') !== incomingError) {
+          return NextResponse.json({ error: 'Command acknowledgement error conflicts with previously recorded activity', retry: false }, { status: 409 });
+        }
+      }
       for (const intent of intents ?? []) {
         const evidence = intent.evidence && typeof intent.evidence === 'object' && !Array.isArray(intent.evidence) ? intent.evidence : {};
         const commandStatusAlreadyApplied = evidence.commerce_command_status === body.status;
@@ -202,7 +220,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       }
 
       const { error: activityError } = await auth.supabase.from('activity_logs').insert({
-        id: deterministicUuid(`commerce-command-activity:${command.id}:${body.status}`),
+        id: activityId,
         organization_id: auth.integration.organization_id,
         actor_id: null,
         action: body.status === 'acknowledged' ? 'commerce.order_request_acknowledged' : 'commerce.order_request_failed',
