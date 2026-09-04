@@ -22,6 +22,11 @@ type RecommendationDraft = {
 
 const WINDOW_HOURS = 24;
 
+function observeReadFailure(operation: string, error: any) {
+  if (!error) return;
+  console.error('Storefront intelligence read failed', { operation, code: error.code });
+}
+
 function normalizeSearch(value: unknown) {
   return String(value ?? '')
     .trim()
@@ -35,7 +40,7 @@ function productLabel(data: Record<string, any>) {
 }
 
 async function recommendSalesAssignee(supabase: any, organizationId: string) {
-  const { data: capabilities } = await supabase
+  const { data: capabilities, error: capabilitiesError } = await supabase
     .from('staff_capabilities')
     .select('profile_id,proficiency,profiles(active)')
     .eq('organization_id', organizationId)
@@ -43,6 +48,7 @@ async function recommendSalesAssignee(supabase: any, organizationId: string) {
     .eq('active', true)
     .order('proficiency', { ascending: false })
     .limit(20);
+  observeReadFailure('staff_capabilities.select.sales_assignee', capabilitiesError);
 
   const ids = (capabilities ?? [])
     .filter((item: any) => item.profiles?.active !== false)
@@ -51,12 +57,13 @@ async function recommendSalesAssignee(supabase: any, organizationId: string) {
 
   if (!ids.length) return null;
 
-  const { data: openTasks } = await supabase
+  const { data: openTasks, error: openTasksError } = await supabase
     .from('tasks')
     .select('assignee_id,status')
     .eq('organization_id', organizationId)
     .in('assignee_id', ids)
     .not('status', 'in', '("completed","cancelled")');
+  observeReadFailure('tasks.select.sales_assignee_load', openTasksError);
 
   const load = new Map<string, number>();
   for (const task of openTasks ?? []) {
@@ -75,7 +82,7 @@ async function recentProductSignalCount(
   productRef: string,
   since: string,
 ) {
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from('commerce_signals')
     .select('id', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
@@ -83,6 +90,7 @@ async function recentProductSignalCount(
     .eq('signal_type', signalType)
     .eq('product_ref', productRef)
     .gte('observed_at', since);
+  observeReadFailure('commerce_signals.count.product_signal', error);
 
   return count ?? 0;
 }
@@ -94,7 +102,7 @@ async function recentSearchCount(
   normalizedQuery: string,
   since: string,
 ) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('commerce_signals')
     .select('search_query')
     .eq('organization_id', organizationId)
@@ -103,6 +111,7 @@ async function recentSearchCount(
     .gte('observed_at', since)
     .order('observed_at', { ascending: false })
     .limit(500);
+  observeReadFailure('commerce_signals.select.search_history', error);
 
   return (data ?? []).filter((row: any) => normalizeSearch(row.search_query) === normalizedQuery).length;
 }
@@ -114,7 +123,7 @@ async function saveRecommendation(
   draft: RecommendationDraft,
   assigneeId: string | null,
 ) {
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from('growth_recommendations')
     .select('id,status,score')
     .eq('organization_id', organizationId)
@@ -124,6 +133,7 @@ async function saveRecommendation(
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+  observeReadFailure('growth_recommendations.select.existing', existingError);
 
   const payload = {
     organization_id: organizationId,
@@ -287,7 +297,7 @@ export async function evaluateStorefrontSignal(input: IntelligenceInput) {
     assigneeId,
   );
 
-  await input.supabase.from('activity_logs').insert({
+  const { error: recommendationActivityError } = await input.supabase.from('activity_logs').insert({
     organization_id: input.organizationId,
     actor_id: null,
     action: saved.updated ? 'storefront.intelligence.updated' : 'storefront.intelligence.created',
@@ -300,6 +310,12 @@ export async function evaluateStorefrontSignal(input: IntelligenceInput) {
       signal_key: draft.key,
     },
   });
+  if (recommendationActivityError) {
+    console.error('Storefront intelligence activity write failed', {
+      operation: 'activity_logs.insert.storefront_recommendation',
+      code: recommendationActivityError.code,
+    });
+  }
 
   return {
     qualified: true,

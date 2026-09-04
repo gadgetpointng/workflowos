@@ -1,0 +1,251 @@
+import { deterministicUuid } from '@/lib/integrations/idempotency';
+
+type SupabaseLike = any;
+
+type IntentRow = {
+  id: string;
+  evidence: Record<string, any> | null;
+  status?: string | null;
+  assigned_to?: string | null;
+  product_query?: string | null;
+};
+
+function evidenceFor(intent: IntentRow) {
+  return intent.evidence && typeof intent.evidence === 'object' && !Array.isArray(intent.evidence) ? intent.evidence : {};
+}
+
+function firstNonBlank(...values: unknown[]) {
+  for (const value of values) {
+    const normalized = String(value ?? '').trim();
+    if (normalized) return normalized;
+  }
+  return '';
+}
+
+async function resolveBuyerIntents(supabase: SupabaseLike, organizationId: string, data: any): Promise<IntentRow[]> {
+  const metadata = data?.metadata && typeof data.metadata === 'object' ? data.metadata : {};
+  const normalizeBuyerIntentIds = (values: unknown[]) => values
+    .map((value: unknown) => String(value ?? '').trim())
+    .filter(Boolean);
+  const topLevelBuyerIntentIds = Array.isArray(data?.buyer_intent_ids)
+    ? normalizeBuyerIntentIds(data.buyer_intent_ids)
+    : [];
+  const metadataBuyerIntentIds = Array.isArray(metadata?.buyer_intent_ids)
+    ? normalizeBuyerIntentIds(metadata.buyer_intent_ids)
+    : [];
+  const buyerIntentIdCandidates = [topLevelBuyerIntentIds, metadataBuyerIntentIds]
+    .filter((ids, index, groups) => ids.length && (index === 0 || ids.join('\u0000') !== groups[0].join('\u0000')));
+  for (const buyerIntentIds of buyerIntentIdCandidates) {
+    const { data: intents, error } = await supabase.from('buyer_intents')
+      .select('id,evidence,status,assigned_to,product_query')
+      .eq('organization_id', organizationId)
+      .in('id', buyerIntentIds)
+      .limit(100);
+    if (error) throw new Error('Could not resolve buyer intents for commerce workflow');
+    if (intents?.length) return intents;
+  }
+
+  const quoteId = firstNonBlank(data?.workflow_quote_id, metadata?.workflow_quote_id);
+  if (quoteId) {
+    const { data: intents, error } = await supabase.from('buyer_intents')
+      .select('id,evidence,status,assigned_to,product_query')
+      .eq('organization_id', organizationId)
+      .contains('evidence', { workflow_quote_id: quoteId })
+      .limit(100);
+    if (error) throw new Error('Could not resolve buyer intents for commerce workflow');
+    if (intents?.length) return intents;
+  }
+
+  const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.order?.id, data?.id);
+  if (externalOrderId) {
+    const { data: intents, error } = await supabase.from('buyer_intents')
+      .select('id,evidence,status,assigned_to,product_query')
+      .eq('organization_id', organizationId)
+      .contains('evidence', { commerce_order_id: externalOrderId })
+      .limit(100);
+    if (error) throw new Error('Could not resolve buyer intents for commerce workflow');
+    return intents ?? [];
+  }
+
+  return [];
+}
+
+function orderStage(statusValue: unknown) {
+  const status = String(statusValue ?? '').trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+  if (['cancelled','canceled'].includes(status)) return 'cancelled';
+  if (['returned','refunded'].includes(status)) return 'returned';
+  if (['delivered','completed','complete','fulfilled'].includes(status)) return 'completed';
+  if (['shipped','out_for_delivery','in_transit','delivery'].includes(status)) return 'delivery';
+  if (['ready','ready_for_pickup','ready_for_delivery'].includes(status)) return 'ready_for_pickup';
+  if (['processing','confirmed','preparing','preparing_order','packing','packed'].includes(status)) return 'preparing_order';
+  return 'awaiting_payment';
+}
+
+function paymentStage(statusValue: unknown) {
+  const status = String(statusValue ?? '').trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+  if (['paid','confirmed','successful','success','completed','complete'].includes(status)) return 'preparing_order';
+  if (['failed','declined'].includes(status)) return 'payment_failed';
+  if (['cancelled','canceled','void','voided'].includes(status)) return 'payment_cancelled';
+  if (['refunded','reversed'].includes(status)) return 'returned';
+  return 'awaiting_payment';
+}
+
+const normalStageRank: Record<string, number> = {
+  awaiting_payment: 0,
+  preparing_order: 1,
+  ready_for_pickup: 2,
+  delivery: 3,
+  completed: 4,
+};
+
+const terminalExceptionalStages = new Set(['returned','cancelled']);
+const recoverablePaymentExceptionalStages = new Set(['payment_failed','payment_cancelled']);
+
+function monotonicCommerceStage(previousStage: string, incomingStage: string, newOrderLifecycle = false, source: 'order' | 'payment' = 'payment') {
+  const previousRank = normalStageRank[previousStage];
+  const incomingRank = normalStageRank[incomingStage];
+  if (newOrderLifecycle) return incomingStage;
+  if (terminalExceptionalStages.has(previousStage) && incomingRank !== undefined) return previousStage;
+  if (terminalExceptionalStages.has(previousStage) && recoverablePaymentExceptionalStages.has(incomingStage)) return previousStage;
+  if (previousStage === 'returned' && incomingStage === 'cancelled') return previousStage;
+  if (previousStage === 'completed' && source === 'payment' && recoverablePaymentExceptionalStages.has(incomingStage)) return previousStage;
+  if (previousStage === 'completed' && source === 'order' && incomingStage === 'cancelled') return previousStage;
+  if (source === 'order' && recoverablePaymentExceptionalStages.has(previousStage) && incomingRank !== undefined) return previousStage;
+  if (previousRank !== undefined && incomingRank !== undefined && incomingRank < previousRank) return previousStage;
+  return incomingStage;
+}
+
+function workflowOwnedPriorStatus(intent: IntentRow, evidence: Record<string, any>) {
+  const priorStatus = String(evidence.commerce_pre_close_status ?? '').trim();
+  if (evidence.commerce_closed_by_workflowos !== true || intent.status !== 'closed' || !priorStatus || priorStatus === 'closed') return null;
+  return priorStatus;
+}
+
+function restoreStatusForCommerceReopen(intent: IntentRow, evidence: Record<string, any>, stage: string, newOrderLifecycle = false) {
+  if (!newOrderLifecycle && !['returned','cancelled','payment_failed','payment_cancelled'].includes(stage)) return null;
+  return workflowOwnedPriorStatus(intent, evidence);
+}
+
+function applyCommerceStatusTransition(update: any, intent: IntentRow, evidence: Record<string, any>, stage: string, newOrderLifecycle = false) {
+  if (newOrderLifecycle && stage !== 'completed') {
+    const restoredStatus = restoreStatusForCommerceReopen(intent, evidence, stage, true);
+    if (restoredStatus) {
+      update.status = restoredStatus;
+      update.evidence.commerce_closed_by_workflowos = false;
+      update.evidence.commerce_restored_status = restoredStatus;
+      update.evidence.commerce_reopened_at = new Date().toISOString();
+      update.evidence.commerce_reopen_reason = 'new_order';
+      return;
+    }
+  }
+  if (stage === 'completed' && intent.status !== 'closed') {
+    update.status = 'closed';
+    update.evidence.commerce_closed_by_workflowos = true;
+    update.evidence.commerce_pre_close_status = intent.status;
+    return;
+  }
+  const restoredStatus = restoreStatusForCommerceReopen(intent, evidence, stage);
+  if (!restoredStatus) return;
+  update.status = restoredStatus;
+  update.evidence.commerce_closed_by_workflowos = false;
+  update.evidence.commerce_restored_status = restoredStatus;
+  update.evidence.commerce_reopened_at = new Date().toISOString();
+}
+
+async function notifyStage(supabase: SupabaseLike, organizationId: string, intent: IntentRow, stage: string, eventId: string) {
+  if (!intent.assigned_to) return;
+  const labels: Record<string, [string, string]> = {
+    preparing_order: ['Payment confirmed', `Prepare ${intent.product_query || 'the buyer order'} for fulfillment.`],
+    ready_for_pickup: ['Order ready', `${intent.product_query || 'Buyer order'} is ready for pickup or delivery.`],
+    delivery: ['Delivery in progress', `${intent.product_query || 'Buyer order'} is now in delivery.`],
+    completed: ['Buyer order completed', `${intent.product_query || 'Buyer order'} has been completed.`],
+    payment_failed: ['Payment failed', `Follow up payment for ${intent.product_query || 'the buyer order'}.`],
+    payment_cancelled: ['Payment cancelled', `Payment was cancelled for ${intent.product_query || 'the buyer order'}.`],
+    cancelled: ['Order cancelled', `${intent.product_query || 'Buyer order'} was cancelled.`],
+    returned: ['Order returned/refunded', `${intent.product_query || 'Buyer order'} moved into return/refund handling.`],
+  };
+  const message = labels[stage];
+  if (!message) return;
+  const { error } = await supabase.from('notifications').insert({
+    id: deterministicUuid(`${eventId}:${intent.id}:${stage}`),
+    organization_id: organizationId,
+    recipient_id: intent.assigned_to,
+    title: message[0],
+    body: message[1],
+    type: 'buyer_request',
+  });
+  if (error && error.code !== '23505') throw new Error('Could not create commerce workflow notification');
+}
+
+export async function advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, organizationId: string, data: any, eventId: string) {
+  const intents = await resolveBuyerIntents(supabase, organizationId, data);
+  if (!intents.length) return { updated: 0 };
+  const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.id) || null;
+  const incomingStage = orderStage(data?.status);
+  for (const intent of intents) {
+    const evidence = evidenceFor(intent);
+    const previousStage = String(evidence.workflow_stage ?? '');
+    const previousOrderId = String(evidence.commerce_order_id ?? '').trim();
+    const newOrderLifecycle = Boolean(externalOrderId && previousOrderId && externalOrderId !== previousOrderId);
+    const stage = monotonicCommerceStage(previousStage, incomingStage, newOrderLifecycle, 'order');
+    const acceptedStageEvent = stage === incomingStage;
+    const retryingSameStageEvent = acceptedStageEvent && previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId;
+    const update:any = {
+      evidence: {
+        ...evidence,
+        workflow_stage: stage,
+        commerce_stage_event_id: acceptedStageEvent ? eventId : evidence.commerce_stage_event_id ?? null,
+        ...(acceptedStageEvent ? {
+          commerce_order_status: data?.status ?? null,
+          commerce_order_updated_at: new Date().toISOString(),
+        } : {}),
+        ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
+      },
+      updated_at: new Date().toISOString(),
+    };
+    applyCommerceStatusTransition(update, intent, evidence, stage, newOrderLifecycle);
+    const { error } = await supabase.from('buyer_intents').update(update)
+      .eq('id', intent.id)
+      .eq('organization_id', organizationId);
+    if (error) throw new Error('Could not update buyer intent from commerce order');
+    if (stage !== previousStage || retryingSameStageEvent) await notifyStage(supabase, organizationId, intent, stage, eventId);
+  }
+  return { updated: intents.length, stage: incomingStage, externalOrderId };
+}
+
+export async function advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, organizationId: string, data: any, eventId: string) {
+  const intents = await resolveBuyerIntents(supabase, organizationId, { ...data, id: undefined });
+  if (!intents.length) return { updated: 0 };
+  const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.order?.id) || null;
+  const incomingStage = paymentStage(data?.status);
+  for (const intent of intents) {
+    const evidence = evidenceFor(intent);
+    const previousStage = String(evidence.workflow_stage ?? '');
+    const previousOrderId = String(evidence.commerce_order_id ?? '').trim();
+    const newOrderLifecycle = Boolean(externalOrderId && previousOrderId && externalOrderId !== previousOrderId);
+    const stage = monotonicCommerceStage(previousStage, incomingStage, newOrderLifecycle, 'payment');
+    const acceptedStageEvent = stage === incomingStage;
+    const retryingSameStageEvent = acceptedStageEvent && previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId;
+    const update:any = {
+      evidence: {
+        ...evidence,
+        workflow_stage: stage,
+        commerce_stage_event_id: acceptedStageEvent ? eventId : evidence.commerce_stage_event_id ?? null,
+        ...(acceptedStageEvent ? {
+          payment_status: data?.status ?? null,
+          payment_reference: firstNonBlank(data?.reference, data?.payment_reference, data?.id) || null,
+          payment_updated_at: new Date().toISOString(),
+        } : {}),
+        ...(externalOrderId ? { commerce_order_id: externalOrderId } : {}),
+      },
+      updated_at: new Date().toISOString(),
+    };
+    applyCommerceStatusTransition(update, intent, evidence, stage, newOrderLifecycle);
+    const { error } = await supabase.from('buyer_intents').update(update)
+      .eq('id', intent.id)
+      .eq('organization_id', organizationId);
+    if (error) throw new Error('Could not update buyer intent from commerce payment');
+    if (stage !== previousStage || retryingSameStageEvent) await notifyStage(supabase, organizationId, intent, stage, eventId);
+  }
+  return { updated: intents.length, stage: incomingStage, externalOrderId };
+}

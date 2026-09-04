@@ -20,6 +20,12 @@ jobs:
           node-version: '24'
       - name: Install dependencies
         run: npm install --no-package-lock
+      - name: Bridge event processing contract
+        run: node scripts/check-bridge-event-processing-contract.mjs
+      - name: Commerce idempotency compatibility gate
+        run: node scripts/check-commerce-idempotency-compatibility.mjs
+      - name: Commerce observability gate
+        run: node scripts/check-commerce-observability-contract.mjs
       - name: Typecheck
         run: npx tsc --noEmit
       - name: Build

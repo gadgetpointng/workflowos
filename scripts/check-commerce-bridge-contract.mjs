@@ -1,0 +1,342 @@
+import fs from 'node:fs';
+
+const read = (path) => fs.readFileSync(path, 'utf8');
+const failures = [];
+
+function requireText(label, content, expected) {
+  for (const value of expected) {
+    if (!content.includes(value)) failures.push(`${label}: missing ${JSON.stringify(value)}`);
+  }
+}
+
+function forbidText(label, content, forbidden) {
+  for (const value of forbidden) {
+    if (content.includes(value)) failures.push(`${label}: forbidden ${JSON.stringify(value)}`);
+  }
+}
+
+const commands = read('app/api/bridge/[integration]/commands/route.ts');
+const commerce = read('app/api/bridge/[integration]/commerce/route.ts');
+const bridge = read('lib/integrations/bridge.ts');
+const commerceWorkflow = read('lib/integrations/commerce-workflow.ts');
+const idempotency = read('lib/integrations/idempotency.ts');
+const quotes = read('app/api/quotes/[id]/route.ts');
+const docs = read('docs/GADGETPOINT_COMMERCE_BRIDGE.md');
+
+requireText('commands route', commands, [
+  "authenticateBridge(request, slug)",
+  "canReceiveCommands",
+  ".eq('status', 'approved')",
+  "status:'dispatched'",
+  "['acknowledged','failed']",
+  "command.command_type === 'order.create'",
+  "commerce_order_id",
+  "order_request_failed",
+  "console.error('Could not load approved integration commands', approvedError)",
+  "{ error: 'Could not load integration commands' }",
+  "console.error('Could not load integration command', commandError)",
+  "{ error: 'Could not load integration command' }",
+  "console.error('Could not finalize integration command acknowledgement', error)",
+  "{ error: 'Could not finalize integration command acknowledgement', retry: true }",
+]);
+
+requireText('commands dispatch retry contract', commands, [
+  "import { COMMAND_DISPATCH_RETRY_AFTER_MS } from '@/lib/integrations/command-dispatch'",
+  'const staleBefore = new Date(Date.now() - COMMAND_DISPATCH_RETRY_AFTER_MS).toISOString()',
+  ".eq('status', 'dispatched')",
+  ".lt('dispatched_at', staleBefore)",
+  "const candidates = [...(staleDispatched ?? []), ...(approved ?? [])]",
+  ".eq('status', row.status)",
+  ".eq('updated_at', row.updated_at)",
+  "if (row.status === 'dispatched') leaseQuery = leaseQuery.lt('dispatched_at', staleBefore)",
+  'const { data: leased, error: leaseError }',
+  "console.error('Could not lease integration command for dispatch', leaseError)",
+  "{ error: 'Could not dispatch integration commands', retry: true }",
+]);
+
+requireText('shared deterministic id contract', idempotency, [
+  "import crypto from 'crypto'",
+  'export function deterministicUuid(seed: string)',
+  "crypto.createHash('sha256').update(seed).digest('hex').slice(0, 32).split('')",
+  "chars[12] = '5'",
+  "chars[16] = ((Number.parseInt(chars[16], 16) & 0x3) | 0x8).toString(16)",
+]);
+
+requireText('commands acknowledgement retry contract', commands, [
+  "import { deterministicUuid } from '@/lib/integrations/idempotency'",
+  "select('id,command_type,target_entity_type,target_entity_id,payload,status,updated_at')",
+  "command.status !== 'dispatched' && command.status !== body.status",
+  "Command status conflicts with this acknowledgement",
+  "if (command.status === body.status) {",
+  "return NextResponse.json({ data: command, replayed: true });",
+  'const processingAt = new Date().toISOString()',
+  'const { data: lease, error: leaseError }',
+  ".eq('updated_at', command.updated_at)",
+  'Command acknowledgement is already processing',
+  'const { data: intents, error: intentsError }',
+  "if (intentsError) throw new Error('Could not resolve buyer intents for commerce command')",
+  'const commandStatusAlreadyApplied = evidence.commerce_command_status === body.status',
+  'if (!commandStatusAlreadyApplied) {',
+  'const { error: intentUpdateError }',
+  "if (intentUpdateError) throw new Error('Could not update buyer intent from commerce command')",
+  "if (intentUpdateError) throw new Error('Could not update buyer intent from commerce command');\n        }\n\n        if (intent.assigned_to) {",
+  'id: deterministicUuid(`commerce-command-notification:${command.id}:${intent.id}:${body.status}`)',
+  "notificationError && notificationError.code !== '23505'",
+  'id: deterministicUuid(`commerce-command-activity:${command.id}:${body.status}`)',
+  "activityError && activityError.code !== '23505'",
+  ".eq('updated_at', processingAt)",
+  'replayed: command.status === body.status',
+]);
+
+requireText('commands buyer intent organization boundary', commands, [
+  ".eq('organization_id', auth.integration.organization_id)\n        .contains('evidence', { commerce_command_id: command.id })",
+  ".eq('id', intent.id)\n          .eq('organization_id', auth.integration.organization_id)",
+]);
+
+forbidText('commands route error privacy', commands, [
+  '{ error: error.message }',
+  "commandError?.message || 'Command not found'",
+]);
+
+forbidText('commands route ignored dispatch errors', commands, [
+  'const { data: leased } = await leaseQuery',
+]);
+
+forbidText('commands route ignored side-effect errors', commands, [
+  "const { data: intents } = await auth.supabase.from('buyer_intents')",
+  "\n      await auth.supabase.from('buyer_intents').update({",
+  "\n        await auth.supabase.from('notifications').insert({",
+  "\n    await auth.supabase.from('activity_logs').insert({",
+]);
+
+forbidText('commands route local deterministic id implementation', commands, [
+  "import crypto from 'crypto'",
+  'function deterministicUuid(seed: string)',
+]);
+
+requireText('commerce route', commerce, [
+  "authenticateBridge(request, slug)",
+  "canPublishEvents",
+  "'order.created'",
+  "'order.updated'",
+  "'payment.updated'",
+  "const eventId = String(event.id || '').trim()",
+  "Commerce events require a stable event id for idempotency",
+  "event.id = eventId",
+  "event.type === 'payment.updated' && !data.order_id && !data.external_order_id && !data.order?.id && !data.workflow_quote_id && !data.metadata?.workflow_quote_id",
+  "payment.updated requires order_id/external_order_id, nested order.id, or workflow_quote_id correlation",
+  "recordIntegrationEvent",
+  "deferProcessed: true",
+  "tracked.conflict",
+  "Commerce event id payload conflicts with the recorded event",
+  "tracked.duplicate",
+  "tracked.inProgress",
+  "Commerce event is already processing",
+  "advanceBuyerWorkflowFromPayment(auth.supabase, auth.integration.organization_id, data, tracked.eventId)",
+  "advanceBuyerWorkflowFromOrder(auth.supabase, auth.integration.organization_id, data, tracked.eventId)",
+  "markIntegrationEventProcessed",
+  "console.error('Commerce event processing failed', error)",
+  "{ error: 'Commerce event processing failed', retry: true",
+]);
+
+requireText('commerce integration sync organization boundary', commerce, [
+  ".eq('id', auth.integration.id)\n      .eq('organization_id', auth.integration.organization_id)",
+]);
+
+requireText('bridge event retry contract', bridge, [
+  'EVENT_RETRY_AFTER_MS',
+  'deferProcessed?: boolean',
+  ".select('id,processed_at,created_at,payload')",
+  "processed_at: opts.deferProcessed ? null : new Date().toISOString()",
+  "error.code === '23505'",
+  'retryPayloadConflicts(existing.payload, opts.event)',
+  'retryPayloadConflicts(raced.payload, opts.event)',
+  'markIntegrationEventProcessed',
+  '.update({ processed_at: new Date().toISOString() })',
+]);
+
+requireText('commerce workflow fail-closed database handling', commerceWorkflow, [
+  "const { data: intents, error } = await supabase.from('buyer_intents')",
+  "if (error) throw new Error('Could not resolve buyer intents for commerce workflow')",
+  'function firstNonBlank(...values: unknown[])',
+  'const quoteId = firstNonBlank(data?.workflow_quote_id, metadata?.workflow_quote_id)',
+  'const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.order?.id, data?.id)',
+  "const { error } = await supabase.from('notifications').insert({",
+  "if (error && error.code !== '23505') throw new Error('Could not create commerce workflow notification')",
+  "if (error) throw new Error('Could not update buyer intent from commerce order')",
+  "if (error) throw new Error('Could not update buyer intent from commerce payment')",
+]);
+
+requireText('commerce workflow nonblank correlation precedence', commerceWorkflow, [
+  "const normalized = String(value ?? '').trim()",
+  'if (normalized) return normalized',
+  'const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.id) || null',
+  'const externalOrderId = firstNonBlank(data?.order_id, data?.external_order_id, data?.order?.id) || null',
+  'resolveBuyerIntents(supabase, organizationId, { ...data, id: undefined })',
+  'payment_reference: firstNonBlank(data?.reference, data?.payment_reference, data?.id) || null',
+]);
+
+requireText('commerce workflow buyer intent candidate fallback', commerceWorkflow, [
+  'const buyerIntentIdCandidates = [topLevelBuyerIntentIds, metadataBuyerIntentIds]',
+  'for (const buyerIntentIds of buyerIntentIdCandidates) {',
+  'if (intents?.length) return intents;',
+]);
+
+requireText('commerce workflow buyer intent organization boundary', commerceWorkflow, [
+  ".eq('id', intent.id)\n      .eq('organization_id', organizationId)",
+]);
+
+requireText('commerce workflow notification idempotency', commerceWorkflow, [
+  "import { deterministicUuid } from '@/lib/integrations/idempotency'",
+  'id: deterministicUuid(`${eventId}:${intent.id}:${stage}`)',
+  'commerce_stage_event_id: acceptedStageEvent ? eventId : evidence.commerce_stage_event_id ?? null',
+  "const retryingSameStageEvent = acceptedStageEvent && previousStage === stage && String(evidence.commerce_stage_event_id ?? '') === eventId",
+  'if (stage !== previousStage || retryingSameStageEvent) await notifyStage(supabase, organizationId, intent, stage, eventId)',
+  'advanceBuyerWorkflowFromOrder(supabase: SupabaseLike, organizationId: string, data: any, eventId: string)',
+  'advanceBuyerWorkflowFromPayment(supabase: SupabaseLike, organizationId: string, data: any, eventId: string)',
+]);
+
+requireText('commerce workflow accepted status provenance', commerceWorkflow, [
+  "...(acceptedStageEvent ? {\n          commerce_order_status: data?.status ?? null,\n          commerce_order_updated_at: new Date().toISOString(),\n        } : {}),",
+  "...(acceptedStageEvent ? {\n          payment_status: data?.status ?? null,\n          payment_reference: firstNonBlank(data?.reference, data?.payment_reference, data?.id) || null,\n          payment_updated_at: new Date().toISOString(),\n        } : {}),",
+]);
+
+requireText('commerce workflow provenance-safe reopen contract', commerceWorkflow, [
+  "status?: string | null",
+  ".select('id,evidence,status,assigned_to,product_query')",
+  "evidence.commerce_closed_by_workflowos !== true || intent.status !== 'closed'",
+  "update.evidence.commerce_pre_close_status = intent.status",
+  "update.evidence.commerce_closed_by_workflowos = true",
+  "update.evidence.commerce_closed_by_workflowos = false",
+  "function workflowOwnedPriorStatus(intent: IntentRow, evidence: Record<string, any>)",
+  "if (!newOrderLifecycle && !['returned','cancelled','payment_failed','payment_cancelled'].includes(stage)) return null",
+  "if (newOrderLifecycle && stage !== 'completed')",
+  "update.evidence.commerce_reopen_reason = 'new_order'",
+  "applyCommerceStatusTransition(update, intent, evidence, stage, newOrderLifecycle)",
+]);
+
+requireText('commerce workflow monotonic normal-stage contract', commerceWorkflow, [
+  'const normalStageRank: Record<string, number> = {',
+  'awaiting_payment: 0',
+  'preparing_order: 1',
+  'ready_for_pickup: 2',
+  'delivery: 3',
+  'completed: 4',
+  "const terminalExceptionalStages = new Set(['returned','cancelled'])",
+  "const recoverablePaymentExceptionalStages = new Set(['payment_failed','payment_cancelled'])",
+  "function monotonicCommerceStage(previousStage: string, incomingStage: string, newOrderLifecycle = false, source: 'order' | 'payment' = 'payment')",
+  'if (newOrderLifecycle) return incomingStage',
+  'if (terminalExceptionalStages.has(previousStage) && incomingRank !== undefined) return previousStage',
+  'if (terminalExceptionalStages.has(previousStage) && recoverablePaymentExceptionalStages.has(incomingStage)) return previousStage',
+  "if (previousStage === 'returned' && incomingStage === 'cancelled') return previousStage",
+  "if (previousStage === 'completed' && source === 'payment' && recoverablePaymentExceptionalStages.has(incomingStage)) return previousStage",
+  "if (previousStage === 'completed' && source === 'order' && incomingStage === 'cancelled') return previousStage",
+  "if (source === 'order' && recoverablePaymentExceptionalStages.has(previousStage) && incomingRank !== undefined) return previousStage",
+  'if (previousRank !== undefined && incomingRank !== undefined && incomingRank < previousRank) return previousStage',
+  "const previousOrderId = String(evidence.commerce_order_id ?? '').trim()",
+  'const newOrderLifecycle = Boolean(externalOrderId && previousOrderId && externalOrderId !== previousOrderId)',
+  "const stage = monotonicCommerceStage(previousStage, incomingStage, newOrderLifecycle, 'order')",
+  "const stage = monotonicCommerceStage(previousStage, incomingStage, newOrderLifecycle, 'payment')",
+  'const acceptedStageEvent = stage === incomingStage',
+  'workflow_stage: stage',
+  'commerce_stage_event_id: acceptedStageEvent ? eventId : evidence.commerce_stage_event_id ?? null',
+]);
+
+forbidText('commerce workflow cancelled to returned remains allowed', commerceWorkflow, [
+  'if (terminalExceptionalStages.has(previousStage) && terminalExceptionalStages.has(incomingStage)) return previousStage',
+]);
+
+forbidText('commerce workflow ignored database errors', commerceWorkflow, [
+  "const { data: intents } = await supabase.from('buyer_intents')",
+  "\n  await supabase.from('notifications').insert({",
+  "\n    await supabase.from('buyer_intents').update(update).eq('id', intent.id);",
+]);
+
+forbidText('commerce workflow unscoped buyer writes', commerceWorkflow, [
+  ".update(update).eq('id', intent.id);",
+  "    }).eq('id', intent.id);",
+]);
+
+forbidText('commerce workflow local deterministic id implementation', commerceWorkflow, [
+  "import crypto from 'crypto'",
+  'function notificationId(eventId: string, intentId: string, stage: string)',
+  "crypto.createHash('sha256')",
+]);
+
+const dispatchStaleLoad = commands.indexOf(".eq('status', 'dispatched')");
+const dispatchCandidateMerge = commands.indexOf('const candidates =');
+const dispatchLease = commands.indexOf(".eq('status', row.status)");
+const dispatchLeaseError = commands.indexOf("console.error('Could not lease integration command for dispatch', leaseError)");
+if (dispatchStaleLoad === -1 || dispatchCandidateMerge === -1 || dispatchLease === -1 || dispatchLeaseError === -1 || dispatchStaleLoad > dispatchCandidateMerge || dispatchCandidateMerge > dispatchLease || dispatchLease > dispatchLeaseError) {
+  failures.push('commands route: stale dispatched commands must be loaded, merged, compare-and-swap leased, and fail closed on lease errors');
+}
+
+const commandReplay = commands.indexOf('if (command.status === body.status)');
+const commandLease = commands.indexOf('const { data: lease, error: leaseError }');
+const commandEffects = commands.indexOf("if (command.command_type === 'order.create')");
+const commandFinalize = commands.indexOf("const patch = body.status === 'acknowledged'");
+if (commandReplay === -1 || commandLease === -1 || commandEffects === -1 || commandFinalize === -1 || commandReplay > commandLease || commandLease > commandEffects || commandEffects > commandFinalize) {
+  failures.push('commands route: terminal same-status acknowledgements must replay before lease, side effects, and finalization');
+}
+
+const eventIdValidation = commerce.indexOf("const eventId = String(event.id || '').trim()");
+const eventRecording = commerce.indexOf('tracked = await recordIntegrationEvent');
+const deferredCommerce = commerce.indexOf('deferProcessed: true');
+const workflowAdvance = commerce.indexOf("const workflow = event.type === 'payment.updated'");
+const eventFinalize = commerce.indexOf('await markIntegrationEventProcessed');
+if (eventIdValidation === -1 || eventRecording === -1 || eventIdValidation > eventRecording) {
+  failures.push('commerce route: stable event id validation must happen before integration event recording');
+}
+if (eventRecording === -1 || deferredCommerce === -1 || workflowAdvance === -1 || eventFinalize === -1 || eventRecording > deferredCommerce || deferredCommerce > workflowAdvance || workflowAdvance > eventFinalize) {
+  failures.push('commerce route: event must opt into deferred processing before retry-safe workflow effects and only be finalized afterward');
+}
+
+const deferredInsert = bridge.indexOf("processed_at: opts.deferProcessed ? null : new Date().toISOString()");
+const processedUpdate = bridge.indexOf('.update({ processed_at: new Date().toISOString() })');
+if (deferredInsert === -1 || processedUpdate === -1 || deferredInsert > processedUpdate) {
+  failures.push('bridge event retry contract: opted-in events must begin pending and be finalized separately');
+}
+
+const notificationInsert = commerceWorkflow.indexOf("const { error } = await supabase.from('notifications').insert({");
+const deterministicNotificationId = commerceWorkflow.indexOf('id: deterministicUuid(`${eventId}:${intent.id}:${stage}`)');
+const duplicateNotificationHandling = commerceWorkflow.indexOf("error.code !== '23505'");
+if (notificationInsert === -1 || deterministicNotificationId === -1 || duplicateNotificationHandling === -1 || deterministicNotificationId < notificationInsert || duplicateNotificationHandling < notificationInsert) {
+  failures.push('commerce workflow: stage notifications must use deterministic event-scoped ids and tolerate duplicate-key retries');
+}
+
+requireText('quote acceptance', quotes, [
+  "b.status==='accepted'",
+  "const idempotencyKey=`quote:${id}:order.create`",
+  "commandType:'order.create'",
+  "targetEntityType:'quote'",
+  "source:'workflowos_quote'",
+  "commerce_command_id",
+]);
+
+requireText('bridge documentation', docs, [
+  'GET /api/bridge/gadgetpoint/commands',
+  'POST /api/bridge/gadgetpoint/commands',
+  'POST /api/bridge/gadgetpoint/commerce',
+  '`order.create`',
+  '`order.created`',
+  '`order.updated`',
+  '`payment.updated`',
+  'idempotent',
+  'WorkflowOS must never directly insert or mutate GadgetPoint Admin',
+]);
+
+requireText('bridge redispatch idempotency documentation', docs, [
+  'The WorkflowOS command `id` is the stable execution identity for the lifetime of the command',
+  'A re-dispatched command is therefore a retry of the same requested mutation, never a new order request.',
+  'Adapters must not use `attempt_count`, `dispatched_at`, delivery time, or poll occurrence as an execution identity.',
+  'WorkflowOS intentionally does not impose a hard retry cap on stale dispatch recovery',
+  'persist that command `id` as an idempotency key before or atomically with the authoritative commerce mutation',
+]);
+
+if (failures.length) {
+  console.error('Commerce bridge contract gate failed:');
+  for (const failure of failures) console.error(`- ${failure}`);
+  process.exit(1);
+}
+
+console.log('Commerce bridge contract gate passed.');

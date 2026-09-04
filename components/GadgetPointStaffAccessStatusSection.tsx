@@ -1,3 +1,4 @@
+import CommerceCommandDeliveryStatus from '@/components/CommerceCommandDeliveryStatus';
 import GadgetPointStaffAccessStatus from '@/components/GadgetPointStaffAccessStatus';
 import { requireUser } from '@/lib/auth';
 
@@ -14,5 +15,10 @@ export default async function GadgetPointStaffAccessStatusSection() {
   const ownerEmail = String(profile.email ?? user?.email ?? '').trim().toLowerCase();
   const owner = profile.role === 'owner' && ownerEmail === OWNER_EMAIL;
 
-  return <GadgetPointStaffAccessStatus staff={data ?? []} owner={owner} />;
+  return (
+    <>
+      <GadgetPointStaffAccessStatus staff={data ?? []} owner={owner} />
+      <CommerceCommandDeliveryStatus />
+    </>
+  );
 }
