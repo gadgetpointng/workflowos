@@ -220,7 +220,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
       }
 
       const { error: activityError } = await auth.supabase.from('activity_logs').insert({
-        id: activityId,
+        id: deterministicUuid(`commerce-command-activity:${command.id}:${body.status}`),
         organization_id: auth.integration.organization_id,
         actor_id: null,
         action: body.status === 'acknowledged' ? 'commerce.order_request_acknowledged' : 'commerce.order_request_failed',
