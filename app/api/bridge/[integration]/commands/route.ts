@@ -82,7 +82,7 @@ export async function POST(request: Request, context: { params: Promise<{ integr
   if (!body.id || !['acknowledged','failed'].includes(body.status)) return NextResponse.json({ error: 'id and status (acknowledged|failed) are required' }, { status: 400 });
 
   const { data: command, error: commandError } = await auth.supabase.from('integration_commands')
-    .select('id,command_type,target_entity_type,target_entity_id,payload,status,updated_at')
+    .select('id,command_type,target_entity_type,target_entity_id,payload,status,updated_at,result,last_error')
     .eq('id', body.id)
     .eq('integration_id', auth.integration.id)
     .eq('organization_id', auth.integration.organization_id)
@@ -96,6 +96,16 @@ export async function POST(request: Request, context: { params: Promise<{ integr
     return NextResponse.json({ error: 'Command status conflicts with this acknowledgement' }, { status: 409 });
   }
   if (command.status === body.status) {
+    const incomingResult = body.result ?? {};
+    const incomingError = body.status === 'failed'
+      ? String(body.error ?? body.result?.error ?? 'External command failed')
+      : null;
+    if (stablePayload(command.result ?? {}) !== stablePayload(incomingResult)) {
+      return NextResponse.json({ error: 'Command acknowledgement payload conflicts with finalized command', retry: false }, { status: 409 });
+    }
+    if (body.status === 'failed' && String(command.last_error ?? 'External command failed') !== incomingError) {
+      return NextResponse.json({ error: 'Command acknowledgement error conflicts with finalized command', retry: false }, { status: 409 });
+    }
     return NextResponse.json({ data: command, replayed: true });
   }
 
